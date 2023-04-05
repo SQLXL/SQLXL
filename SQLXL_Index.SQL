@@ -3866,6 +3866,7 @@ CROSS APPLY ('
       ,xos.unique_constraint_violations
       -- sys.dm_db_xtp_index_stats --------------
       -- Columns marked "Internal use only" are omitted
+      ,xis.xtp_object_ID
       ,xis.scans_started
       ,xis.scans_retries
       ,xis.rows_returned
@@ -5866,6 +5867,7 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
 ,xtp_write_conflicts_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_unique_constraint_violations_CNT       BIGINT                                  NOT NULL DEFAULT(0)
 -- sys.dm_db_xtp_index_stats --------------
+,xtp_object_id                              INT                                         NULL
 ,xtp_scans_started_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_scans_retries_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_rows_returned_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
@@ -9393,6 +9395,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       -------------------------------------------------------------------------------------------------------------------------------------
       -- sys.dm_db_xtp_index_stats
       -------------------------------------------------------------------------------------------------------------------------------------
+      ,xtp_object_id                        = xis.xtp_object_id
       ,xtp_scans_started_CNT                = ISNULL(xis.scans_started,0)
       ,xtp_scans_retries_CNT                = ISNULL(xis.scans_retries,0)
       ,xtp_rows_returned_CNT                = ISNULL(xis.rows_returned,0)
@@ -19964,7 +19967,6 @@ SELECT
   FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt;
 
 GO -- end of stored procedure/function/T-SQL script/CREATE VIEW/CREATE VIEW - SQLXL_Index
-GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
 
 RAISERROR ('Creating procedure TempDB.dbo.SQLXL_Index_Present ...',0,0) WITH NOWAIT;
 
@@ -19983,19 +19985,12 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 /******************************************************************************************************************************************\
 Future Endeavors
+Columns to Add: xtp_object_id,
 \******************************************************************************************************************************************/
 
 USE TEMPDB;
+IF OBJECT_ID('dbo.SQLXL_Index_Present') IS NULL EXEC ('CREATE PROCEDURE dbo.SQLXL_Index_Present AS RETURN 0;');
 GO
-
-EXEC (N'USE tempdb;
-IF EXISTS (SELECT object_id
-             FROM tempdb.sys.objects (NOLOCK)
-            WHERE object_id = OBJECT_ID(''dbo.SQLXL_Index_Present'')
-          )
-DROP PROCEDURE dbo.SQLXL_Index_Present')
-
-GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
 
 /*******************************************************************************************************************************************
 NOTES & PARAMETERS:
@@ -20016,7 +20011,7 @@ NOTES & PARAMETERS:
  1 = YES
 *******************************************************************************************************************************************/
 
-CREATE PROCEDURE dbo.SQLXL_Index_Present
+ALTER PROCEDURE dbo.SQLXL_Index_Present
       (@show_fulltext_internals TINYINT = 0
       )
 AS
@@ -20024,6 +20019,7 @@ AS
 DECLARE @show_fulltext_internals TINYINT = 0
 --*/
 SET TEXTSIZE                  32767;  -- Max length of Excel cell contents
+
 SELECT
 --     TOP (3)
 /******************************************************************************************************************************************/
@@ -21310,7 +21306,6 @@ OPTION (FAST 1,MAXDOP 1);'
                                                THEN N'UPDATE STATISTICS '+QUOTENAME(i.Database_Name)+N'.'+QUOTENAME (i.schema_name)+N'.'+QUOTENAME(i.par_object_name)+N' '+QUOTENAME(i.name)+N' WITH FULLSCAN,MAXDOP = 4;'
                                           END
 */
-
 
 /******************************************************************************************************************************************/
 -- FROM
