@@ -1,4 +1,4 @@
--- VERSION 2023.04.06-01
+-- VERSION 2023.04.06-02
 
 /*** LOCAL TESTING ***
 USE wideworldimporters
