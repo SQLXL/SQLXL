@@ -1,3 +1,5 @@
+-- VERSION 2023.04.06-01
+
 /*** LOCAL TESTING ***
 USE wideworldimporters
 DECLARE @database_name SYSNAME = DB_NAME()
@@ -45,23 +47,55 @@ SET QUERY_GOVERNOR_COST_LIMIT     0;  -- 0 (the default) turns off the query gov
 SET TEXTSIZE             2147483647;  -- Use 32767 on export to Excel - cell maximum
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
-/******************************************************************************************************************************************/
--- Create the procs & functions
-/******************************************************************************************************************************************/
-USE TEMPDB
-GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
+/******************************************************************************************************************************************\
+Change to TEMPDB
+\******************************************************************************************************************************************/
+USE TEMPDB;
 
-IF EXISTS (SELECT object_id
-             FROM tempdb.sys.objects
-            WHERE object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index')
-          )
-DROP PROCEDURE dbo.SQLXL_Index;
-GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
+/******************************************************************************************************************************************/
+-- Eliminate all previous SOURCE (SYS) objects, truncate & rebuild to blow out any missing index recommendations
+-- Future - interrogate the version number & decide to DROP or TRUNCATE
+/******************************************************************************************************************************************/
+DECLARE @sql       NVARCHAR(MAX)
+       ,@run_value NVARCHAR(4000)
+
+WHILE 1 = 1
+BEGIN
+   SELECT TOP (1)
+          @run_value = QUOTENAME(s.name)+'.'+QUOTENAME(t.name)
+         ,@sql = N'TRUNCATE TABLE [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name)+N';'
+                +NCHAR(13)+NCHAR(10)
+                -- Drops MISSING index recommendations
+                +N'ALTER index ALL ON [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name) +N' REBUILD;'
+                +NCHAR(13)+NCHAR(10)
+                +N'DROP TABLE [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name)+N';'
+     FROM tempdb.sys.tables  AS t
+     JOIN tempdb.sys.objects AS o
+       ON t.object_id  = o.object_id
+     JOIN tempdb.sys.schemas AS s
+       ON o.schema_id  = s.schema_id
+    WHERE t.name LIKE N'SQLXL_IDX_%'
+      AND s.name    = N'dbo'
+    ORDER BY t.name;
+
+   IF @@rowcount = 0 BREAK
+
+   EXEC (@sql);
+
+   IF @@error > 0
+   BEGIN
+      SET @run_value = N'TRUNCATE/ALTER/DROP FAIL on ' + @run_value
+      RAISERROR (@run_value,0,0) WITH NOWAIT;
+   END
+END
 
 /******************************************************************************************************************************************/
 -- Create the proc dbo.SQLXL_Index
 /******************************************************************************************************************************************/
-CREATE PROCEDURE dbo.SQLXL_Index 
+IF OBJECT_ID('dbo.SQLXL_Index') IS NULL EXEC ('CREATE PROCEDURE dbo.SQLXL_Index AS RETURN 0;');
+GO
+
+ALTER  PROCEDURE dbo.SQLXL_Index 
       (@database_name                    SYSNAME = NULL
       ,@cover_foreign_keys               TINYINT = 2
       ,@create_Nonclustered_columnstores TINYINT = 1
@@ -1356,7 +1390,7 @@ SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
 SELECT database_id         = db_id()
       ,configuration_id
       ,name                = name COLLATE ' + @collation + N'
-      ,value
+      ,value               = CONVERT(NVARCHAR(1000),value)               COLLATE ' + @collation + N'
       ,value_for_secondary = CONVERT(NVARCHAR(1000),value_for_secondary) COLLATE ' + @collation + N'
       ,is_value_default    = CONVERT(NVARCHAR(1000),is_value_default   ) COLLATE ' + @collation + N'
   FROM sys.database_scoped_configurations
@@ -3857,21 +3891,17 @@ CROSS APPLY ('
       ,i.type_desc
       ,index_name          = COALESCE(i.name COLLATE ' + @collation + N',i.type_desc COLLATE ' + @collation + N')
       ,i.is_unique
-      -- sys.dm_db_xtp_object_stats -------------
-      -- Columns marked "Internal use only" are omitted
+      -- sys.dm_db_xtp_object_stats ------------- Columns marked "Internal use only" are omitted
       ,xos.row_insert_attempts
       ,xos.row_update_attempts
       ,xos.row_delete_attempts
       ,xos.write_conflicts
       ,xos.unique_constraint_violations
-      -- sys.dm_db_xtp_index_stats --------------
-      -- Columns marked "Internal use only" are omitted
-      ,xis.xtp_object_ID
+      -- sys.dm_db_xtp_index_stats -------------- Columns marked "Internal use only" are omitted
       ,xis.scans_started
       ,xis.scans_retries
       ,xis.rows_returned
       ,xis.rows_touched
-      ,xis.xtp_object_id
       -- sys.dm_db_xtp_Nonclustered_index_stats -
       ,nis.delta_pages
       ,nis.leaf_pages
@@ -3888,8 +3918,7 @@ CROSS APPLY ('
       ,nis.key_merge_count
       ,nis.key_merge_retry_count
       ,nis.uses_key_normalization
-      -- sys.dm_db_xtp_memory_consumers ---------
-      -- Columns marked "Internal use only" are omitted
+      -- sys.dm_db_xtp_memory_consumers --------- Columns marked "Internal use only" are omitted
       ,mc.allocated_bytes
       ,mc.used_bytes
       ,mc.allocation_count
@@ -5353,9 +5382,9 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,rec_type                                   NCHAR(1)       COLLATE DATABASE_DEFAULT NOT NULL
 -- KEY from sys.databases
-,database_id                                SMALLINT                                NOT NULL
+,database_ID                                SMALLINT                                NOT NULL
 -- KEY from sys.objects - Parent level
-,parent_object_id                           BIGINT                                  NOT NULL
+,parent_object_ID                           BIGINT                                  NOT NULL
 -- KEY from sys.objects - Object level (same as Parent except Foreign Key Constraints)
 ,object_ID                                  BIGINT                                  NOT NULL
 -- KEY from sys.indexes
@@ -5419,7 +5448,7 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- (PARENT) sys.tables, sys.views, sys.triggers
 --------------------------------------------------------------------------------------------------------------------------------------------
-,par_max_column_ID_used                     BIGINT                                      NULL
+,par_max_column_used_ID                     BIGINT                                      NULL
 ,par_lock_on_bulk_load                      BIT                                     NOT NULL DEFAULT(0)
 ,par_uses_ansi_nulls                        BIT                                     NOT NULL DEFAULT(0)
 ,par_is_replicated                          BIT                                     NOT NULL DEFAULT(0)
@@ -5469,7 +5498,7 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
 ,par_column_CNT                             BIGINT                                  NOT NULL DEFAULT(0)
 ,par_cx_uniq_ordered_column_TYP             SYSNAME        COLLATE DATABASE_DEFAULT     NULL
 ,par_cx_uniq_ordered_column_ID              BIGINT                                      NULL
-,par_possible_uniq_column_id                BIGINT                                      NULL
+,par_possible_uniq_column_ID                BIGINT                                      NULL
 ,par_smallest_uniq_Nonclustered_idx         BIGINT                                      NULL
 ,par_priority_metric                        FLOAT                                       NULL
 
@@ -5494,7 +5523,7 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
 ,obj_uses_database_collation                BIT                                         NULL
 ,obj_is_recompiled                          BIT                                         NULL
 ,obj_null_on_null_input                     BIT                                         NULL
-,obj_execute_as_principal_id                BIGINT                                      NULL
+,obj_execute_as_principal_ID                BIGINT                                      NULL
 ,obj_uses_native_compilation                BIT                                         NULL
 ,obj_is_inlineable                          BIT                                         NULL
 ,obj_inline_type                            BIT                                         NULL
@@ -5549,14 +5578,14 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
 -----------------------------------------------------------
 ,internal_type                              TINYINT                                     NULL
 ,internal_type_DESC                         SYSNAME                                     NULL
-,parent_minor_id                            BIGINT                                      NULL
+,parent_minor_ID                            BIGINT                                      NULL
 
 -----------------------------------------------------------
 -- sys.xml_indexes
 -----------------------------------------------------------
 ,xml_index_type                             TINYINT                                     NULL
 ,xml_index_type_description                 SYSNAME        COLLATE DATABASE_DEFAULT     NULL
-,xml_using_xml_index_id                     BIGINT                                      NULL
+,xml_using_xml_index_ID                     BIGINT                                      NULL
 ,xml_secondary_type                         CHAR(1)                                     NULL
 ,xml_secondary_type_desc                    SYSNAME        COLLATE DATABASE_DEFAULT     NULL
 ,xml_path_ID                                BIGINT                                      NULL
@@ -5867,7 +5896,7 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
 ,xtp_write_conflicts_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_unique_constraint_violations_CNT       BIGINT                                  NOT NULL DEFAULT(0)
 -- sys.dm_db_xtp_index_stats --------------
-,xtp_object_id                              INT                                         NULL
+,xtp_object_ID                              INT                                         NULL
 ,xtp_scans_started_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_scans_retries_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_rows_returned_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
@@ -7285,7 +7314,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,
 ----------------------------------------------------------------------------------------------------
 -- (PARENT) sys.tables
 ----------------------------------------------------------------------------------------------------
-       par_max_column_id_used                 = tbl.max_column_id_used
+       par_max_column_used_ID                 = tbl.max_column_id_used
       ,par_lock_on_bulk_load                  = ISNULL(tbl.lock_on_bulk_load,0)
       ,par_uses_ansi_nulls                    = ISNULL(tbl.uses_ansi_nulls,0)
       ,par_is_replicated                      = ISNULL(tbl.is_replicated,0)
@@ -9395,7 +9424,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       -------------------------------------------------------------------------------------------------------------------------------------
       -- sys.dm_db_xtp_index_stats
       -------------------------------------------------------------------------------------------------------------------------------------
-      ,xtp_object_id                        = xis.xtp_object_id
+--    ,xtp_object_id                        = xis.xtp_object_id <BS> Figure out how to integrate this column
       ,xtp_scans_started_CNT                = ISNULL(xis.scans_started,0)
       ,xtp_scans_retries_CNT                = ISNULL(xis.scans_retries,0)
       ,xtp_rows_returned_CNT                = ISNULL(xis.rows_returned,0)
