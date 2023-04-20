@@ -8,7 +8,7 @@ EXEC tempdb.dbo.SQLXL_Index @database_name = @database_name
 USE wideworldimporters
 USE wideworldimportersDW
 
-EXEC tempdb.dbo.SQLXL_IDX_Organize_Investigate;
+EXEC tempdb.dbo.SQLXL_Index_Organize_Investigate;
 EXEC TempDB.dbo.SQLXL_Index_Present @show_fulltext_internals = 0 -- tinyint
 --*/
 
@@ -74,7 +74,7 @@ BEGIN
        ON t.object_id  = o.object_id
      JOIN tempdb.sys.schemas AS s
        ON o.schema_id  = s.schema_id
-    WHERE t.name LIKE N'SQLXL_IDX_%'
+    WHERE t.name LIKE N'SQLXL_Index_%'
       AND s.name    = N'dbo'
     ORDER BY t.name;
 
@@ -118,7 +118,7 @@ Parameters:
      and drop existing low READ usage/non-FKC covering indexes
 
 DEVELOPER NOTE: Procedure scripts can't reference views that haven't been created yet,
-                so no views created on TempDB.dbo.SQLXL_IDX_Compilation for code simplification
+                so no views created on TempDB.dbo.SQLXL_Index_Compilation for code simplification
 *******************************************************************************************************************************************/
 AS
 
@@ -205,7 +205,7 @@ BEGIN
        ON t.object_id  = o.object_id
      JOIN tempdb.sys.schemas AS s
        ON o.schema_id  = s.schema_id
-    WHERE t.name LIKE N'SQLXL_IDX_%'
+    WHERE t.name LIKE N'SQLXL_Index_%'
       AND s.name    = N'dbo'
     ORDER BY t.name;
 
@@ -231,7 +231,7 @@ SELECT collation        = @collation
       ,version_revision = @version_revision
       ,database_name    = @database_name
       ,edition          = (SELECT SERVERPROPERTY(N'Edition'))
-  INTO TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters;
+  INTO TempDB.dbo.SQLXL_Index_sys_Startup_Parameters;
 
 IF @ssms = 1 RAISERROR ('Creating data collection tables in TEMPDB',0,0) WITH NOWAIT;
 
@@ -249,13 +249,13 @@ SELECT TOP (0)
       ,maximum_global   = CAST(NULL AS NVARCHAR(4000)) COLLATE DATABASE_DEFAULT
       ,config_value     = CAST(NULL AS NVARCHAR(4000)) COLLATE DATABASE_DEFAULT
       ,run_value        = CAST(NULL AS NVARCHAR(4000)) COLLATE DATABASE_DEFAULT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance;
+  INTO TempDB.dbo.SQLXL_Index_sys_instance;
 
 -----------------------------------------------------------------------------------------------------------
 -- show advanced options setting
 -----------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (name
       ,minimum_session
       ,maximum_global
@@ -266,9 +266,9 @@ INSERT
 
 SELECT TOP (1)
        @run_value = run_value
-  FROM TempDB.dbo.SQLXL_IDX_sys_instance;
+  FROM TempDB.dbo.SQLXL_Index_sys_instance;
 
-TRUNCATE TABLE tempdb.dbo.SQLXL_IDX_sys_instance; -- clean up the single record inserted above
+TRUNCATE TABLE tempdb.dbo.SQLXL_Index_sys_instance; -- clean up the single record inserted above
 
 -----------------------------------------------------------------------------------------------------------
 -- Change advanced options setting
@@ -283,7 +283,7 @@ END
 -- Capture all configuration settings
 -----------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (name
       ,minimum_session
       ,maximum_global
@@ -291,7 +291,7 @@ INSERT
       )
   EXEC sys.sp_configure;
 
-UPDATE TempDB.dbo.SQLXL_IDX_sys_instance
+UPDATE TempDB.dbo.SQLXL_Index_sys_instance
    SET source = N'sp_configure'
  WHERE source IS NULL;
 
@@ -308,7 +308,7 @@ END
 -- Server trace settings
 -----------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (name
       ,run_value
       ,maximum_global
@@ -316,7 +316,7 @@ INSERT
       )
   EXEC ('DBCC TRACESTATUS(-1) WITH NO_INFOMSGS');
 
-UPDATE TempDB.dbo.SQLXL_IDX_sys_instance
+UPDATE TempDB.dbo.SQLXL_Index_sys_instance
    SET source = N'TRACESTATUS'
  WHERE source IS NULL;
 
@@ -324,7 +324,7 @@ UPDATE TempDB.dbo.SQLXL_IDX_sys_instance
 -- SERVERPROPERTIES
 -----------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (source
       ,name
       ,run_value
@@ -396,7 +396,7 @@ SELECT N'SERVERPROPERTY',N'SuspendedDatabaseCount'            ,SERVERPROPERTY('S
 -- @@Functions
 -----------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (source
       ,name
       ,run_value
@@ -421,7 +421,7 @@ SELECT N'Configuration' ,N'@@VERSION'                      ,CONVERT(NVARCHAR(400
 -- System Functions
 -----------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (source
       ,name
       ,run_value
@@ -433,7 +433,7 @@ SELECT N'System'        ,N'PUBLISHINGSERVERNAME'           ,CONVERT(NVARCHAR(400
 IF @version_major >= 16 
 BEGIN 
    SET @sql = N'INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (source
       ,name
       ,run_value
@@ -476,7 +476,7 @@ SELECT -- SQL 2008 & 2008R2 ONLY --------------------------------
       ,pdw_node_id                 = CONVERT(BIGINT        ,NULL) -- SQL 2017+
 )
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (source
       ,name
       ,run_value
@@ -551,7 +551,7 @@ SELECT N'dm_os_sys_info',N'sqlserver_start_time'   ,REPLACE((SELECT CONVERT(NVAR
 SELECT is_rda_server    = CONVERT(BIT,NULL) -- SQL 2016+
 )
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_sys_instance
+  INTO TempDB.dbo.SQLXL_Index_sys_instance
       (source
       ,name
       ,run_value
@@ -607,8 +607,8 @@ SELECT N'servers',N'is_remote_proc_transaction_promotion_enabled'
 IF @ssms = 1 RAISERROR ('... sys.databases, sys.change_tracking_databases',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_IDX_sys_databases
---DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters)
+DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_databases
+--DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_Index_sys_Startup_Parameters)
 DECLARE @database_name NVARCHAR(128) = N'MOGOBILL'
 --*/
 
@@ -661,7 +661,7 @@ SELECT -------------------------------------------------------------------------
       ,is_ledger_on                                = CONVERT(BIT             ,NULL)                          -- Azure SQL Database
 )
 SELECT qry.*
-  INTO TempDB.dbo.SQLXL_IDX_sys_databases
+  INTO TempDB.dbo.SQLXL_Index_sys_databases
   FROM newcol
  CROSS APPLY (
 SELECT name                                        = name                                       COLLATE DATABASE_DEFAULT
@@ -795,23 +795,23 @@ IF @@RowCount = 1
 BEGIN
    SELECT TOP (1)
           @database_id = database_id
-     FROM TempDB.dbo.SQLXL_IDX_sys_databases
+     FROM TempDB.dbo.SQLXL_Index_sys_databases
     ORDER BY
           database_id;
 END
 ELSE 
 BEGIN
-   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_databases')
+   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_databases')
    CREATE UNIQUE CLUSTERED
-    INDEX ixuc_SQLXL_IDX_sys_databases__database_id
-       ON TempDB.dbo.SQLXL_IDX_sys_databases
+    INDEX ixuc_SQLXL_Index_sys_databases__database_id
+       ON TempDB.dbo.SQLXL_Index_sys_databases
          (database_id
          )
      WITH (DATA_COMPRESSION = PAGE);
 END
 
 /*** LOCAL TESTING ***
-DELETE FROM TempDB.dbo.SQLXL_IDX_sys_databases WHERE name = N'DW_MASTER';
+DELETE FROM TempDB.dbo.SQLXL_Index_sys_databases WHERE name = N'DW_MASTER';
 --*/
 
 /******************************************************************************************************************************************/
@@ -820,8 +820,8 @@ DELETE FROM TempDB.dbo.SQLXL_IDX_sys_databases WHERE name = N'DW_MASTER';
 IF @ssms = 1 RAISERROR ('... sys.availability_replicas',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_IDX_sys_availability_replicas
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters)
+DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_availability_replicas
+DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_Index_sys_Startup_Parameters)
 --*/
 
 ;WITH newcol AS (
@@ -830,7 +830,7 @@ SELECT read_write_routing_url = CONVERT(SYSNAME,NULL) -- SQL 2019+
       ,seeding_mode_desc      = CONVERT(SYSNAME,NULL) -- SQL 2019+
 )
 SELECT qry.*
-  INTO TempDB.dbo.SQLXL_IDX_sys_availability_replicas
+  INTO TempDB.dbo.SQLXL_Index_sys_availability_replicas
   FROM newcol
 CROSS APPLY (
 SELECT replica_id                                  = replica_id
@@ -864,8 +864,8 @@ SELECT replica_id                                  = replica_id
 IF @ssms = 1 RAISERROR ('... sys.dm_hadr_availability_replica_states',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_IDX_sys_dm_hadr_availability_replica_states
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters)
+DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states
+DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_Index_sys_Startup_Parameters)
 --*/
 
 ;WITH newcol AS (
@@ -873,7 +873,7 @@ SELECT write_lease_remaining_ticks                 = CONVERT(BIGINT  ,NULL) -- S
       ,current_configuration_commit_start_time_utc = CONVERT(DATETIME,NULL) -- SQL 2017+
 )
 SELECT qry.*
-  INTO TempDB.dbo.SQLXL_IDX_sys_dm_hadr_availability_replica_states
+  INTO TempDB.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states
   FROM newcol
 CROSS APPLY (
 SELECT replica_id                                  = replica_id
@@ -903,8 +903,8 @@ SELECT replica_id                                  = replica_id
 IF @ssms = 1 RAISERROR ('... sys.dm_db_missing_index: detail, groups, group_stats',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_details
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters)
+DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_details
+DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_Index_sys_Startup_Parameters)
 --*/
 
 SELECT --------------------------------------------------------------
@@ -946,8 +946,8 @@ SELECT --------------------------------------------------------------
                                 * migs.avg_total_system_cost
                                 * migs.avg_system_impact
                                )                                                -- if values NULL retain NULL vale
-  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_details                     -- filters out only databases we're interested in
-  FROM TempDB.dbo.SQLXL_IDX_sys_databases  AS d
+  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_details                     -- filters out only databases we're interested in
+  FROM TempDB.dbo.SQLXL_Index_sys_databases  AS d
   JOIN sys.dm_db_missing_index_details     AS mid 
     ON d.database_id                        = mid.database_id
   LEFT OUTER
@@ -963,8 +963,8 @@ SELECT --------------------------------------------------------------
 IF @ssms = 1 RAISERROR ('... sys.dm_db_missing_index_columns',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_columns
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters)
+DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
+DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_Index_sys_Startup_Parameters)
 --*/
 
 SELECT --------------------------------------------------------------
@@ -979,16 +979,16 @@ SELECT --------------------------------------------------------------
       ,column_id        = mic.column_id
       ,column_name      = mic.column_name  COLLATE DATABASE_DEFAULT
       ,column_usage     = mic.column_usage COLLATE DATABASE_DEFAULT
-  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_columns
-  FROM TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_details AS mid
+  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
+  FROM TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_details AS mid
  CROSS
  APPLY sys.dm_db_missing_index_columns(mid.index_handle) mic;
 
 -- Add index to speed up subsequent queries
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_dm_db_missing_index_columns')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_missing_index_columns')
 CREATE UNIQUE CLUSTERED
- index ixuc_SQLXL_IDX_sys_dm_db_missing_index_columns
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_columns
+ index ixuc_SQLXL_Index_sys_dm_db_missing_index_columns
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
       (database_id
       ,object_id
       ,index_handle
@@ -1008,8 +1008,8 @@ CREATE UNIQUE CLUSTERED
 IF @ssms = 1 RAISERROR ('... sys.dm_db_missing_index_group_stats: query, query_text (most reads) SQL 2019+',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_group_stats_query
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters)
+DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query
+DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_Index_sys_Startup_Parameters)
 --*/
 
 IF TRY_CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 15           -- SQL 2019+
@@ -1029,7 +1029,7 @@ SELECT migs.group_handle
                                    ,migs.last_statement_end_offset)
                                 - migs.last_statement_start_offset
                                )/2) + 1)) COLLATE DATABASE_DEFAULT
-  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_group_stats_query
+  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query
 
 /*** LOCAL TESTING ***
 SELECT *
@@ -1076,7 +1076,7 @@ SELECT *
                       -- last_statement_start_offset
                       -- last_statement_end_offset
                       -- last_statement_sql_handle
-                  FROM TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_details AS mid
+                  FROM TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_details AS mid
                   JOIN sys.dm_db_missing_index_group_stats_query            AS mgq
                     ON mid.group_handle = mgq.group_handle
                ) AS migs
@@ -1107,7 +1107,7 @@ ELSE
          ,last_statement_start_offset = CAST(NULL AS INT)
          ,last_statement_end_offset   = CAST(NULL AS INT)
          ,query_text                  = CAST(NULL AS VARCHAR(MAX)) COLLATE DATABASE_DEFAULT
-     INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_group_stats_query;
+     INTO TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query;
 
 /******************************************************************************************************************************************/
 -- sys.dm_db_index_usage_stats
@@ -1115,12 +1115,12 @@ ELSE
 IF @ssms = 1 RAISERROR ('... sys.dm_db_index_usage_stats',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_IDX_sys_dm_db_index_usage_stats
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters)
+DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_dm_db_index_usage_stats
+DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_Index_sys_Startup_Parameters)
 --*/
 
 SELECT qry.*
-  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_index_usage_stats
+  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_index_usage_stats
   FROM (
 SELECT ius.database_id
       ,ius.object_id
@@ -1143,7 +1143,7 @@ SELECT ius.database_id
       ,ius.last_system_scan
       ,ius.last_system_lookup
       ,ius.last_system_update
-  FROM TempDB.dbo.SQLXL_IDX_sys_databases AS d
+  FROM TempDB.dbo.SQLXL_Index_sys_databases AS d
   JOIN sys.dm_db_index_usage_stats        AS ius
     ON d.database_id                       = ius.database_id
 ) AS qry;
@@ -1161,7 +1161,7 @@ SELECT version_generated_off_row         = CONVERT(BIGINT,NULL) -- SQL 2016+
       ,insert_over_ghost_version_off_row = CONVERT(BIGINT,NULL) -- SQL 2016+
 )
 SELECT qry.*
-  INTO tempdb.dbo.SQLXL_IDX_sys_dm_db_index_operational_stats
+  INTO tempdb.dbo.SQLXL_Index_sys_dm_db_index_operational_stats
   FROM newcol
  CROSS APPLY (
 SELECT ios.database_id
@@ -1292,7 +1292,7 @@ SELECT ios.database_id
 IF @ssms = 1 RAISERROR ('... sys.dm_os_buffer_descriptors',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors
+DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
 --*/
 
 SELECT bd.database_id
@@ -1301,18 +1301,18 @@ SELECT bd.database_id
       ,buffer_total_KB    = SUM(CAST(8.0 AS BIGINT))                          -- each page is 8KB
       ,buffer_free_KB     = SUM(CAST(bd.free_space_in_bytes AS BIGINT))/8192. -- 1KB = 8192 bytes
       ,read_microsec_AVG  = AVG(bd.read_microsec)
-  INTO TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors
-  FROM TempDB.dbo.SQLXL_IDX_sys_databases AS d                                -- used to filter out only databases we're interested in
+  INTO TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
+  FROM TempDB.dbo.SQLXL_Index_sys_databases AS d                                -- used to filter out only databases we're interested in
   JOIN sys.dm_os_buffer_descriptors       AS bd
     ON d.database_id                       = bd.database_id
  GROUP BY
        bd.database_id
       ,bd.allocation_unit_id;
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_dm_os_buffer_descriptors')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_dm_os_buffer_descriptors')
 CREATE UNIQUE CLUSTERED
- index ixuc_SQLXL_IDX_sys_dm_os_buffer_descriptors
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors
+ index ixuc_SQLXL_Index_sys_dm_os_buffer_descriptors
+    ON TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
       (database_id
       ,allocation_unit_id
       )
@@ -1331,17 +1331,17 @@ IF @ssms = 1 RAISERROR ('Starting Loop through Databases',0,0) WITH NOWAIT;
 
 /******************************************************************************************************************************************/
 -- Create local variables & Cursor
--- List of databases to run through was previously filtered when creating TempDB.dbo.SQLXL_IDX_sys_databases
+-- List of databases to run through was previously filtered when creating TempDB.dbo.SQLXL_Index_sys_databases
 /******************************************************************************************************************************************/
 DECLARE db_crsr CURSOR LOCAL FAST_FORWARD FOR
 SELECT d.database_id
       ,name          = QUOTENAME(d.name) COLLATE DATABASE_DEFAULT
-  FROM TempDB.dbo.SQLXL_IDX_sys_databases                           AS d
+  FROM TempDB.dbo.SQLXL_Index_sys_databases                           AS d
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_availability_replicas               AS ar
+  JOIN TempDB.dbo.SQLXL_Index_sys_availability_replicas               AS ar
     ON d.replica_id                                               = ar.replica_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_dm_hadr_availability_replica_states AS rs
+  JOIN TempDB.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states AS rs
     ON d.replica_id                                               = rs.replica_id
  WHERE NOT -- Non-readable secondaries
        (    ISNULL(rs.role_desc                            ,N'N/A') = 'SECONDARY'
@@ -1383,8 +1383,8 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_database_scoped_configurations'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_database_scoped_configurations') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id         = db_id()
@@ -1399,7 +1399,7 @@ OPTION (MAXDOP 1);'
 
    IF @ssms = 2 AND @i = 1 -- SSMS and first database only
    BEGIN
-      SELECT 'TempDB.dbo.SQLXL_IDX_sys_database_scoped_configurations'
+      SELECT 'TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations'
             ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
             ,lsql=LEN(@sql)
             ,sql1=SUBSTRING(@sql,    1,16383)
@@ -1421,7 +1421,7 @@ BEGIN
          ,value               = CONVERT(NVARCHAR(1000),NULL) COLLATE DATABASE_DEFAULT -- script is running in TEMPDB
          ,value_for_secondary = CONVERT(NVARCHAR(1000),NULL) COLLATE DATABASE_DEFAULT -- script is running in TEMPDB
          ,is_value_default    = CONVERT(BIT           ,NULL)
-     INTO TempDB.dbo.SQLXL_IDX_sys_database_scoped_configurations;
+     INTO TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations;
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -1436,9 +1436,9 @@ BEGIN -- SQL 2017+, AZURE
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_database_automatic_tuning_options'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_database_automatic_tuning_options'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_database_automatic_tuning_options')
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_database_automatic_tuning_options')
                                +N'
   FROM (SELECT database_id        = DB_ID()
               ,name               = name               COLLATE ' + @collation + N'
@@ -1454,7 +1454,7 @@ OPTION (MAXDOP 1);'
 
    IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
    BEGIN
-      SELECT 'TempDB.dbo.SQLXL_IDX_sys_database_automatic_tuning_options'
+      SELECT 'TempDB.dbo.SQLXL_Index_sys_database_automatic_tuning_options'
             ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
             ,lsql=LEN(@sql)
             ,sql1=SUBSTRING(@sql,    1,16383)
@@ -1478,7 +1478,7 @@ BEGIN
          ,actual_state_desc    = CAST(NULL AS NVARCHAR(60))  COLLATE DATABASE_DEFAULT -- script is running in TEMPDB
          ,reason               = CAST(NULL AS SMALLINT)
          ,reason_desc          = CAST(NULL AS NVARCHAR(60))  COLLATE DATABASE_DEFAULT -- script is running in TEMPDB
-     INTO TempDB.dbo.SQLXL_IDX_sys_database_automatic_tuning_options;
+     INTO TempDB.dbo.SQLXL_Index_sys_database_automatic_tuning_options;
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -1501,8 +1501,8 @@ SELECT -- SQL 2017+ ------------------------------------------------------------
       ,capture_policy_total_execution_cpu_time_ms = CONVERT(BIGINT        ,NULL)                             -- SQL 2019+
       ,capture_policy_stale_threshold_hours       = CONVERT(INT           ,NULL)                             -- SQL 2019+
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_database_query_store_options'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_database_query_store_options') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_database_query_store_options'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_database_query_store_options') + N'
   FROM newcol
  CROSS APPLY ('
 +IIF(PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 13  -- SQL 2016+
@@ -1566,7 +1566,7 @@ OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
 BEGIN
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_database_query_store_options'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_database_query_store_options'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -1586,14 +1586,14 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 --------------------------------------------------------------------------------------------------------------------------------------------
 IF @ssms = 1 RAISERROR ('   ... cdc.change_tables (if CDC enabled)',0,0) WITH NOWAIT;
 
-IF (SELECT is_cdc_enabled FROM TempDB.dbo.SQLXL_IDX_sys_databases WHERE database_id = @database_id) = 1
+IF (SELECT is_cdc_enabled FROM TempDB.dbo.SQLXL_Index_sys_databases WHERE database_id = @database_id) = 1
 BEGIN
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_cdc_change_tables'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_cdc_change_tables') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_cdc_change_tables'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_cdc_change_tables') + N'
   FROM (SELECT database_id          = DB_ID()
               ,object_id
               ,version
@@ -1614,7 +1614,7 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 
    IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
    BEGIN
-      SELECT 'TempDB.dbo.SQLXL_IDX_cdc_change_tables'
+      SELECT 'TempDB.dbo.SQLXL_Index_cdc_change_tables'
             ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
             ,lsql=LEN(@sql)
             ,sql1=SUBSTRING(@sql,    1,16383)
@@ -1642,7 +1642,7 @@ BEGIN
          ,create_date          = CAST(NULL AS DATETIME)
          ,partition_switch     = CAST(NULL AS BIT)
          ,capture_instance_ID  = CAST(NULL AS INT)
-     INTO TempDB.dbo.SQLXL_IDX_cdc_change_tables;
+     INTO TempDB.dbo.SQLXL_Index_cdc_change_tables;
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -1653,8 +1653,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.schemas',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_schemas'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_schemas') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_schemas'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_schemas') + N'
   FROM (
 SELECT database_id   = DB_ID()
       ,name          = name COLLATE ' + @collation + N'
@@ -1664,7 +1664,7 @@ SELECT database_id   = DB_ID()
 ) AS qry;'
 
 IF @ssms = 2 AND @i = 1                      -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_schemas'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_schemas'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -1677,10 +1677,10 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 -- Add index to speed up subsequent queries
 IF @i = 2 -- only execute on second database if more than one
 BEGIN
-   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_schemas')
+   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_schemas')
    CREATE UNIQUE CLUSTERED
-    index ixuc_SQLXL_IDX_sys_schemas
-       ON TempDB.dbo.SQLXL_IDX_sys_schemas
+    index ixuc_SQLXL_Index_sys_schemas
+       ON TempDB.dbo.SQLXL_Index_sys_schemas
          (database_id
          ,schema_id
          )
@@ -1688,7 +1688,7 @@ BEGIN
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- sys.tables, including cdc.change_tables if CDC enabled. TempDB.dbo.SQLXL_IDX_cdc_change_tables created above
+-- sys.tables, including cdc.change_tables if CDC enabled. TempDB.dbo.SQLXL_Index_cdc_change_tables created above
 --------------------------------------------------------------------------------------------------------------------------------------------
 IF @ssms = 1 RAISERROR ('   ... sys.tables, sys.change_tracking_tables',0,0) WITH NOWAIT;
 
@@ -1731,8 +1731,8 @@ SELECT -- SQL 2012+ ----------------------------------------------
       -- Computed above
       ,capture_instance_ID                = CONVERT(INT     ,NULL)                                -- Change Data Capture computed
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_tables'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_tables') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_tables'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_tables') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id                        = DB_ID()
@@ -1808,13 +1808,13 @@ SELECT database_id                        = DB_ID()
     ON t.object_id                             = ctt.object_id
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_cdc_change_tables AS cs -- TempDB.dbo.SQLXL_IDX_cdc_change_tables created above
+  JOIN TempDB.dbo.SQLXL_Index_cdc_change_tables AS cs -- TempDB.dbo.SQLXL_Index_cdc_change_tables created above
     ON DB_ID()                                 = cs.database_id
    AND t.object_id                             = cs.source_object_id
    AND 1                                       = cs.capture_instance_ID -- FUTURE for now enable getting just 1 Change table per source
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_cdc_change_tables AS ct -- TempDB.dbo.SQLXL_IDX_cdc_change_tables created above
+  JOIN TempDB.dbo.SQLXL_Index_cdc_change_tables AS ct -- TempDB.dbo.SQLXL_Index_cdc_change_tables created above
     ON DB_ID()                                 = ct.database_id
    AND t.object_id                             = ct.object_id
    AND 1                                       = ct.capture_instance_ID -- FUTURE for now enable getting just 1 Change table per source
@@ -1824,7 +1824,7 @@ SELECT database_id                        = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_tables'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_tables'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -1849,8 +1849,8 @@ SELECT is_memory_optimized     = CONVERT(BIT,NULL) -- SQL 2014+
       ,is_inlineable           = CONVERT(BIT,NULL) -- SQL 2019+
       ,inline_type             = CONVERT(BIT,NULL) -- SQL 2019+
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_objects'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_objects') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_objects'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_objects') + N'
   FROM newcol
  CROSS 
  APPLY (
@@ -1986,7 +1986,7 @@ SELECT database_id      = DB_ID()
                                   )'
 
 + CASE WHEN (SELECT is_cdc_enabled                     -- database has change data capture (CDC) enabled
-               FROM TempDB.dbo.SQLXL_IDX_sys_databases
+               FROM TempDB.dbo.SQLXL_Index_sys_databases
               WHERE database_id = @database_id
             ) = 1
        THEN N'
@@ -1994,7 +1994,7 @@ SELECT database_id      = DB_ID()
                                           -- Change data capture (CDC) "CHANGE" tables
                                           -----------------------------------------------------------------------------
                                           SELECT object_id
-                                            FROM TempDB.dbo.SQLXL_IDX_cdc_change_tables
+                                            FROM TempDB.dbo.SQLXL_Index_cdc_change_tables
                                            WHERE DB_ID() = database_id
                                          )'
        ELSE N''
@@ -2027,14 +2027,14 @@ SELECT database_id      = DB_ID()
         SELECT database_id
               ,object_id
               ,history_table_id
-          FROM TempDB.dbo.SQLXL_IDX_sys_tables
+          FROM TempDB.dbo.SQLXL_Index_sys_tables
          WHERE history_table_id IS NOT NULL
        )                   AS ht
     ON DB_ID()              = ht.database_id
    AND o.object_id          = ht.history_table_id
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_cdc_change_tables AS cdc
+  JOIN TempDB.dbo.SQLXL_Index_cdc_change_tables AS cdc
     ON DB_ID()                                 = cdc.database_id
    AND o.object_id                             = cdc.object_id
    AND 1                                       = cdc.capture_instance_ID
@@ -2043,7 +2043,7 @@ SELECT database_id      = DB_ID()
 OPTION (MAXDOP 1);';
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_objects'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_objects'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2056,10 +2056,10 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 -- Add index to speed up subsequent queries
 If @I = 1 -- only execute on first database
 BEGIN
-   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_objects__object_id')
+   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_objects__object_id')
    CREATE UNIQUE CLUSTERED
-    INDEX ixuc_SQLXL_IDX_sys_objects__object_id
-       ON TempDB.dbo.SQLXL_IDX_sys_objects
+    INDEX ixuc_SQLXL_Index_sys_objects__object_id
+       ON TempDB.dbo.SQLXL_Index_sys_objects
          (database_id
          ,object_id
          )
@@ -2080,8 +2080,8 @@ SELECT is_system                     = CONVERT(BIT   ,NULL) -- SQL 2012+
       -----------------------------------------------------
       ,is_autogrow_all_files         = CONVERT(BIT   ,NULL) -- SQL 2016+
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_data_spaces'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_data_spaces') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_data_spaces'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_data_spaces') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id                        = DB_ID()
@@ -2177,7 +2177,7 @@ SELECT database_id                        = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_data_spaces'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_data_spaces'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2195,8 +2195,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.default_constraints',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_default_constraints'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_default_constraints') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_default_constraints'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_default_constraints') + N'
   FROM (
 SELECT database_id      = DB_ID()
       ,parent_object_id
@@ -2215,7 +2215,7 @@ SELECT database_id      = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_default_constraints'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_default_constraints'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2233,8 +2233,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.types',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_types'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_types') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_types'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_types') + N'
   FROM (SELECT database_id       = DB_ID()
               ,name              = name           COLLATE ' + @collation + N'
               ,system_type_id
@@ -2256,7 +2256,7 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_types'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_types'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2304,8 +2304,8 @@ SELECT -- SQL 2016+, SQL Database ------------------------------------
       ,ledger_view_column_type_desc        = CONVERT(SYSNAME    ,NULL)  COLLATE ' + @collation + N'
       ,is_dropped_ledger_table_column      = CONVERT(BIT        ,NULL)
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_columns'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_columns') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_columns'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_columns') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id = DB_ID()
@@ -2405,14 +2405,14 @@ SELECT database_id = DB_ID()
         --
         ----------------------------------------------------------------
         SELECT collation_name
-          FROM TempDB.dbo.SQLXL_IDX_sys_databases
+          FROM TempDB.dbo.SQLXL_Index_sys_databases
          WHERE DB_ID() = database_id
        )                                AS d
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON DB_ID()                           = o.database_id
    AND c.object_id                       = o.object_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_types   AS t
+  JOIN TempDB.dbo.SQLXL_Index_sys_types   AS t
     ON DB_ID()                           = t.database_id
    AND c.user_type_id                    = t.user_type_id
   LEFT OUTER
@@ -2448,8 +2448,8 @@ SELECT database_id = DB_ID()
          APPLY (SELECT uses_sql_proc = MAX(IIF(o.type IN (N''P'',N''PC''),1,0))
                       ,uses_sql_ftn  = MAX(IIF(o.type IN (N''AF'',N''FN'',N''FS''),1,0))
                       ,uses_sql_mthd = MAX(IIF(o.type IS NULL,1,0))
-                  FROM tempdb.dbo.SQLXL_IDX_sys_objects AS o
-                  JOIN tempdb.dbo.SQLXL_IDX_sys_schemas AS s
+                  FROM tempdb.dbo.SQLXL_Index_sys_objects AS o
+                  JOIN tempdb.dbo.SQLXL_Index_sys_schemas AS s
                     ON o.database_id = s.database_id
                    AND o.SCHEMA_ID   = s.schema_id
                  WHERE DB_ID()       = o.database_id
@@ -2486,7 +2486,7 @@ SELECT database_id = DB_ID()
               ,is_exhausted      = seq.is_exhausted
               ,last_used_value   = CONVERT(BIGINT,last_used_value)
           FROM sys.sequences                    AS seq
-          JOIN TempDB.dbo.SQLXL_IDX_sys_schemas AS s
+          JOIN TempDB.dbo.SQLXL_Index_sys_schemas AS s
             ON DB_ID()                           = s.database_id
            AND seq.schema_id                     = s.schema_id
          CROSS
@@ -2497,7 +2497,7 @@ SELECT database_id = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_columns'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_columns'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2515,8 +2515,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.column_type_usages',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_column_type_usages'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_column_type_usages') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_column_type_usages'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_column_type_usages') + N'
   FROM (
 SELECT database_id = DB_ID()
       ,object_id
@@ -2526,7 +2526,7 @@ SELECT database_id = DB_ID()
 ) AS qry;'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_column_type_usages'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_column_type_usages'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2537,7 +2537,7 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Add Internal Tables to sys.tables collection in SQLXL_IDX_sys_tables - used for downstream data compliation
+-- Add Internal Tables to sys.tables collection in SQLXL_Index_sys_tables - used for downstream data compliation
 -- NOTE: Internal Tables not found in sys.tables
 --------------------------------------------------------------------------------------------------------------------------------------------
 /*** FOR TESTING ***
@@ -2545,10 +2545,10 @@ DECLARE @database_id INT = DB_ID(N'WideWorldImporters')
        ,@ssms        BIT = 0
 --*/
 
-IF @ssms = 1 RAISERROR ('   ... Add System Internal Tables to SQLXL_IDX_sys_tables',0,0);
+IF @ssms = 1 RAISERROR ('   ... Add System Internal Tables to SQLXL_Index_sys_tables',0,0);
 
 INSERT 
-  INTO TempDB.dbo.SQLXL_IDX_sys_tables
+  INTO TempDB.dbo.SQLXL_Index_sys_tables
       (database_id
       ,object_id
       ,schema_id
@@ -2596,11 +2596,11 @@ SELECT database_id = @database_id
       ,max_column_id_used          = c.max_column_id_used
       ,lock_on_bulk_load           = 0
       ,has_unchecked_assembly_data = 0
-  FROM tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  FROM tempdb.dbo.SQLXL_Index_sys_objects AS o
   JOIN (SELECT database_id
               ,object_id
               ,max_column_id_used = MAX(column_id)
-          FROM tempdb.dbo.SQLXL_IDX_sys_columns
+          FROM tempdb.dbo.SQLXL_Index_sys_columns
          WHERE database_id = @database_id
          GROUP BY
                database_id
@@ -2620,8 +2620,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.check_constraints',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_check_constraints'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_check_constraints') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_check_constraints'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_check_constraints') + N'
   FROM (
 SELECT DISTINCT
        database_id             = DB_ID()
@@ -2649,8 +2649,8 @@ SELECT DISTINCT
  OUTER
  APPLY (SELECT uses_sql_proc = MAX(IIF(o.type IN (N''P'',N''PC''),1,0))
               ,uses_sql_ftn  = MAX(IIF(o.type IN (N''AF'',N''FN'',N''FS''),1,0))
-          FROM tempdb.dbo.SQLXL_IDX_sys_objects AS o
-          JOIN tempdb.dbo.SQLXL_IDX_sys_schemas AS s
+          FROM tempdb.dbo.SQLXL_Index_sys_objects AS o
+          JOIN tempdb.dbo.SQLXL_Index_sys_schemas AS s
             ON o.database_id = s.database_id
            AND o.schema_id   = s.schema_id
          WHERE DB_ID()       = o.database_id
@@ -2667,7 +2667,7 @@ SELECT DISTINCT
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_check_constraints'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_check_constraints'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2688,8 +2688,8 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT is_enforced = CONVERT(BIT,NULL)
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_key_constraints'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_key_constraints') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_key_constraints'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_key_constraints') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id      = DB_ID()
@@ -2706,7 +2706,7 @@ SELECT database_id      = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_key_constraints'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_key_constraints'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2727,8 +2727,8 @@ BEGIN
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_edge_constraints'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_edge_constraints') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_edge_constraints'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_edge_constraints') + N'
   FROM (
 SELECT database_id      = DB_ID()
       ,parent_object_id
@@ -2748,7 +2748,7 @@ OPTION (MAXDOP 1);'
 
    IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
    BEGIN
-      SELECT 'TempDB.dbo.SQLXL_IDX_sys_edge_constraints'
+      SELECT 'TempDB.dbo.SQLXL_Index_sys_edge_constraints'
             ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
             ,lsql=LEN(@sql)
             ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2776,7 +2776,7 @@ BEGIN
          ,delete_referential_action       = CONVERT(TINYINT    ,NULL)
          ,delete_referential_action_desc  = CONVERT(SYSNAME    ,NULL)
          ,is_system_named                 = CONVERT(BIT        ,NULL)
-     INTO TempDB.dbo.SQLXL_IDX_sys_edge_constraints;
+     INTO TempDB.dbo.SQLXL_Index_sys_edge_constraints;
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -2790,8 +2790,8 @@ BEGIN
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_edge_constraint_clauses'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_edge_constraint_clauses') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_edge_constraint_clauses'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_edge_constraint_clauses') + N'
   FROM (
 SELECT database_id             = DB_ID()
       ,object_id
@@ -2804,7 +2804,7 @@ OPTION (MAXDOP 1);'
 
    IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
    BEGIN
-      SELECT 'TempDB.dbo.SQLXL_IDX_sys_edge_constraint_clauses'
+      SELECT 'TempDB.dbo.SQLXL_Index_sys_edge_constraint_clauses'
             ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
             ,lsql=LEN(@sql)
             ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2825,7 +2825,7 @@ BEGIN
          ,from_object_id        = CONVERT(INT        ,NULL)
          ,to_object_id          = CONVERT(INT        ,NULL)
          ,clause_number         = CONVERT(INT        ,NULL)
-     INTO TempDB.dbo.SQLXL_IDX_sys_edge_constraint_clauses;
+     INTO TempDB.dbo.SQLXL_Index_sys_edge_constraint_clauses;
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -2839,8 +2839,8 @@ BEGIN
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_hash_indexes'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_hash_indexes') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_hash_indexes'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_hash_indexes') + N'
   FROM (SELECT database_id      = DB_ID()
               ,object_id        = object_id
               ,index_id         = index_id
@@ -2852,7 +2852,7 @@ OPTION (MAXDOP 1);'
 
    IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
    BEGIN
-      SELECT 'TempDB.dbo.SQLXL_IDX_sys_hash_indexes'
+      SELECT 'TempDB.dbo.SQLXL_Index_sys_hash_indexes'
             ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
             ,lsql=LEN(@sql)
             ,sql1=SUBSTRING(@sql,    1,16383)
@@ -2873,7 +2873,7 @@ BEGIN
          ,index_id         = CONVERT(INT        ,NULL)
          ,type             = CONVERT(TINYINT    ,NULL)
          ,bucket_count     = CONVERT(INT        ,NULL)
-     INTO TempDB.dbo.SQLXL_IDX_sys_hash_indexes;
+     INTO TempDB.dbo.SQLXL_Index_sys_hash_indexes;
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -2897,8 +2897,8 @@ SELECT -- SQL 2016+ --------------------------------------
        -- Azure SQL Database -----------------------------
       ,auto_created                    = CONVERT(BIT,NULL) -- Azure SQL Database
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_indexes'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_indexes') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_indexes'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_indexes') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id                     = DB_ID()
@@ -2953,7 +2953,7 @@ SELECT database_id                     = DB_ID()
       ,hi_bucket_count                 = hi.bucket_count
 
   FROM sys.indexes                      AS i
-  JOIN TempDB.dbo.SQLXL_IDX_sys_objects AS o -- filters out SYSTEM objects
+  JOIN TempDB.dbo.SQLXL_Index_sys_objects AS o -- filters out SYSTEM objects
     ON DB_ID()                           = o.database_id
    AND i.object_id                       = o.object_id
   LEFT OUTER
@@ -3013,7 +3013,7 @@ SELECT database_id                     = DB_ID()
               ,index_id
               ,type
               ,bucket_count
-          FROM TempDB.dbo.SQLXL_IDX_sys_hash_indexes
+          FROM TempDB.dbo.SQLXL_Index_sys_hash_indexes
          WHERE DB_ID() = database_id
        )           AS hi
     ON i.object_id  = hi.object_id
@@ -3023,7 +3023,7 @@ SELECT database_id                     = DB_ID()
 OPTION (FORCE ORDER,RECOMPILE,MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_indexes'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_indexes'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3036,10 +3036,10 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 -- Add index to speed up subsequent queries
 IF @i = 1 -- only execute on first database
 BEGIN
-   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_indexes')
+   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_indexes')
    CREATE UNIQUE CLUSTERED
-    INDEX ixuc_SQLXL_IDX_sys_indexes
-       ON TempDB.dbo.SQLXL_IDX_sys_indexes
+    INDEX ixuc_SQLXL_Index_sys_indexes
+       ON TempDB.dbo.SQLXL_Index_sys_indexes
          (database_id
          ,object_id
          ,index_id
@@ -3059,8 +3059,8 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT property_list_id = CONVERT(INT,NULL)
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_fulltext_indexes'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_fulltext_indexes') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_fulltext_indexes'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_fulltext_indexes') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id                = DB_ID()
@@ -3084,7 +3084,7 @@ SELECT database_id                = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_fulltext_indexes'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_fulltext_indexes'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3102,8 +3102,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.fulltext_catalogs',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_fulltext_catalogs'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_fulltext_catalogs') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_fulltext_catalogs'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_fulltext_catalogs') + N'
   FROM (
 SELECT database_id              = DB_ID()
       ,fulltext_catalog_id
@@ -3117,7 +3117,7 @@ SELECT database_id              = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_fulltext_catalogs'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_fulltext_catalogs'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3135,8 +3135,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.fulltext_index_catalog_usages',0,0) WITH NOW
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_fulltext_index_catalog_usages'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_fulltext_index_catalog_usages') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_fulltext_index_catalog_usages'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_fulltext_index_catalog_usages') + N'
   FROM (
 SELECT database_id              = DB_ID()
       ,object_id
@@ -3147,7 +3147,7 @@ SELECT database_id              = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_fulltext_index_catalog_usages'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_fulltext_index_catalog_usages'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3165,8 +3165,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.foreign_keys',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_foreign_keys'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_foreign_keys') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_foreign_keys'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_foreign_keys') + N'
   FROM (
 SELECT database_id = DB_ID()
       ,parent_object_id
@@ -3196,7 +3196,7 @@ SELECT database_id = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_foreign_keys'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_foreign_keys'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3214,8 +3214,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.foreign_key_columns',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_foreign_key_columns'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_foreign_key_columns') + N'
   FROM (
 SELECT database_id = DB_ID()
       ,constraint_object_id
@@ -3229,7 +3229,7 @@ SELECT database_id = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_foreign_key_columns'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3253,8 +3253,8 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT column_store_order_ordinal = CONVERT(INT,NULL)
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_index_columns'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_index_columns') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_index_columns'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_index_columns') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id                = DB_ID()
@@ -3292,7 +3292,7 @@ SELECT database_id                = DB_ID()
               ,column_store_order_ordinal
               ,is_included_column
           FROM sys.index_columns                AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+          JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
             ON DB_ID()                           = o.database_id
            AND ic.object_id                      = o.object_id
         UNION
@@ -3312,19 +3312,19 @@ SELECT database_id                = DB_ID()
           FROM sys.function_order_columns       AS foc -- Returns one row per column that is a part of an ORDER
                                                        -- expression of a common language runtime (CLR) table-valued
                                                        -- function. From source object directly, only used once
-          JOIN tempdb.dbo.SQLXL_IDX_sys_columns AS c
+          JOIN tempdb.dbo.SQLXL_Index_sys_columns AS c
             ON DB_ID()                           = c.database_id
            AND foc.object_id                     = c.object_id
            AND foc.column_id                     = c.column_id
-          JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+          JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
             ON c.database_id                     = o.database_id
            AND c.object_id                       = o.object_id
-          JOIN tempdb.dbo.SQLXL_IDX_sys_schemas AS s
+          JOIN tempdb.dbo.SQLXL_Index_sys_schemas AS s
             ON o.database_id                     = s.database_id
            AND o.schema_id                       = s.schema_id
       ) AS ic
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_indexes AS i
+  JOIN TempDB.dbo.SQLXL_Index_sys_indexes AS i
     ON DB_ID()                           = i.database_id
    AND ic.object_id                      = i.object_id
    AND ic.index_id                       = i.index_id
@@ -3332,7 +3332,7 @@ SELECT database_id                = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_index_columns'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_index_columns'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3354,7 +3354,7 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT statistical_semantics = CONVERT(INT,NULL)
 )
-INSERT INTO TempDB.dbo.SQLXL_IDX_sys_index_columns
+INSERT INTO TempDB.dbo.SQLXL_Index_sys_index_columns
       (database_id
       ,object_id
       ,index_id
@@ -3403,7 +3403,7 @@ SELECT database_id                = DB_ID()
               ,type_column_id             = NULL
               ,language_id                = NULL
               ,statistical_semantics      = NULL
-          FROM TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_columns
+          FROM TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
          WHERE DB_ID() = database_id
         UNION ALL
         --------------------------------------------------------------------
@@ -3425,7 +3425,7 @@ SELECT database_id                = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_index_columns - insert other object columns (MI,TX)'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_index_columns - insert other object columns (MI,TX)'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3438,10 +3438,10 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 -- Add index to speed up subsequent queries
 IF @i = 1 -- only execute on first database if more than one
 BEGIN
-   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_index_columns')
+   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_index_columns')
    CREATE UNIQUE CLUSTERED
-    index ixuc_SQLXL_IDX_sys_index_columns
-       ON TempDB.dbo.SQLXL_IDX_sys_index_columns
+    index ixuc_SQLXL_Index_sys_index_columns
+       ON TempDB.dbo.SQLXL_Index_sys_index_columns
          (database_id
          ,object_id
          ,index_id
@@ -3459,8 +3459,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.extended_properties',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_extended_properties'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_extended_properties') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_extended_properties'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_extended_properties') + N'
   FROM (
 SELECT database_id = DB_ID()
       ,class
@@ -3474,7 +3474,7 @@ SELECT database_id = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_extended_properties'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_extended_properties'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3503,8 +3503,8 @@ SELECT is_temporary                 = CONVERT(BIT    ,NULL)                     
        ----------------------------------------------------
       ,auto_drop                    = CONVERT(BIT    ,NULL)                             -- SQL 2022+
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_stats'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_stats') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_stats'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_stats') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id                  = DB_ID()
@@ -3522,14 +3522,14 @@ SELECT database_id                  = DB_ID()
       ,stats_generation_method
       ,stats_generation_method_desc = stats_generation_method_desc COLLATE ' + @collation + N'
       ,auto_drop
-  FROM tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  FROM tempdb.dbo.SQLXL_Index_sys_objects AS o
   JOIN sys.stats                        AS s
     ON DB_ID()                           = o.database_id
    AND s.object_id                       = o.object_id
 ) AS qry;'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_stats'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_stats'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3547,8 +3547,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.stats_columns',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_stats_columns'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_stats_columns') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_stats_columns'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_stats_columns') + N'
   FROM (
 SELECT database_id       = DB_ID()
       ,object_id         = s.object_id
@@ -3556,14 +3556,14 @@ SELECT database_id       = DB_ID()
       ,s.stats_column_id
       ,s.column_id
   FROM sys.stats_columns                AS s
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON DB_ID()                           = o.database_id
    AND s.object_id                       = o.object_id
 ) AS qry
 OPTION (FORCE ORDER,RECOMPILE,MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_stats_columns'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_stats_columns'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3582,8 +3582,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.dm_db_partition_stats',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_partition_stats'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_partition_stats') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_dm_db_partition_stats'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_partition_stats') + N'
   FROM (
 SELECT database_id                    = DB_ID()
       ,object_id                      = ps.object_id
@@ -3600,7 +3600,7 @@ SELECT database_id                    = DB_ID()
       ,reserved_page                  = SUM(ps.reserved_page_count)
       ,row_count                      = SUM(ps.row_count)
   FROM sys.dm_db_partition_stats        AS ps
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON DB_ID()                           = o.database_id
    AND ps.object_id                      = o.object_id
  GROUP BY
@@ -3610,7 +3610,7 @@ SELECT database_id                    = DB_ID()
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'Tempdb.dbo.SQLXL_IDX_sys_dm_db_partition_stats'
+   SELECT 'Tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3631,14 +3631,14 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
 )'
-+IIF(@i > 1,N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_stats_properties'+NCHAR(13)+NCHAR(10)+N'SELECT dsp.*'
-           ,N'SELECT dsp.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_stats_properties'
++IIF(@i > 1,N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_dm_db_stats_properties'+NCHAR(13)+NCHAR(10)+N'SELECT dsp.*'
+           ,N'SELECT dsp.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_stats_properties'
     ) + N'
   FROM newcol
  CROSS
   JOIN (SELECT object_id
               ,index_id
-          FROM TempDB.dbo.SQLXL_IDX_sys_indexes
+          FROM TempDB.dbo.SQLXL_Index_sys_indexes
          WHERE database_id = DB_ID()
        ) AS i
  CROSS
@@ -3658,7 +3658,7 @@ SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'Tempdb.dbo.SQLXL_IDX_sys_dm_db_stats_properties'
+   SELECT 'Tempdb.dbo.SQLXL_Index_sys_dm_db_stats_properties'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3694,13 +3694,13 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
 )
-INSERT INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_stats_properties
+INSERT INTO TempDB.dbo.SQLXL_Index_sys_dm_db_stats_properties
 SELECT dsp.*
   FROM newcol
  CROSS
   JOIN (SELECT object_id
               ,index_id
-          FROM TempDB.dbo.SQLXL_IDX_sys_indexes
+          FROM TempDB.dbo.SQLXL_Index_sys_indexes
          WHERE database_id = DB_ID()
        ) AS i
  CROSS
@@ -3720,7 +3720,7 @@ SELECT dsp.*
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'Tempdb.dbo.SQLXL_IDX_sys_dm_db_stats_properties '
+   SELECT 'Tempdb.dbo.SQLXL_Index_sys_dm_db_stats_properties '
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3739,8 +3739,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.partitions',0,0) WITH NOWAIT;
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_partitions'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_partitions') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_partitions'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_partitions') + N'
   FROM (
 SELECT database_id             = DB_ID()
       ,object_id               = p.object_id
@@ -3754,7 +3754,7 @@ SELECT database_id             = DB_ID()
       ,colstore_Comp           = SUM(CASE WHEN p.data_compression = CAST(3 AS TINYINT) THEN 1 ELSE 0 END) -- COLUMNSTORE
       ,colstore_Arch           = SUM(CASE WHEN p.data_compression = CAST(4 AS TINYINT) THEN 1 ELSE 0 END) -- COLUMNSTORE_ARCHIVE
   FROM sys.partitions                   AS p
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON DB_ID()                           = o.database_id
    AND p.object_id                       = o.object_id
  GROUP BY
@@ -3766,7 +3766,7 @@ SELECT database_id             = DB_ID()
 OPTION (RECOMPILE,MAXDOP 1,FORCE ORDER);' -- Force order eliminates "Warning: join order enforced because a local join hint is used."
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_partitions'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_partitions'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3779,10 +3779,10 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 -- Add index to speed up subsequent queries
 IF @i = 2 -- only execute on second database if more than one
 BEGIN
-   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_partitions')
+   IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_partitions')
    CREATE CLUSTERED
-    index ixuc_SQLXL_IDX_sys_partitions
-       ON TempDB.dbo.SQLXL_IDX_sys_partitions
+    index ixuc_SQLXL_Index_sys_partitions
+       ON TempDB.dbo.SQLXL_Index_sys_partitions
          (database_id
          ,object_id
          ,index_id
@@ -3805,8 +3805,8 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT optimize_for_sequential_key = CONVERT(BIT,NULL) -- SQL 2019+, Azure SQL Database
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_internal_partitions'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_internal_partitions') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_internal_partitions'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_internal_partitions') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id               = db_id()
@@ -3828,7 +3828,7 @@ OPTION (MAXDOP 1);'
 
    IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
    BEGIN
-      SELECT 'TempDB.dbo.SQLXL_IDX_sys_internal_partitions'
+      SELECT 'TempDB.dbo.SQLXL_Index_sys_internal_partitions'
             ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
             ,lsql=LEN(@sql)
             ,sql1=SUBSTRING(@sql,    1,16383)
@@ -3857,7 +3857,7 @@ BEGIN
          ,data_compression            = CONVERT(TINYINT,NULL)
          ,data_compression_desc       = CONVERT(SYSNAME,NULL) COLLATE DATABASE_DEFAULT -- script is running in TEMPDB
          ,optimize_for_sequential_key = CONVERT(BIT,NULL)
-     INTO TempDB.dbo.SQLXL_IDX_sys_internal_partitions;
+     INTO TempDB.dbo.SQLXL_Index_sys_internal_partitions;
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -3878,8 +3878,8 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 SELECT uses_key_normalization = CONVERT(BIT   ,NULL) -- 2016+
       ,xtp_object_id          = CONVERT(BIGINT,NULL) -- 2016+
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_xtp_index_stats'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_xtp_index_stats') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_dm_db_xtp_index_stats'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_xtp_index_stats') + N'
   FROM newcol
 CROSS APPLY ('
 +IIF(PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 12 -- SQL 2014+
@@ -3887,7 +3887,7 @@ CROSS APPLY ('
       ,object_id           = t.object_id
       ,table_name          = t.name COLLATE ' + @collation + N'
       ,i.index_id
-      ,i.type
+      ,type                = CAST(i.type AS NVARCHAR(2)) COLLATE ' + @collation + N' 
       ,i.type_desc
       ,index_name          = COALESCE(i.name COLLATE ' + @collation + N',i.type_desc COLLATE ' + @collation + N')
       ,i.is_unique
@@ -3928,12 +3928,12 @@ CROSS APPLY ('
         SELECT database_id = DB_ID()
               ,object_id   = t.object_id
               ,name        = t.name
-          FROM tempdb.dbo.SQLXL_IDX_sys_tables AS t
+          FROM tempdb.dbo.SQLXL_Index_sys_tables AS t
          WHERE t.database_id                    = DB_ID()    
            AND t.is_memory_optimized            = 1           -- only returns tables that are memory optimized
        ) AS t
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_indexes        AS i
+  JOIN TempDB.dbo.SQLXL_Index_sys_indexes        AS i
     ON t.database_id                            = i.database_id
    AND t.object_id                              = i.object_id   -- only XTP memory optimized tables selected above
   LEFT OUTER
@@ -4019,11 +4019,11 @@ CROSS APPLY ('
 ,N'SELECT TOP (0)
          database_id                    = DB_ID()
         ,object_id                      = CAST(NULL AS INT    )
-        ,table_name                     = CAST(NULL AS SYSNAME) COLLATE ' + @collation + N'
+        ,table_name                     = CAST(NULL AS SYSNAME)     COLLATE ' + @collation + N'
         ,index_id                       = CAST(NULL AS INT    )
-        ,type                           = CAST(NULL AS TINYINT)
-        ,type_desc                      = CAST(NULL AS SYSNAME) COLLATE ' + @collation + N'
-        ,index_name                     = CAST(NULL AS SYSNAME) COLLATE ' + @collation + N'
+        ,type                           = CAST(NULL AS NVARCHAR(2)) COLLATE ' + @collation + N'
+        ,type_desc                      = CAST(NULL AS SYSNAME)     COLLATE ' + @collation + N'
+        ,index_name                     = CAST(NULL AS SYSNAME)     COLLATE ' + @collation + N'
         ,is_unique                      = CAST(NULL AS BIT    )
       -- sys.dm_db_xtp_object_stats -------------
         ,row_insert_attempts            = CAST(NULL AS BIGINT )
@@ -4061,7 +4061,7 @@ CROSS APPLY ('
 OPTION (FORCE ORDER,RECOMPILE,MAXDOP 1);';
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_dm_db_xtp_index_stats'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_dm_db_xtp_index_stats'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -4079,8 +4079,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.dm_os_buffer_descriptors (aggregates)',0,0) 
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors_EXT'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors_EXT') +N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors_EXT'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors_EXT') +N'
   FROM (
 SELECT database_id      = DB_ID()
       ,b.object_id
@@ -4110,30 +4110,30 @@ SELECT database_id      = DB_ID()
                       ,buffer_free_KB
                       ,buffer_total_KB
                       ,read_microsec_AVG
-                  FROM TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors
+                  FROM TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
                  WHERE DB_ID()                      = database_id
                )                                   AS obd
           LEFT OUTER
           JOIN sys.allocation_units                AS au
             ON obd.allocation_unit_id               = au.allocation_unit_id
           LEFT OUTER
-          JOIN TempDB.dbo.SQLXL_IDX_sys_partitions AS ph
+          JOIN TempDB.dbo.SQLXL_Index_sys_partitions AS ph
             ON 1 = 1
            AND DB_ID()                              = ph.database_id
            AND au.container_id                      = ph.hobt_id
            AND au.type                             IN (1,3) -- In-row data (all data types, except LOB data types) & Row-overflow data
           LEFT OUTER
-          JOIN TempDB.dbo.SQLXL_IDX_sys_partitions AS pp
+          JOIN TempDB.dbo.SQLXL_Index_sys_partitions AS pp
             ON 1 = 1
            AND DB_ID()                              = pp.database_id
            AND au.container_id                      = pp.partition_id
            AND au.type                              = 2     -- Large object (LOB) data (text,ntext,image,xml,large value types,and CLR UDT)
-          JOIN TempDB.dbo.SQLXL_IDX_sys_objects    AS o  -- OUTER JOIN not used in order to filter out system objects
+          JOIN TempDB.dbo.SQLXL_Index_sys_objects    AS o  -- OUTER JOIN not used in order to filter out system objects
             ON 1 = 1
            AND DB_ID()                              = o.database_id
            AND COALESCE(ph.object_id,pp.object_id)  = o.object_id
           LEFT OUTER
-          JOIN TempDB.dbo.SQLXL_IDX_sys_indexes    AS i
+          JOIN TempDB.dbo.SQLXL_Index_sys_indexes    AS i
             ON DB_ID()                              = i.database_id
            AND COALESCE(ph.object_id,pp.object_id)  = i.object_id
            AND COALESCE(ph.index_id ,pp.index_id )  = i.index_id
@@ -4149,7 +4149,7 @@ SELECT database_id      = DB_ID()
 -- OPTION used to suppress "Warning: The join order has been enforced because a local join hint is used"'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors_EXT'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors_EXT'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -4170,9 +4170,9 @@ SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
-    ,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_physical_stats'+NCHAR(13)+NCHAR(10)
+    ,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats'+NCHAR(13)+NCHAR(10)
     +N'SELECT qry.*'
-    ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_physical_stats')
+    ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats')
     +N'
   FROM ('
 +IIF(PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 13 -- SQL 2016+
@@ -4225,7 +4225,7 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 OPTION (RECOMPILE,MAXDOP 1,FORCE ORDER);' -- suppresses "Warning: The join order has been enforced because a local join hint is used"'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_physical_stats'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -4251,10 +4251,10 @@ SELECT -- SQL 2019+ -----------------------------------
       ,input_groupby_row_COUNT   = CONVERT(BIGINT,NULL) -- SQL 2019+
 )'
 +IIF(@i > 1
-    ,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_operational_stats'
+    ,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats'
     +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
     ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)
-                        +N'  INTO TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_operational_stats')
+                        +N'  INTO TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats')
     +N'
   FROM newcol
  CROSS APPLY ('
@@ -4320,7 +4320,7 @@ SELECT TOP (0)
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_operational_stats'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -4338,8 +4338,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.index_resumable_operations - SQL 2017+',0,0)
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_index_resumable_operations'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_index_resumable_operations') +N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_index_resumable_operations'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_index_resumable_operations') +N'
   FROM ('
 +IIF(PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 14 -- SQL 2017+
 ,N'
@@ -4383,7 +4383,7 @@ SELECT TOP (0)
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_index_resumable_operations'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_index_resumable_operations'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -4401,8 +4401,8 @@ IF @ssms = 1 RAISERROR ('   ... sys.sql_expression_dependencies',0,0) WITH NOWAI
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_IDX_sys_sql_expression_dependencies'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_IDX_sys_sql_expression_dependencies') +N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_sql_expression_dependencies'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_sql_expression_dependencies') +N'
   FROM (
 SELECT DISTINCT
        database_id               = DB_ID()
@@ -4426,7 +4426,7 @@ SELECT DISTINCT
 OPTION (MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'TempDB.dbo.SQLXL_IDX_sys_sql_expression_dependencies'
+   SELECT 'TempDB.dbo.SQLXL_Index_sys_sql_expression_dependencies'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -4447,7 +4447,7 @@ SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader
+-- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
 --------------------------------------------------------------------------------------------------------------------------------------------
 IF (object_id(N''tempdb.dbo.#XL_IDX_sys_ShowStatistics_StatHeader'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_StatHeader;
 
@@ -4469,7 +4469,7 @@ CREATE
 + CASE WHEN @i = 1
        THEN N'
 CREATE
- TABLE tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader
+ TABLE tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
       (database_id              INT            NULL
       ,object_id                INT            NULL
       ,index_ID                 INT            NULL
@@ -4492,7 +4492,7 @@ CREATE
 
 + N'
 --------------------------------------------------------------------------------------------------------------------------------------------
--- tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector
+-- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
 --------------------------------------------------------------------------------------------------------------------------------------------
 IF (object_id(N''tempdb.dbo.#XL_IDX_sys_ShowStatistics_DensityVector'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_DensityVector;
 
@@ -4507,7 +4507,7 @@ CREATE
 + CASE WHEN @i = 1
        THEN N'
 CREATE
- TABLE tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector
+ TABLE tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
       (database_id              INT           NOT NULL
       ,object_id                INT               NULL
       ,index_ID                 INT               NULL
@@ -4522,7 +4522,7 @@ CREATE
 
 + N'
 --------------------------------------------------------------------------------------------------------------------------------------------
--- tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram
+-- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram
 --------------------------------------------------------------------------------------------------------------------------------------------
 IF (object_id(N''tempdb.dbo.#XL_IDX_sys_ShowStatistics_Histogram'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_Histogram;
 
@@ -4538,7 +4538,7 @@ CREATE
 + CASE WHEN @i = 1
        THEN N'
 CREATE
- TABLE tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram_summary
+ TABLE tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary
       (database_id              INT           NULL
       ,object_id                INT           NULL
       ,index_ID                 INT           NULL
@@ -4579,7 +4579,7 @@ SELECT ----------------------------------------------------------------------
               ,object_id
               ,index_id
               ,name
-          FROM TempDB.dbo.SQLXL_IDX_sys_indexes
+          FROM TempDB.dbo.SQLXL_Index_sys_indexes
          WHERE DB_ID()    = database_id
            AND type NOT IN (N''F'',N''FT'',N''IF'',N''TF'',N''V'')
         ----------------------------------------------------------------------
@@ -4590,13 +4590,13 @@ SELECT ----------------------------------------------------------------------
               ,object_id
               ,unique_index_id
               ,name             = CAST(NULL AS SYSNAME)
-          FROM TempDB.dbo.SQLXL_IDX_sys_fulltext_indexes
+          FROM TempDB.dbo.SQLXL_Index_sys_fulltext_indexes
          WHERE DB_ID()          = database_id
        ) i
-  JOIN TempDB.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN TempDB.dbo.SQLXL_Index_sys_objects AS o
     ON i.database_id                  = o.database_id
    AND i.object_id                    = o.object_id
-  JOIN TempDB.dbo.SQLXL_IDX_sys_schemas AS s
+  JOIN TempDB.dbo.SQLXL_Index_sys_schemas AS s
     ON o.database_id                  = s.database_id
    AND o.schema_id                    = s.schema_id
 UNION
@@ -4616,7 +4616,7 @@ SELECT -------------------------------------------------------------------------
         SELECT database_id
               ,object_id
               ,column_id
-          FROM TempDB.dbo.SQLXL_IDX_sys_index_columns
+          FROM TempDB.dbo.SQLXL_Index_sys_index_columns
          WHERE DB_ID()   = database_id
          GROUP BY
                database_id
@@ -4629,7 +4629,7 @@ SELECT -------------------------------------------------------------------------
         SELECT database_id
               ,object_id   = parent_object_id
               ,column_id   = parent_column_id
-          FROM TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns
+          FROM TempDB.dbo.SQLXL_Index_sys_foreign_key_columns
          WHERE DB_ID()     = database_id
          GROUP BY
                database_id
@@ -4643,20 +4643,20 @@ SELECT -------------------------------------------------------------------------
         SELECT database_id
               ,object_id
               ,column_id
-          FROM TempDB.dbo.SQLXL_IDX_sys_stats_columns
+          FROM TempDB.dbo.SQLXL_Index_sys_stats_columns
          WHERE DB_ID()    = database_id
          GROUP BY
                database_id
               ,object_id
               ,column_id
        ) ic
-  JOIN TempDB.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN TempDB.dbo.SQLXL_Index_sys_objects AS o
     ON ic.database_id                    = o.database_id
    AND ic.object_id                      = o.object_id        -- want parent objects only
-  JOIN TempDB.dbo.SQLXL_IDX_sys_schemas AS s
+  JOIN TempDB.dbo.SQLXL_Index_sys_schemas AS s
     ON o.database_id                     = s.database_id
    AND o.schema_id                       = s.schema_id
-  JOIN TempDB.dbo.SQLXL_IDX_sys_columns AS c
+  JOIN TempDB.dbo.SQLXL_Index_sys_columns AS c
     ON ic.database_id                    = c.database_id
    AND ic.object_id                      = c.object_id
    AND ic.column_id                      = c.column_id
@@ -4679,7 +4679,7 @@ BEGIN
    BEGIN TRY
       BEGIN
          -----------------------------------------------------------------------------------------------------------------------------------
-         -- tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader
+         -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
          -----------------------------------------------------------------------------------------------------------------------------------
          INSERT
            INTO #XL_IDX_sys_ShowStatistics_StatHeader
@@ -4698,7 +4698,7 @@ BEGIN
  WITH STAT_HEADER, NO_INFOMSGS'')
 
          INSERT
-           INTO tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader
+           INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
                (database_id
                ,object_id
                ,index_ID
@@ -4750,7 +4750,7 @@ BEGIN
 
       BEGIN
          -----------------------------------------------------------------------------------------------------------------------------------
-         -- tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector
+         -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
          -----------------------------------------------------------------------------------------------------------------------------------
          INSERT INTO #XL_IDX_sys_ShowStatistics_DensityVector
                (All_Density
@@ -4761,7 +4761,7 @@ BEGIN
                        + N';DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''','''''' + @stats_target_name + N'''''')
  WITH DENSITY_VECTOR, NO_INFOMSGS'')
 
-         INSERT INTO tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector
+         INSERT INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
          SELECT DB_ID()
                ,@object_id
                ,@index_ID
@@ -4775,7 +4775,7 @@ BEGIN
 
       BEGIN
          -----------------------------------------------------------------------------------------------------------------------------------
-         -- insert into tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram
+         -- insert into tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram
          -- BOL says:
          -- "AVG_RANGE_ROWS = Average number of rows with duplicate column values within a histogram step, excluding the upper bound.
          --  When DISTINCT_RANGE_ROWS is greater than 0, AVG_RANGE_ROWS is calculated by dividing RANGE_ROWS by DISTINCT_RANGE_ROWS.
@@ -4792,7 +4792,7 @@ BEGIN
 
          IF (SELECT MAX(avg_range_rows) FROM #XL_IDX_sys_ShowStatistics_Histogram) > 0
          BEGIN
-            INSERT INTO tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram_summary
+            INSERT INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary
             SELECT DB_ID()
                   ,@object_id
                   ,@index_ID
@@ -4870,93 +4870,93 @@ IF @ssms = 1 RAISERROR('Indexing previously collected TEMPDB SQLXL_IDX tables',0
 /******************************************************************************************************************************************
 -- Clustered Index created at data collection time for: (in order of appearance)
 -----------------------------------------------------------------------
-TempDB.dbo.SQLXL_IDX_sys_databases
-TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_columns
-TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors
+TempDB.dbo.SQLXL_Index_sys_databases
+TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
+TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
 
-TempDB.dbo.SQLXL_IDX_sys_schemas
-TempDB.dbo.SQLXL_IDX_sys_objects
-TempDB.dbo.SQLXL_IDX_sys_indexes
-TempDB.dbo.SQLXL_IDX_sys_index_columns
+TempDB.dbo.SQLXL_Index_sys_schemas
+TempDB.dbo.SQLXL_Index_sys_objects
+TempDB.dbo.SQLXL_Index_sys_indexes
+TempDB.dbo.SQLXL_Index_sys_index_columns
 
 -- SMALL tables NOT INDEXED
 -----------------------------------------------------------------------
--- TempDB.dbo.SQLXL_IDX_sys_availability_replicas
--- TempDB.dbo.SQLXL_IDX_sys_dm_hadr_availability_replica_states
--- TempDB.dbo.SQLXL_IDX_sys_edge_constraint_clauses
--- TempDB.dbo.SQLXL_IDX_sys_edge_constraints
--- TempDB.dbo.SQLXL_IDX_sys_edge_constraint_clauses
--- TempDB.dbo.SQLXL_IDX_sys_edge_constraints
--- TempDB.dbo.SQLXL_IDX_sys_fulltext_index_catalog_usages
--- TempDB.dbo.SQLXL_IDX_sys_Startup_Parameters
+-- TempDB.dbo.SQLXL_Index_sys_availability_replicas
+-- TempDB.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states
+-- TempDB.dbo.SQLXL_Index_sys_edge_constraint_clauses
+-- TempDB.dbo.SQLXL_Index_sys_edge_constraints
+-- TempDB.dbo.SQLXL_Index_sys_edge_constraint_clauses
+-- TempDB.dbo.SQLXL_Index_sys_edge_constraints
+-- TempDB.dbo.SQLXL_Index_sys_fulltext_index_catalog_usages
+-- TempDB.dbo.SQLXL_Index_sys_Startup_Parameters
 
 -- Clustered key would be most of table
 -----------------------------------------------------------------------
--- SQLXL_IDX_sys_sql_expression_dependencies
+-- SQLXL_Index_sys_sql_expression_dependencies
 
 -- Hash scanned anyway
 -----------------------------------------------------------------------
--- SQLXL_IDX_Metric_Rollup
--- SQLXL_IDX_Synergies
+-- SQLXL_Index_Metric_Rollup
+-- SQLXL_Index_Synergies
 
 ******************************************************************************************************************************************/
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixu_SQLXL_IDX_sys_objects__parent_object_id')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixu_SQLXL_Index_sys_objects__parent_object_id')
 CREATE UNIQUE
- INDEX ixu_SQLXL_IDX_sys_objects__parent_object_id
-    ON TempDB.dbo.SQLXL_IDX_sys_objects
+ INDEX ixu_SQLXL_Index_sys_objects__parent_object_id
+    ON TempDB.dbo.SQLXL_Index_sys_objects
       (database_id
       ,parent_object_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_stats')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_stats')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_stats
-    ON TempDB.dbo.SQLXL_IDX_sys_stats
+ INDEX ixuc_SQLXL_Index_sys_stats
+    ON TempDB.dbo.SQLXL_Index_sys_stats
       (database_id
       ,object_id
       ,stats_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_sys_types')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_sys_types')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_types
-    ON TempDB.dbo.SQLXL_IDX_sys_types
+ INDEX ixuc_SQLXL_Index_sys_types
+    ON TempDB.dbo.SQLXL_Index_sys_types
       (database_id
       ,user_type_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_cdc_change_tables__object_id')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_cdc_change_tables__object_id')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_cdc_change_tables__object_id
-    ON TempDB.dbo.SQLXL_IDX_cdc_change_tables
+ INDEX ixuc_SQLXL_Index_cdc_change_tables__object_id
+    ON TempDB.dbo.SQLXL_Index_cdc_change_tables
       (database_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_IDX_cdc_change_tables__source_object_id')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WHERE name = N'ixuc_SQLXL_Index_cdc_change_tables__source_object_id')
 CREATE UNIQUE NONCLUSTERED
- INDEX ixuc_SQLXL_IDX_cdc_change_tables__source_object_id
-    ON TempDB.dbo.SQLXL_IDX_cdc_change_tables
+ INDEX ixuc_SQLXL_Index_cdc_change_tables__source_object_id
+    ON TempDB.dbo.SQLXL_Index_cdc_change_tables
       (database_id
       ,source_object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_instance')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_instance')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_instance
-    ON tempdb.dbo.SQLXL_IDX_sys_instance (source,name)
+ INDEX ixuc_SQLXL_Index_sys_instance
+    ON tempdb.dbo.SQLXL_Index_sys_instance (source,name)
   WITH (DATA_COMPRESSION = PAGE)
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_dm_db_missing_index_details')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_missing_index_details')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_dm_db_missing_index_details
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_details
+ INDEX ixuc_SQLXL_Index_sys_dm_db_missing_index_details
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_details
       (database_id
       ,object_id
       ,index_handle
@@ -4964,142 +4964,142 @@ CREATE UNIQUE CLUSTERED
   WITH (DATA_COMPRESSION = PAGE);
 
 IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
-                WHERE name = N'ixuc_SQLXL_IDX_sys_dm_db_missing_index_group_stats_query'
+                WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_missing_index_group_stats_query'
               )
 CREATE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_dm_db_missing_index_group_stats_query
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_group_stats_query
+ INDEX ixuc_SQLXL_Index_sys_dm_db_missing_index_group_stats_query
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query
       (group_handle)
   WITH (DATA_COMPRESSION = PAGE);
 
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_database_scoped_configurations')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_database_scoped_configurations')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_database_scoped_configurations
-    ON TempDB.dbo.SQLXL_IDX_sys_database_scoped_configurations
+ INDEX ixuc_SQLXL_Index_sys_database_scoped_configurations
+    ON TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations
       (database_id
       ,name
       )
   WITH (DATA_COMPRESSION = PAGE);
 
 IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
-                WHERE name = N'ixuc_SQLXL_IDX_sys_database_automatic_tuning_options'
+                WHERE name = N'ixuc_SQLXL_Index_sys_database_automatic_tuning_options'
               )
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_database_automatic_tuning_options
-    ON TempDB.dbo.SQLXL_IDX_sys_database_automatic_tuning_options
+ INDEX ixuc_SQLXL_Index_sys_database_automatic_tuning_options
+    ON TempDB.dbo.SQLXL_Index_sys_database_automatic_tuning_options
       (database_id
       ,name
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_database_query_store_options')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_database_query_store_options')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_database_query_store_options
-    ON TempDB.dbo.SQLXL_IDX_sys_database_query_store_options
+ INDEX ixuc_SQLXL_Index_sys_database_query_store_options
+    ON TempDB.dbo.SQLXL_Index_sys_database_query_store_options
       (database_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_cdc_change_tables__object_id')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_cdc_change_tables__object_id')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_cdc_change_tables__object_id
-    ON TempDB.dbo.SQLXL_IDX_cdc_change_tables
+ INDEX ixuc_SQLXL_Index_cdc_change_tables__object_id
+    ON TempDB.dbo.SQLXL_Index_cdc_change_tables
       (database_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
 IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
-                WHERE name = N'ixuc_SQLXL_IDX_cdc_change_tables__source_object_id'
+                WHERE name = N'ixuc_SQLXL_Index_cdc_change_tables__source_object_id'
               )
 CREATE UNIQUE Nonclustered
- INDEX ixuc_SQLXL_IDX_cdc_change_tables__source_object_id
-    ON TempDB.dbo.SQLXL_IDX_cdc_change_tables
+ INDEX ixuc_SQLXL_Index_cdc_change_tables__source_object_id
+    ON TempDB.dbo.SQLXL_Index_cdc_change_tables
       (database_id
       ,source_object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_tables')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_tables')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_tables
-    ON TempDB.dbo.SQLXL_IDX_sys_tables
+ INDEX ixuc_SQLXL_Index_sys_tables
+    ON TempDB.dbo.SQLXL_Index_sys_tables
       (database_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_data_spaces')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_data_spaces')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_data_spaces
-    ON TempDB.dbo.SQLXL_IDX_sys_data_spaces
+ INDEX ixuc_SQLXL_Index_sys_data_spaces
+    ON TempDB.dbo.SQLXL_Index_sys_data_spaces
       (database_id
       ,data_space_id
       ,file_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_default_constraints')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_default_constraints')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_default_constraints
-    ON TempDB.dbo.SQLXL_IDX_sys_default_constraints
+ INDEX ixuc_SQLXL_Index_sys_default_constraints
+    ON TempDB.dbo.SQLXL_Index_sys_default_constraints
       (database_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_types')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_types')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_types
-    ON TempDB.dbo.SQLXL_IDX_sys_types
+ INDEX ixuc_SQLXL_Index_sys_types
+    ON TempDB.dbo.SQLXL_Index_sys_types
       (database_id
       ,user_type_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_columns')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_columns')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_columns
-    ON TempDB.dbo.SQLXL_IDX_sys_columns
+ INDEX ixuc_SQLXL_Index_sys_columns
+    ON TempDB.dbo.SQLXL_Index_sys_columns
       (database_id
       ,object_id
       ,column_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_column_type_usages')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_column_type_usages')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_column_type_usages
-    ON TempDB.dbo.SQLXL_IDX_sys_column_type_usages
+ INDEX ixuc_SQLXL_Index_sys_column_type_usages
+    ON TempDB.dbo.SQLXL_Index_sys_column_type_usages
       (database_id
       ,object_id
       ,column_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_check_constraints')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_check_constraints')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_check_constraints
-    ON TempDB.dbo.SQLXL_IDX_sys_check_constraints
+ INDEX ixuc_SQLXL_Index_sys_check_constraints
+    ON TempDB.dbo.SQLXL_Index_sys_check_constraints
       (database_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_key_constraints')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_key_constraints')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_key_constraints
-    ON TempDB.dbo.SQLXL_IDX_sys_key_constraints
+ INDEX ixuc_SQLXL_Index_sys_key_constraints
+    ON TempDB.dbo.SQLXL_Index_sys_key_constraints
       (database_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_hash_indexes')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_hash_indexes')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_hash_indexes
-    ON TempDB.dbo.SQLXL_IDX_sys_hash_indexes
+ INDEX ixuc_SQLXL_Index_sys_hash_indexes
+    ON TempDB.dbo.SQLXL_Index_sys_hash_indexes
       (database_id
       ,object_id
       ,index_id
@@ -5107,67 +5107,67 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_fulltext_indexes')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_fulltext_indexes')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_fulltext_indexes
-    ON TempDB.dbo.SQLXL_IDX_sys_fulltext_indexes
+ INDEX ixuc_SQLXL_Index_sys_fulltext_indexes
+    ON TempDB.dbo.SQLXL_Index_sys_fulltext_indexes
       (database_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_fulltext_catalogs')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_fulltext_catalogs')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_fulltext_catalogs
-    ON TempDB.dbo.SQLXL_IDX_sys_fulltext_catalogs
+ INDEX ixuc_SQLXL_Index_sys_fulltext_catalogs
+    ON TempDB.dbo.SQLXL_Index_sys_fulltext_catalogs
       (database_id
       ,fulltext_catalog_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_foreign_keys')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_foreign_keys')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_foreign_keys
-    ON TempDB.dbo.SQLXL_IDX_sys_foreign_keys
+ INDEX ixuc_SQLXL_Index_sys_foreign_keys
+    ON TempDB.dbo.SQLXL_Index_sys_foreign_keys
       (database_id
       ,object_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_foreign_key_columns')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_foreign_key_columns')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_foreign_key_columns
-    ON TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns
+ INDEX ixuc_SQLXL_Index_sys_foreign_key_columns
+    ON TempDB.dbo.SQLXL_Index_sys_foreign_key_columns
       (database_id
       ,constraint_object_id
       ,constraint_column_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ix_SQLXL_IDX_sys_foreign_key_columns_parent')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ix_SQLXL_Index_sys_foreign_key_columns_parent')
 CREATE
- INDEX ix_SQLXL_IDX_sys_foreign_key_columns_parent
-    ON TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns
+ INDEX ix_SQLXL_Index_sys_foreign_key_columns_parent
+    ON TempDB.dbo.SQLXL_Index_sys_foreign_key_columns
       (database_id
       ,parent_object_id
       ,parent_column_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ix_SQLXL_IDX_sys_foreign_key_columns_refer')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ix_SQLXL_Index_sys_foreign_key_columns_refer')
 CREATE
- INDEX ix_SQLXL_IDX_sys_foreign_key_columns_refer
-    ON TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns
+ INDEX ix_SQLXL_Index_sys_foreign_key_columns_refer
+    ON TempDB.dbo.SQLXL_Index_sys_foreign_key_columns
       (database_id
       ,referenced_object_id
       ,referenced_column_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_extended_properties')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_extended_properties')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_extended_properties
-    ON TempDB.dbo.SQLXL_IDX_sys_extended_properties
+ INDEX ixuc_SQLXL_Index_sys_extended_properties
+    ON TempDB.dbo.SQLXL_Index_sys_extended_properties
       (database_id
       ,class
       ,major_id
@@ -5176,20 +5176,20 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_stats')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_stats')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_stats
-    ON TempDB.dbo.SQLXL_IDX_sys_stats
+ INDEX ixuc_SQLXL_Index_sys_stats
+    ON TempDB.dbo.SQLXL_Index_sys_stats
       (database_id
       ,object_id
       ,stats_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_stats_columns')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_stats_columns')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_stats_columns
-    ON TempDB.dbo.SQLXL_IDX_sys_stats_columns
+ INDEX ixuc_SQLXL_Index_sys_stats_columns
+    ON TempDB.dbo.SQLXL_Index_sys_stats_columns
       (database_id
       ,object_id
       ,stats_id
@@ -5197,20 +5197,20 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_dm_db_partition_stats')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_partition_stats')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_dm_db_partition_stats
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_partition_stats
+ INDEX ixuc_SQLXL_Index_sys_dm_db_partition_stats
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_partition_stats
       (database_id
       ,object_id
       ,index_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_dm_db_stats_properties')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_stats_properties')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_dm_db_stats_properties
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_stats_properties
+ INDEX ixuc_SQLXL_Index_sys_dm_db_stats_properties
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_stats_properties
       (database_id
       ,object_id
       ,stats_id
@@ -5218,10 +5218,10 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_partitions')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_partitions')
 CREATE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_partitions
-    ON TempDB.dbo.SQLXL_IDX_sys_partitions
+ INDEX ixuc_SQLXL_Index_sys_partitions
+    ON TempDB.dbo.SQLXL_Index_sys_partitions
       (database_id
       ,object_id
       ,index_id
@@ -5231,7 +5231,7 @@ CREATE CLUSTERED
 IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_sys_dm_db_index_operational_stats')
 CREATE UNIQUE CLUSTERED
  INDEX ixuc_sys_dm_db_index_operational_stats
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_index_operational_stats
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_index_operational_stats
       (database_id
       ,object_id
       ,index_id
@@ -5241,17 +5241,17 @@ CREATE UNIQUE CLUSTERED
 IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_sys_dm_db_index_usage_stats')
 CREATE UNIQUE CLUSTERED
  INDEX ixuc_sys_dm_db_index_usage_stats
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_index_usage_stats
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_index_usage_stats
       (database_id
       ,object_id
       ,index_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_dm_db_xtp_index_stats')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_xtp_index_stats')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_dm_db_xtp_index_stats
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_xtp_index_stats
+ INDEX ixuc_SQLXL_Index_sys_dm_db_xtp_index_stats
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_xtp_index_stats
       (database_id
       ,object_id
       ,index_id
@@ -5259,10 +5259,10 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_dm_os_buffer_descriptors_EXT')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_dm_os_buffer_descriptors_EXT')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_dm_os_buffer_descriptors_EXT
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors_EXT
+ INDEX ixuc_SQLXL_Index_sys_dm_os_buffer_descriptors_EXT
+    ON TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors_EXT
       (database_id
       ,object_id
       ,index_id
@@ -5271,11 +5271,11 @@ CREATE UNIQUE CLUSTERED
   WITH (DATA_COMPRESSION = PAGE);
 
 IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
-                WHERE name = N'ixuc_SQLXL_IDX_sys_dm_db_column_store_row_group_physical_stats'
+                WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats'
               )
 CREATE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_dm_db_column_store_row_group_physical_stats
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_physical_stats
+ INDEX ixuc_SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats
        (database_id
        ,object_id
        ,index_id
@@ -5283,21 +5283,21 @@ CREATE CLUSTERED
   WITH (DATA_COMPRESSION = PAGE);
 
 IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
-                WHERE name = N'ixuc_SQLXL_IDX_sys_dm_db_column_store_row_group_operational_stats'
+                WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats'
               )
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_dm_db_column_store_row_group_operational_stats
-    ON TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_operational_stats
+ INDEX ixuc_SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats
+    ON TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats
       (database_id
       ,object_id
       ,index_id
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_index_resumable_operations')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_index_resumable_operations')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_index_resumable_operations
-    ON TempDB.dbo.SQLXL_IDX_sys_index_resumable_operations
+ INDEX ixuc_SQLXL_Index_sys_index_resumable_operations
+    ON TempDB.dbo.SQLXL_Index_sys_index_resumable_operations
       (database_id
       ,object_id
       ,index_id
@@ -5306,11 +5306,11 @@ CREATE UNIQUE CLUSTERED
 
 IF NOT EXISTS (SELECT NULL
                  FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
-                WHERE name = N'ix_SQLXL_IDX_sys_sql_expression_dependencies'
+                WHERE name = N'ix_SQLXL_Index_sys_sql_expression_dependencies'
               )
 CREATE CLUSTERED
- INDEX ix_SQLXL_IDX_sys_sql_expression_dependencies
-    ON TempDB.dbo.SQLXL_IDX_sys_sql_expression_dependencies
+ INDEX ix_SQLXL_Index_sys_sql_expression_dependencies
+    ON TempDB.dbo.SQLXL_Index_sys_sql_expression_dependencies
       (database_id
       ,referenced_id
       ,referenced_minor_id
@@ -5319,10 +5319,10 @@ CREATE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_ShowStatistics_StatHeader')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_ShowStatistics_StatHeader')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_ShowStatistics_StatHeader
-    ON tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader
+ INDEX ixuc_SQLXL_Index_sys_ShowStatistics_StatHeader
+    ON tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
       (database_id
       ,object_id
       ,index_ID
@@ -5330,10 +5330,10 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_ShowStatistics_DensityVector')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_ShowStatistics_DensityVector')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_ShowStatistics_DensityVector
-    ON tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector
+ INDEX ixuc_SQLXL_Index_sys_ShowStatistics_DensityVector
+    ON tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
       (database_id
       ,object_id
       ,index_ID
@@ -5343,11 +5343,11 @@ CREATE UNIQUE CLUSTERED
   WITH (DATA_COMPRESSION = PAGE);
 
 IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
-                WHERE name = N'ixuc_SQLXL_IDX_sys_ShowStatistics_Histogram_summary'
+                WHERE name = N'ixuc_SQLXL_Index_sys_ShowStatistics_Histogram_summary'
               )
 CREATE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_ShowStatistics_Histogram_summary
-    ON tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram_summary
+ INDEX ixuc_SQLXL_Index_sys_ShowStatistics_Histogram_summary
+    ON tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary
       (database_id
       ,object_id
       ,index_ID
@@ -5355,10 +5355,10 @@ CREATE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_IDX_sys_internal_partitions')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_internal_partitions')
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_sys_internal_partitions
-    ON tempdb.dbo.SQLXL_IDX_sys_internal_partitions
+ INDEX ixuc_SQLXL_Index_sys_internal_partitions
+    ON tempdb.dbo.SQLXL_Index_sys_internal_partitions
       (database_id
       ,object_id
       ,index_ID
@@ -5371,9 +5371,9 @@ IF @ssms = 1 RAISERROR('',0,0) WITH NOWAIT;
 IF @ssms = 1 RAISERROR('Creating table of consolidated index properties and attributes',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************/
 
-IF OBJECT_ID(N'TempDB.dbo.SQLXL_IDX_Compilation') IS NOT NULL DROP TABLE TempDB.dbo.SQLXL_IDX_Compilation;
+IF OBJECT_ID(N'TempDB.dbo.SQLXL_Index_Compilation') IS NOT NULL DROP TABLE TempDB.dbo.SQLXL_Index_Compilation;
 
-CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
+CREATE TABLE TempDB.dbo.SQLXL_Index_Compilation
 (
 -- FUTURE KEY from task start time
  collection_DTTM                            DATETIME                                    NULL
@@ -6123,7 +6123,7 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Compilation
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Insert heaps, indexes, FKC, TVF, Views',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************/
-INSERT INTO tempdb.dbo.SQLXL_IDX_Compilation
+INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       (rec_type
       ,database_id
       ,database_name
@@ -6427,7 +6427,7 @@ SELECT o.parent_object_id,o.object_id,o.type
               ,parent_id
               ,parent_minor_id
            -- ,lob_data_space_id, filestream_data_space_id, all TR trigger columns excluded, all SQL MODULES columns excluded
-          FROM tempdb.dbo.SQLXL_IDX_sys_objects
+          FROM tempdb.dbo.SQLXL_Index_sys_objects
          WHERE type IN
                        (N'F'  -- Foreign Key Constraint
                        ,N'FT' -- Assembly (CLR) table-valued function
@@ -6443,7 +6443,7 @@ SELECT o.parent_object_id,o.object_id,o.type
 -- Get their parent object info
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects      AS op
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects      AS op
     ON o.database_id                          = op.database_id
    AND o.parent_object_id                     = op.object_id
 
@@ -6451,7 +6451,7 @@ SELECT o.parent_object_id,o.object_id,o.type
 -- match up objects to their indexes
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_indexes      AS i  -- includes sys.indexes, 'FT' Assembly (CLR) table-valued function
+  JOIN tempdb.dbo.SQLXL_Index_sys_indexes      AS i  -- includes sys.indexes, 'FT' Assembly (CLR) table-valued function
     ON o.database_id                          = i.database_id
    AND o.object_id                            = i.object_id
 
@@ -6459,7 +6459,7 @@ SELECT o.parent_object_id,o.object_id,o.type
 -- match up Foreign Key Constraints to their records
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_foreign_keys AS fk
+  JOIN tempdb.dbo.SQLXL_Index_sys_foreign_keys AS fk
     ON o.database_id                          = fk.database_id
    AND o.object_id                            = fk.object_id
 
@@ -6467,10 +6467,10 @@ SELECT o.parent_object_id,o.object_id,o.type
 -- add database and schema info
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
-  JOIN Tempdb.dbo.SQLXL_IDX_sys_databases    AS d
+  JOIN Tempdb.dbo.SQLXL_Index_sys_databases    AS d
     ON o.database_id                          = d.database_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_schemas      AS s
+  JOIN TempDB.dbo.SQLXL_Index_sys_schemas      AS s
     ON o.database_id                          = s.database_id
    AND o.schema_id                            = s.schema_id
 
@@ -6478,7 +6478,7 @@ SELECT o.parent_object_id,o.object_id,o.type
 -- add buffer cache summary usage
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_dm_os_buffer_descriptors_EXT AS bd
+  JOIN tempdb.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors_EXT AS bd
     ON o.database_id                                          = bd.database_id
    AND o.object_id                                            = bd.object_id
    AND i.index_id                                             = bd.index_id
@@ -6500,8 +6500,8 @@ SELECT o.parent_object_id,o.object_id,o.type
                                                                       ,ic.index_id
                                                               ORDER BY ic.column_id
                                                          )
-          FROM TempDB.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN TempDB.dbo.SQLXL_IDX_sys_columns       AS c
+          FROM TempDB.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN TempDB.dbo.SQLXL_Index_sys_columns       AS c
             ON ic.database_id                          = c.database_id
            AND ic.object_id                            = c.object_id
            AND ic.column_id                            = c.column_id
@@ -6519,13 +6519,13 @@ SELECT o.parent_object_id,o.object_id,o.type
 -- Startup parameters
 ------------------------------------------------------------------------------------------------------
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters           AS p
+  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters           AS p
 OPTION (MAXDOP 1);
 
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Insert Full Text indexes',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************/
-INSERT INTO tempdb.dbo.SQLXL_IDX_Compilation
+INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       (rec_type
       ,database_id
       ,database_name
@@ -6678,48 +6678,48 @@ SELECT rec_type                          = N'I'
       ,Missing_index_CNT                 = 0
       ,Foreign_Key_CNT                   = 0
 
-  FROM TempDB.dbo.SQLXL_IDX_sys_fulltext_indexes             AS i
+  FROM TempDB.dbo.SQLXL_Index_sys_fulltext_indexes             AS i
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_fulltext_catalogs            AS c
+  JOIN TempDB.dbo.SQLXL_Index_sys_fulltext_catalogs            AS c
     ON i.database_id                                          = c.database_id
    AND i.fulltext_catalog_id                                  = c.fulltext_catalog_id
 ------------------------------------------------------------------------------------------------------
 -- Get Object-level info
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects                      AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects                      AS o
     ON i.database_id                                          = o.database_id
    AND i.object_id                                            = o.object_id
 ------------------------------------------------------------------------------------------------------
 -- Get Parent Object-level info
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects                      AS op
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects                      AS op
     ON i.database_id                                          = op.database_id
    AND o.parent_object_id                                     = op.object_id
 ------------------------------------------------------------------------------------------------------
 -- add database and schema info
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
-  JOIN Tempdb.dbo.SQLXL_IDX_sys_databases                    AS d
+  JOIN Tempdb.dbo.SQLXL_Index_sys_databases                    AS d
     ON i.database_id                                          = d.database_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_schemas                      AS s
+  JOIN TempDB.dbo.SQLXL_Index_sys_schemas                      AS s
     ON i.database_id                                          = s.database_id
    AND o.schema_id                                            = s.schema_id
 ------------------------------------------------------------------------------------------------------
 -- NOTE: Not sure how buffer cache links to Fulltext index
 ------------------------------------------------------------------------------------------------------
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters           AS p
+  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters           AS p
 OPTION (MAXDOP 1);
 
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Insert Missing indexes',0,0) WITH NOWAIT;
--- NOTE: includes TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_details, dm_db_missing_index_groups, dm_db_missing_index_group_stats
+-- NOTE: includes TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_details, dm_db_missing_index_groups, dm_db_missing_index_group_stats
 /******************************************************************************************************************************************/
 
-INSERT INTO tempdb.dbo.SQLXL_IDX_Compilation
+INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       (rec_type
       ,database_id
       ,database_name
@@ -6858,34 +6858,34 @@ SELECT rec_type                          = N'I'
 SELECT COUNT(1)
 --*/
 
-  FROM TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_details AS i
+  FROM TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_details AS i
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters          AS p
+  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters          AS p
  INNER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_databases                   AS d
+  JOIN tempdb.dbo.SQLXL_Index_sys_databases                   AS d
     ON i.database_id                                         = d.database_id
  INNER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_objects                     AS o
+  JOIN TempDB.dbo.SQLXL_Index_sys_objects                     AS o
     ON i.database_id                                         = o.database_id
    AND i.object_id                                           = o.object_id
  INNER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_schemas                     AS s
+  JOIN TempDB.dbo.SQLXL_Index_sys_schemas                     AS s
     ON o.database_id                                         = s.database_id
    AND o.schema_id                                           = s.schema_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_objects                     AS op
+  JOIN TempDB.dbo.SQLXL_Index_sys_objects                     AS op
     ON o.database_id                                         = op.database_id
    AND o.parent_object_id                                    = op.object_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_group_stats_query AS mqy
+  JOIN TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query AS mqy
     ON i.group_handle                                                  = mqy.group_handle
 OPTION (MAXDOP 1);
 
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Indexing Compilation Table',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************/
-CREATE UNIQUE CLUSTERED INDEX ixuc_SQLXL_IDX_Compilation
-    ON TempDB.dbo.SQLXL_IDX_Compilation
+CREATE UNIQUE CLUSTERED INDEX ixuc_SQLXL_Index_Compilation
+    ON TempDB.dbo.SQLXL_Index_Compilation
       (database_id
       ,parent_object_id
       ,object_ID
@@ -6896,8 +6896,8 @@ CREATE UNIQUE CLUSTERED INDEX ixuc_SQLXL_IDX_Compilation
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-CREATE INDEX ix_SQLXL_IDX_Compilation__rec_type
-    ON TempDB.dbo.SQLXL_IDX_Compilation
+CREATE INDEX ix_SQLXL_Index_Compilation__rec_type
+    ON TempDB.dbo.SQLXL_Index_Compilation
       (rec_type)
   WITH (DATA_COMPRESSION = PAGE);
 
@@ -6910,12 +6910,12 @@ SELECT database_id
       ,object_id
       ,ft_unique_index_id
       ,index_id
-  FROM (SELECT * FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE rec_type = N'I') AS i
+  FROM (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS i
  WHERE type     = N'90' -- full text
 )
 UPDATE tgt
    SET Relates_Fulltext_index_ID   = ftx.index_id
-  FROM (SELECT * FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE rec_type = N'I') AS tgt
+  FROM (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS tgt
   JOIN ftx                        AS ftx
     ON tgt.database_id             = ftx.database_id
    AND tgt.parent_object_id        = ftx.parent_object_id
@@ -6936,14 +6936,14 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
 --*/
 
         key_column_IDs = N','+key_columns.col_id
-   FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+   FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
  CROSS APPLY
        (------------------------------------------------------------------------------------------------------------------------------------
         -- get comma-separated list of all KEY column ID's. Include leading comma so IDs are distinct
         -- includes ALL "indexes" except HEAP & Columnstore. Foreign Key Constraints added below
         ------------------------------------------------------------------------------------------------------------------------------------
         SELECT CAST(ic.column_id AS NVARCHAR(MAX)) + N','
-          FROM TempDB.dbo.SQLXL_IDX_sys_index_columns ic
+          FROM TempDB.dbo.SQLXL_Index_sys_index_columns ic
          WHERE tgt.database_id      = ic.database_id
            AND tgt.object_id        = ic.object_id
            AND tgt.index_id         = ic.index_id
@@ -6969,14 +6969,14 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
 --*/
 
         key_column_IDs = N','+key_columns.col_id
-   FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+   FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
  CROSS APPLY
        (------------------------------------------------------------------------------------------------------------------------------------
         -- get comma-separated list of all KEY column ID's, include leading column so IDs are distinct
         -- includes ALL "indexes" except HEAP & Columnstore
         ------------------------------------------------------------------------------------------------------------------------------------
         SELECT CAST(fkc.parent_column_id AS NVARCHAR(MAX)) + N','
-          FROM TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns AS fkc
+          FROM TempDB.dbo.SQLXL_Index_sys_foreign_key_columns AS fkc
          WHERE tgt.database_id                               = fkc.database_id
            AND tgt.object_id                                 = fkc.constraint_object_id
          ORDER BY
@@ -6990,7 +6990,7 @@ OPTION (MAXDOP 1);
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Insert PARENT records',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************/
-INSERT INTO tempdb.dbo.SQLXL_IDX_Compilation
+INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       (rec_type
       --------------------------------------------
       -- sys.databases
@@ -7118,26 +7118,26 @@ SELECT rec_type                    = CASE WHEN t.temporal_type        = 1     TH
       ----------------------------------------------------------------------------------------------------
       ,Stats_CNT                         = ISNULL(stats.Statistics_CNT,0)
 
-  FROM tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters AS p
+  FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS p
  CROSS
-  JOIN TempDB.dbo.SQLXL_IDX_sys_objects            AS o
+  JOIN TempDB.dbo.SQLXL_Index_sys_objects            AS o
 
  LEFT OUTER
-  JOIN Tempdb.dbo.SQLXL_IDX_sys_databases          AS d
+  JOIN Tempdb.dbo.SQLXL_Index_sys_databases          AS d
     ON o.database_id                                = d.database_id
 
  LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_schemas            AS s
+  JOIN TempDB.dbo.SQLXL_Index_sys_schemas            AS s
     ON o.database_id                                = s.database_id
    AND o.schema_id                                  = s.schema_id
 
  LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_objects            AS op
+  JOIN TempDB.dbo.SQLXL_Index_sys_objects            AS op
     ON o.database_id                                = op.database_id
    AND o.parent_object_id                           = op.object_id
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_tables             AS t
+  JOIN TempDB.dbo.SQLXL_Index_sys_tables             AS t
     ON o.database_id                                = t.database_id
    AND o.object_id                                  = t.object_id
 
@@ -7152,8 +7152,8 @@ SELECT rec_type                    = CASE WHEN t.temporal_type        = 1     TH
               ,Page_Comp           = SUM(p.Page_Comp    )
               ,colstore_Comp       = SUM(p.colstore_Comp)
               ,colstore_Arch       = SUM(p.colstore_Arch)
-          FROM TempDB.dbo.SQLXL_IDX_sys_partitions AS p
-          JOIN tempdb.dbo.SQLXL_IDX_sys_indexes    AS i
+          FROM TempDB.dbo.SQLXL_Index_sys_partitions AS p
+          JOIN tempdb.dbo.SQLXL_Index_sys_indexes    AS i
             ON p.database_id     = i.database_id
            AND p.object_id       = i.object_id
            AND p.index_id        = i.index_id
@@ -7174,8 +7174,8 @@ SELECT rec_type                    = CASE WHEN t.temporal_type        = 1     TH
               ,o.parent_object_id
               ,Statistics_CNT          = COUNT(1)
               ,Statistics_Filtered_CNT = SUM(CASE WHEN has_filter = 1 THEN 1 ELSE 0 END)
-          FROM TempDB.dbo.SQLXL_IDX_sys_stats   AS s
-          JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+          FROM TempDB.dbo.SQLXL_Index_sys_stats   AS s
+          JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
             ON s.database_id                     = o.database_id
            AND s.object_id                       = o.object_id
          GROUP BY
@@ -7198,7 +7198,7 @@ OPTION (MAXDOP 1);
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Insert DATABASE records',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************/
-INSERT INTO tempdb.dbo.SQLXL_IDX_Compilation
+INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       (rec_type
       ,database_id
       ,database_name
@@ -7238,24 +7238,24 @@ SELECT rec_type                = N'D'
       ,type                    = N'DB'
       ,type_desc               = N'Database'
       ,sub_type                = 0
-  FROM tempdb.dbo.SQLXL_IDX_sys_databases      AS d
+  FROM tempdb.dbo.SQLXL_Index_sys_databases      AS d
   JOIN (---------------------------------------------------------------------------------
         -- Only get databases in the returned info set - no MSDB, MASTER, ...
         ---------------------------------------------------------------------------------
         SELECT database_id
-          FROM tempdb.dbo.SQLXL_IDX_sys_objects
+          FROM tempdb.dbo.SQLXL_Index_sys_objects
          GROUP BY
                database_id
        )                                    AS o
     ON d.database_id                         = o.database_id
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters AS p
+  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS p
 OPTION (MAXDOP 1);
 
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Insert INSTANCE record',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************/
-INSERT INTO tempdb.dbo.SQLXL_IDX_Compilation
+INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       (rec_type
       ,database_id
       ,database_name
@@ -7295,7 +7295,7 @@ SELECT rec_type                = N'A'
       ,type                    = N'A'
       ,type_desc               = N'Instance'
       ,sub_type                = 0
-  FROM tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters AS p
+  FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS p
 OPTION (MAXDOP 1);
 
 SET ANSI_WARNINGS OFF;
@@ -7426,10 +7426,10 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
       ,obj_type_short_label = ISNULL(RTRIM(LEFT(otl.obj_type_hdr,3)),N'')
 --*/
 
-  FROM tempdb.dbo.SQLXL_IDX_Compilation  AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation  AS tgt
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_tables   AS tbl              -- all records get TABLE level information
+  JOIN TempDB.dbo.SQLXL_Index_sys_tables   AS tbl              -- all records get TABLE level information
     ON tgt.database_ID                    = tbl.database_id
    AND (   (    tgt.TYPE             = N'F'
             AND tgt.parent_object_ID = tbl.object_id
@@ -7440,12 +7440,12 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
        )
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_tables   AS par              -- Check if special attributes for the PARENT table (e.g. XTP)
+  JOIN TempDB.dbo.SQLXL_Index_sys_tables   AS par              -- Check if special attributes for the PARENT table (e.g. XTP)
     ON tgt.database_id                    = par.database_id
    AND tgt.parent_object_id               = par.object_id
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_tables  AS his
+  JOIN TempDB.dbo.SQLXL_Index_sys_tables  AS his
     ON tbl.database_id                   = his.database_id
    AND tbl.history_table_id              = his.object_id
 
@@ -7456,7 +7456,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
         SELECT database_id
               ,data_space_id
               ,data_space_name
-          FROM TempDB.dbo.SQLXL_IDX_sys_data_spaces
+          FROM TempDB.dbo.SQLXL_Index_sys_data_spaces
          GROUP BY
                database_id
               ,data_space_id
@@ -7472,7 +7472,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
         SELECT database_id
               ,data_space_id
               ,data_space_name
-          FROM TempDB.dbo.SQLXL_IDX_sys_data_spaces
+          FROM TempDB.dbo.SQLXL_Index_sys_data_spaces
          GROUP BY
                database_id
               ,data_space_id
@@ -7482,7 +7482,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
    AND tbl.filestream_data_space_id      = fst_ds.data_space_id
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_schemas AS sch
+  JOIN TempDB.dbo.SQLXL_Index_sys_schemas AS sch
     ON his.database_id                   = sch.database_id
    AND his.SCHEMA_ID                     = sch.SCHEMA_ID
 
@@ -7494,7 +7494,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
               ,object_id
               ,is_clustered_columnstore = SUM(IIF(type = N'5',1,0))
               ,is_heap                  = SUM(IIF(type = N'0',1,0))
-          FROM tempdb.dbo.SQLXL_IDX_sys_indexes
+          FROM tempdb.dbo.SQLXL_Index_sys_indexes
          GROUP BY
                database_id
               ,object_id
@@ -7511,8 +7511,8 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
         SELECT p.database_id
               ,p.object_id
               ,row_CNT  = SUM(p.row_count)
-          FROM tempdb.dbo.SQLXL_IDX_sys_dm_db_partition_stats AS p
-          JOIN tempdb.dbo.SQLXL_IDX_sys_indexes               AS i
+          FROM tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats AS p
+          JOIN tempdb.dbo.SQLXL_Index_sys_indexes               AS i
             ON p.database_id = i.database_id
            AND p.object_id   = i.object_id
            AND i.type IN (N'0',N'1',N'5')
@@ -7536,7 +7536,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
         SELECT database_id
               ,object_id
               ,column_CNT = COUNT(1)
-          FROM TempDB.dbo.SQLXL_IDX_sys_columns
+          FROM TempDB.dbo.SQLXL_Index_sys_columns
          GROUP BY
                database_id
               ,object_id
@@ -7555,7 +7555,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.par_object_ty
               ,par_CLR_trigger_CNT           = SUM(IIF(type = N'TA',1,0))                 -- Assembly (CLR) DML trigger
               ,par_SQL_trigger_CNT           = SUM(IIF(type = N'TR',1,0))                 -- SQL DML trigger
               ,par_is_instead_of_trigger_CNT = SUM(IIF(tr_is_instead_of_trigger = 1,1,0))
-          FROM TempDB.dbo.SQLXL_IDX_sys_objects
+          FROM TempDB.dbo.SQLXL_Index_sys_objects
          WHERE tr_parent_class  = 1 -- Object or column for the DML triggers
            AND tr_is_ms_shipped = 0 -- Trigger NOT created on behalf of the user by an internal SQL Server component
            AND tr_is_disabled   = 0 -- Trigger is enabled
@@ -7668,8 +7668,8 @@ IF @ssms = 1 RAISERROR('... Flag index columns that are filtered using sys.sql_e
 /******************************************************************************************************************************************/
 UPDATE tgt
    SET is_index_column_filtered = 1
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns               AS tgt
-  JOIN tempdb.dbo.SQLXL_IDX_sys_sql_expression_dependencies AS ed
+  FROM tempdb.dbo.SQLXL_Index_sys_index_columns               AS tgt
+  JOIN tempdb.dbo.SQLXL_Index_sys_sql_expression_dependencies AS ed
     ON ed.database_id          = tgt.database_id
    AND ed.referencing_id       = tgt.object_id
    AND ed.referencing_minor_id = tgt.index_id
@@ -7687,12 +7687,12 @@ IF @ssms = 1 RAISERROR('... Create table of all used and referenced columns',0,0
 -- Foreign Key Constraint columns
 -- table valued function columns
 /******************************************************************************************************************************************/
-IF (OBJECT_ID(N'tempdb.dbo.SQLXL_IDX_column') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_IDX_column;
+IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_column') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_Index_column;
 
 SET ANSI_WARNINGS ON; -- required for XML datatype used in concatenation below
 
 SELECT qry.*
-  INTO tempdb.dbo.SQLXL_IDX_column
+  INTO tempdb.dbo.SQLXL_Index_column
   FROM (
 SELECT database_id                    = ic.database_id
       ,object_id                      = ic.object_id
@@ -7900,16 +7900,16 @@ SELECT *
 --*/
   FROM (-- Get SQL version from source server
         SELECT version = TRY_CAST(run_value AS TINYINT)
-          FROM tempdb.dbo.SQLXL_IDX_sys_instance
+          FROM tempdb.dbo.SQLXL_Index_sys_instance
          WHERE name   = N'ProductMajorVersion'
            AND source = N'SERVERPROPERTY'
        )                                                    AS v
 
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters          AS sp
+  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters          AS sp
 
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_sys_columns                     AS ic -- get all columns, since wnat to get columns not included in NonClustered
+  JOIN tempdb.dbo.SQLXL_Index_sys_columns                     AS ic -- get all columns, since wnat to get columns not included in NonClustered
                                                                   -- Columnstores and candidates for clustered indexes on HEAPS
   LEFT OUTER
   JOIN (SELECT o.database_id
@@ -7918,9 +7918,9 @@ SELECT *
               ,o.type
               ,t.is_replicated
               ,t.is_merge_published
-          FROM TempDB.dbo.SQLXL_IDX_sys_objects AS o
+          FROM TempDB.dbo.SQLXL_Index_sys_objects AS o
           LEFT OUTER
-          JOIN TempDB.dbo.SQLXL_IDX_sys_tables  AS t
+          JOIN TempDB.dbo.SQLXL_Index_sys_tables  AS t
             ON o.database_id                     = t.database_id
            AND o.object_id                       = t.object_id
        ) AS o
@@ -7928,16 +7928,16 @@ SELECT *
    AND ic.object_id                              = o.object_id
 
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_columns         AS c
+  JOIN TempDB.dbo.SQLXL_Index_sys_columns         AS c
     ON ic.database_id                            = c.database_id
    AND ic.object_id                              = c.object_id
    AND ic.column_id                              = c.column_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_types           AS typ
+  JOIN tempdb.dbo.SQLXL_Index_sys_types           AS typ
     ON c.database_id                             = typ.database_id
    AND c.user_type_id                            = typ.user_type_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns   AS ftic                  -- info for full text columns
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns   AS ftic                  -- info for full text columns
     ON ic.database_id                            = ftic.database_id
    AND ic.object_id                              = ftic.object_id
    AND ic.column_id                              = ftic.column_id
@@ -7955,17 +7955,17 @@ SELECT *
               ,ssdv.All_Density
               ,ssdv.Average_Length
               ,sshs.param_sniff
-          FROM tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader    AS sssh
+          FROM tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader    AS sssh
 
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector AS ssdv
+          JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS ssdv
             ON sssh.database_id         = ssdv.database_id
            AND sssh.object_id           = ssdv.object_id
            AND sssh.column_id           = ssdv.column_id         -- column statistics. index computed separately
            AND 1                      = ssdv.Row_ID            -- some column_IDs have more than one row
                                                                -- looks like broken references from days of future past
           LEFT OUTER
-          JOIN TempDB.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram_summary AS sshs
+          JOIN TempDB.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary AS sshs
             ON sssh.database_id          = sshs.database_id
            AND sssh.object_id            = sshs.object_id
            AND sssh.column_id            = sshs.column_id
@@ -7983,7 +7983,7 @@ SELECT *
   JOIN (
         SELECT database_id
               ,object_id
-          FROM tempdb.dbo.SQLXL_IDX_sys_dm_db_partition_stats
+          FROM tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats
          GROUP BY
                database_id
               ,object_id
@@ -7994,7 +7994,7 @@ SELECT *
 
   ------------------------------------------------------------------------------------------------------------------------------------------
   LEFT OUTER -- Column DEFAULT constraints
-  JOIN tempdb.dbo.SQLXL_IDX_sys_default_constraints AS dc
+  JOIN tempdb.dbo.SQLXL_Index_sys_default_constraints AS dc
     ON c.database_id                                 = dc.database_id
    AND c.default_object_id                           = dc.object_id
 
@@ -8021,12 +8021,12 @@ SELECT *
                               +IIF(cxo.is_schema_published    = 1,N' ,SCH_PBLSHD'  ,N'')
                               ,N'')
                       +N' '+LTRIM(RTRIM(cx.definition))
-                  FROM TempDB.dbo.SQLXL_IDX_sys_check_constraints AS cx
-                  JOIN TempDB.dbo.SQLXL_IDX_sys_columns           AS c
+                  FROM TempDB.dbo.SQLXL_Index_sys_check_constraints AS cx
+                  JOIN TempDB.dbo.SQLXL_Index_sys_columns           AS c
                     ON cc.database_id                              = c.database_id
                    AND cc.parent_object_id                         = c.object_id
                    AND cc.parent_column_id                         = c.column_id
-                  JOIN TempDB.dbo.SQLXL_IDX_sys_objects           AS cxo
+                  JOIN TempDB.dbo.SQLXL_Index_sys_objects           AS cxo
                     ON cx.database_id                              = cxo.database_id
                    AND cx.object_id                                = cxo.object_id
                  WHERE cc.database_id                              = cx.database_id
@@ -8040,7 +8040,7 @@ SELECT *
                 SELECT cc.database_id
                       ,cc.parent_object_id
                       ,cc.parent_column_id
-                  FROM TempDB.dbo.SQLXL_IDX_sys_check_constraints AS cc
+                  FROM TempDB.dbo.SQLXL_Index_sys_check_constraints AS cc
                  WHERE cc.parent_column_id > 0 -- not a table constraint
                  GROUP BY
                        cc.database_id
@@ -8068,9 +8068,9 @@ SELECT *
                                                                       ,ssdv.Columns
                                                               ORDER BY ssdv.index_id
                                                          )
-          FROM tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector AS ssdv
+          FROM tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS ssdv
          INNER
-          JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader    AS sssh
+          JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader    AS sssh
             ON ssdv.database_id                                    = sssh.database_id
            AND ssdv.object_id                                      = sssh.object_id
            AND ssdv.index_id                                       = sssh.index_id
@@ -8083,8 +8083,8 @@ SELECT *
 OPTION (MAXDOP 1); -- NOTE: FORCE ORDER slows things down a bunch
 
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_column
-    ON tempdb.dbo.SQLXL_IDX_column
+ INDEX ixuc_SQLXL_Index_column
+    ON tempdb.dbo.SQLXL_Index_column
       (database_id
       ,object_id
       ,column_id
@@ -8098,8 +8098,8 @@ IF @ssms = 1 RAISERROR('... Update Column Descriptors for Full Text indexes',0,0
 UPDATE tgt
    SET key_column_info = ISNULL(
                      STUFF((SELECT NCHAR(10)+eix.[Column Descriptors]
-                               FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ftic
-                               JOIN tempdb.dbo.SQLXL_IDX_column            AS eix
+                               FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ftic
+                               JOIN tempdb.dbo.SQLXL_Index_column            AS eix
                                  ON ftic.database_id                        = eix.database_id
                                 AND ftic.object_id                          = eix.object_id
                                 -- No Object_ID column in XL_IDX_column
@@ -8111,7 +8111,7 @@ UPDATE tgt
                            ).value('(./text())[1]','NVARCHAR(4000)')
                           ,1,1,N'')
                      ,N'<Column Description not found>')
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
  WHERE tgt.type = N'90'
 OPTION (MAXDOP 1);
 
@@ -8121,8 +8121,8 @@ IF @ssms = 1 RAISERROR('... Update index columns to identify those also included
 /******************************************************************************************************************************************/
 UPDATE tgt
    SET in_clustered_index = 1
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS tgt
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS ci
+  FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS tgt
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS ci
     ON tgt.database_id      = ci.database_id
    AND tgt.object_id        = ci.object_id
    AND tgt.column_id        = ci.column_id
@@ -8136,7 +8136,7 @@ IF @ssms = 1 RAISERROR('... Update Missing index column key sequence based uniqu
 /******************************************************************************************************************************************/
 UPDATE tgt
    SET tgt.key_column_sequence = mic.rn
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS tgt
+  FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS tgt
   JOIN (-- get key column "order" for missing indexes tied to increasing uniqueness
         SELECT ic.database_id
               ,ic.object_id
@@ -8150,8 +8150,8 @@ UPDATE tgt
                                            ORDER BY ic.column_usage -- EQUALITY before INEQUALITY
                                                    ,c.Uniqueness
                                       )
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_column            AS c
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN tempdb.dbo.SQLXL_Index_column            AS c
             ON ic.database_id                       = c.database_id
            AND ic.object_id                         = c.object_id
            AND ic.column_id                         = c.column_id
@@ -8166,10 +8166,10 @@ UPDATE tgt
 OPTION (MAXDOP 1);
 
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR('... Create tempdb.dbo.SQLXL_IDX_uniqueness',0,0) WITH NOWAIT;
+IF @ssms = 1 RAISERROR('... Create tempdb.dbo.SQLXL_Index_uniqueness',0,0) WITH NOWAIT;
 -- Build table of column uniqueness & display values
 /******************************************************************************************************************************************/
-IF (OBJECT_ID(N'tempdb.dbo.SQLXL_IDX_uniqueness') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_IDX_uniqueness;
+IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_uniqueness') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_Index_uniqueness;
 
 SET ANSI_WARNINGS ON; -- required for XML datatype used in concatenation below
 
@@ -8191,7 +8191,7 @@ SELECT icol.database_id
       ,stat_uniqueness    = 1.0 * icol.index_row_count * ssdv.All_Density
       ,icol.index_row_count
       ,ssdv.All_Density
-  INTO tempdb.dbo.SQLXL_IDX_uniqueness
+  INTO tempdb.dbo.SQLXL_Index_uniqueness
 /*** LOCAL TESTING ***
 SELECT icol.database_id
       ,FK.object_id
@@ -8308,7 +8308,7 @@ SELECT icol.database_id
                       ,is_included_column
                       ,srt                = 1
                       ,column_id
-                  FROM TempDB.dbo.SQLXL_IDX_sys_index_columns
+                  FROM TempDB.dbo.SQLXL_Index_sys_index_columns
                 ----------------------------------------------------------------------------------------------------------------------------
                 UNION ALL -- Foreign Key Constraint columns
                 ----------------------------------------------------------------------------------------------------------------------------
@@ -8319,7 +8319,7 @@ SELECT icol.database_id
                       ,is_included_column = 0
                       ,srt                = 0
                       ,column_id          = parent_column_id
-                  FROM TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns
+                  FROM TempDB.dbo.SQLXL_Index_sys_foreign_key_columns
                 ----------------------------------------------------------------------------------------------------------------------------
                 UNION ALL -- elements of the CLUSTERED index to add to the KEY display that are not in the current index, missing index
                 ----------------------------------------------------------------------------------------------------------------------------
@@ -8335,11 +8335,11 @@ SELECT icol.database_id
                               ,object_id
                               ,index_id
                               ,type
-                          FROM tempdb.dbo.SQLXL_IDX_Compilation
+                          FROM tempdb.dbo.SQLXL_Index_Compilation
                          WHERE rec_type  = N'I'
                            AND type NOT IN (N'F',N'1')
                        ) AS i
-                  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS cli
+                  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS cli
                     ON i.database_id                           = cli.database_id
                    AND i.object_id                             = cli.object_id
                    AND N'1'                                    = cli.type
@@ -8354,7 +8354,7 @@ SELECT icol.database_id
                       ,is_included_column = CAST(0 AS BIT)
                       ,srt                = 2
                       ,column_id
-                  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns
+                  FROM tempdb.dbo.SQLXL_Index_sys_index_columns
                 ----------------------------------------------------------------------------------------------------------------------------
                 UNION ALL -- Add [UNIQUIFIER]  if table is rowstore and a HEAP or non-Unique CLUSTERED
                           -- Add [ROW LOCATOR] if table is columnstore
@@ -8370,7 +8370,7 @@ SELECT icol.database_id
                               ,object_id
                               ,index_id
                               ,type
-                          FROM tempdb.dbo.SQLXL_IDX_Compilation
+                          FROM tempdb.dbo.SQLXL_Index_Compilation
                          WHERE rec_type = N'I'
                            AND type    IN (N'1',N'2',N'7') -- include '7' Hash on In-Memory Clustered Columnstore
                        ) AS i
@@ -8378,7 +8378,7 @@ SELECT icol.database_id
                         SELECT database_id
                               ,object_id
                               ,type
-                          FROM tempdb.dbo.SQLXL_IDX_Compilation
+                          FROM tempdb.dbo.SQLXL_Index_Compilation
                          WHERE N'I'             = rec_type
                            AND type            IN (N'0',N'1',N'5')
                            AND is_unique        = 0
@@ -8387,25 +8387,25 @@ SELECT icol.database_id
                    AND i.object_ID   = u.object_ID
                ) icol
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_column                        AS c                -- object all columns
+          JOIN tempdb.dbo.SQLXL_Index_column                        AS c                -- object all columns
             ON icol.database_id                                    = c.database_id
            AND icol.object_id                                      = c.object_id
            AND icol.column_id                                      = c.column_id
           LEFT OUTER
-          JOIN TempDB.dbo.SQLXL_IDX_sys_index_columns             AS ic               -- column by index, FKC, MIX
+          JOIN TempDB.dbo.SQLXL_Index_sys_index_columns             AS ic               -- column by index, FKC, MIX
             ON icol.database_id                                    = ic.database_id
            AND icol.object_id                                      = ic.object_id
            AND icol.index_id                                       = ic.index_id
            AND icol.type                                           = ic.type
            AND icol.column_id                                      = ic.column_id
           LEFT OUTER
-          JOIN TempDB.dbo.SQLXL_IDX_sys_index_columns             AS cix              -- clustered index if available
+          JOIN TempDB.dbo.SQLXL_Index_sys_index_columns             AS cix              -- clustered index if available
             ON icol.database_id                                    = cix.database_id
            AND icol.object_id                                      = cix.object_id
            AND N'1'                                                = cix.type
            AND icol.column_id                                      = cix.column_id
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader AS sssh
+          JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader AS sssh
             ON icol.database_id                                    = sssh.database_id
            AND icol.object_id                                      = sssh.object_id
            AND 0                                                   = sssh.column_id
@@ -8413,7 +8413,7 @@ SELECT icol.database_id
                                                                -- No sssh.type
        ) icol
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector AS ssdv
+  JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS ssdv
     ON icol.database_id                                    = ssdv.database_id
    AND icol.object_id                                      = ssdv.object_id
    AND 0                                                   = ssdv.column_id
@@ -8423,7 +8423,7 @@ SELECT icol.database_id
    AND icol.is_included_column                             = 0
 
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_foreign_keys              AS fk
+  JOIN tempdb.dbo.SQLXL_Index_sys_foreign_keys              AS fk
     ON icol.database_id                                    = fk.database_id
    AND icol.object_id                                      = fk.parent_object_id
    AND icol.index_id                                       = fk.object_id
@@ -8431,8 +8431,8 @@ SELECT icol.database_id
 OPTION (MAXDOP 1);
 
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_uniqueness
-    ON tempdb.dbo.SQLXL_IDX_uniqueness
+ INDEX ixuc_SQLXL_Index_uniqueness
+    ON tempdb.dbo.SQLXL_Index_uniqueness
       (database_id
       ,object_id
       ,index_id
@@ -8486,20 +8486,20 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
       ,stathist_param_sniff             = ISNULL(ssh.param_sniff       ,0)
       -- sys.dm_db_stats_properties -----------------------------------------
       ,Stats_Prop_modification_CNT      = ISNULL(dsp.modification_counter,0)
-  FROM tempdb.dbo.SQLXL_IDX_Compilation                          AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation                          AS tgt
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_stats                            AS src
+  JOIN TempDB.dbo.SQLXL_Index_sys_stats                            AS src
     ON tgt.database_id                                            = src.database_id
    AND tgt.object_id                                              = src.object_id
    AND tgt.index_id                                               = src.stats_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader        AS iss
+  JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader        AS iss
     ON tgt.database_id                                            = iss.database_id
    AND tgt.object_id                                              = iss.object_id
    AND tgt.index_id                                               = iss.index_id
    AND 0                                                          = iss.column_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram_summary AS ssh
+  JOIN TempDB.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary AS ssh
     ON tgt.database_id                                            = ssh.database_id
    AND tgt.object_id                                              = ssh.object_id
    AND tgt.index_id                                               = ssh.index_id
@@ -8510,7 +8510,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
               ,object_id
               ,stats_id
               ,modification_counter = SUM(modification_counter)
-          FROM TempDB.dbo.SQLXL_IDX_sys_dm_db_stats_properties
+          FROM TempDB.dbo.SQLXL_Index_sys_dm_db_stats_properties
          GROUP BY
                database_id
               ,object_id
@@ -8551,7 +8551,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,row_overflow_reserved_page_CNT  = ISNULL(ps.row_overflow_reserved_page,0)
       ,reserved_page_CNT               = ISNULL(ps.reserved_page             ,0)
 
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
 
   LEFT OUTER -- LEFT OUTER required since HEAPS have no columns and get excluded from subquery
   JOIN (------------------------------------------------------------------------------------------------------------------------------------
@@ -8571,8 +8571,8 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                  END)
               ,index_Key_Columns           = SUM(IIF(ic.is_included_column = 0,1,0))
               ,Included_Columns_CNT        = SUM(IIF(ic.is_included_column = 1,1,0))
-          FROM TempDB.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_column            AS sc
+          FROM TempDB.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN tempdb.dbo.SQLXL_Index_column            AS sc
             ON ic.database_id                          = sc.database_id
            AND ic.object_id                            = sc.object_id
            AND ic.column_id                            = sc.column_id
@@ -8597,8 +8597,8 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
               ,Included_column_width_bytes = SUM(sc.max_length)
               ,index_Key_Columns           = COUNT(1)
               ,Included_Columns_CNT        = 0
-          FROM TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns AS fkc
-          JOIN tempdb.dbo.SQLXL_IDX_column                  AS sc
+          FROM TempDB.dbo.SQLXL_Index_sys_foreign_key_columns AS fkc
+          JOIN tempdb.dbo.SQLXL_Index_column                  AS sc
             ON fkc.database_id                               = sc.database_id
            AND fkc.parent_object_id                          = sc.object_id
            AND fkc.parent_column_id                          = sc.column_id
@@ -8612,7 +8612,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
    AND tgt.type         = N'F'
 
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_dm_db_partition_stats AS ps
+  JOIN tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats AS ps
     ON tgt.database_id                                 = ps.database_id
    AND tgt.object_id                                   = ps.object_id
    AND tgt.index_id                                    = ps.index_id
@@ -8648,7 +8648,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                       THEN STUFF(un.uniq,1,1,N'')
                                       ELSE COALESCE((SELECT TOP (1) -- And there is a candidate CLUSTERING index column
                                                             NCHAR(10)+tempdb.dbo.SQLXL_3SD(xic.uniqueness,'N')
-                                                       FROM tempdb.dbo.SQLXL_IDX_column AS xic
+                                                       FROM tempdb.dbo.SQLXL_Index_column AS xic
                                                       WHERE tgt.par_is_clustered_columnstore = 0 -- not a CLUSTERED COLUMNSTORE
                                                         AND tgt.database_id              = xic.database_id
                                                         AND tgt.object_id                = xic.object_id
@@ -8669,7 +8669,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                  END
       ,Lead_Element_Uniqueness = (SELECT TOP 1
                                          COALESCE(icol.stat_uniqueness,icol.col_uniqueness)
-                                    FROM tempdb.dbo.SQLXL_IDX_uniqueness AS icol
+                                    FROM tempdb.dbo.SQLXL_Index_uniqueness AS icol
                                    WHERE tgt.database_id               = icol.database_id
                                      AND tgt.object_id                 = icol.object_id
                                      AND tgt.index_id                  = icol.index_id
@@ -8680,7 +8680,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                          icol.rn
                                  )
       ,key_element_length      = STUFF((SELECT NCHAR(10) + CAST(ssdv.Average_Length AS NVARCHAR(10))
-                                          FROM tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector ssdv
+                                          FROM tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector ssdv
                                          WHERE tgt.database_id                          = ssdv.database_id
                                            AND tgt.object_id                            = ssdv.object_id
                                            --- No object_id in SSDV
@@ -8706,7 +8706,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                                -- If unique ordered column found show it here
                                                                -----------------------------------------------------------------------------
                                                                SELECT xic.[column descriptors]
-                                                                 FROM tempdb.dbo.SQLXL_IDX_column      AS xic
+                                                                 FROM tempdb.dbo.SQLXL_Index_column      AS xic
                                                                 WHERE tgt.database_id                   = xic.database_id
                                                                   AND tgt.object_id                     = xic.object_id
                                                                   AND tgt.par_cx_uniq_ordered_column_ID = xic.column_id
@@ -8718,7 +8718,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                                -----------------------------------------------------------------------------
                                                                SELECT TOP 1
                                                                       xic.[column descriptors]
-                                                                 FROM tempdb.dbo.SQLXL_IDX_column  AS xic
+                                                                 FROM tempdb.dbo.SQLXL_Index_column  AS xic
                                                                 WHERE tgt.database_id               = xic.database_id
                                                                   AND tgt.object_id                 = xic.object_id
                                                                   AND xic.Uniqueness                < 1.1
@@ -8739,7 +8739,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                           ISNULL(ip.col_prefix+N' ',N'')
                                                          +ISNULL(ip.[column descriptors],N'')
                                                          +ISNULL(N' '+ip.col_suffix,N'')
-                                                    FROM tempdb.dbo.SQLXL_IDX_uniqueness AS ip
+                                                    FROM tempdb.dbo.SQLXL_Index_uniqueness AS ip
                                                    WHERE tgt.database_id               = ip.database_id
                                                      AND tgt.object_id                 = ip.object_id
                                                      AND tgt.index_id                  = ip.index_id
@@ -8753,7 +8753,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                          +ISNULL(ip.col_prefix+N' ',N'')
                                                          +ISNULL(ip.[column descriptors],N'')
                                                          +ISNULL(N' '+ip.col_suffix,N'')
-                                                    FROM tempdb.dbo.SQLXL_IDX_uniqueness AS ip
+                                                    FROM tempdb.dbo.SQLXL_Index_uniqueness AS ip
                                                    WHERE tgt.database_id               = ip.database_id
                                                      AND tgt.object_id                 = ip.object_id
                                                      AND tgt.index_id                  = ip.index_id
@@ -8771,7 +8771,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                         ELSE ISNULL(icol.[Column Descriptors],N'')
                                                    END
                                                   +IIF(LEN(icol.col_suffix) > 0,icol.col_suffix,N'')
-                                             FROM tempdb.dbo.SQLXL_IDX_uniqueness AS icol
+                                             FROM tempdb.dbo.SQLXL_Index_uniqueness AS icol
                                             WHERE tgt.database_id               = icol.database_id
                                               AND tgt.object_id                 = icol.object_id
                                               AND tgt.index_id                  = icol.index_id
@@ -8797,25 +8797,25 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                                    -- table columns not found in the Nonclustered Column Store
                                                                    -------------------------------------------------------------------------
                                                                    SELECT c.column_id
-                                                                     FROM tempdb.dbo.SQLXL_IDX_column AS c
+                                                                     FROM tempdb.dbo.SQLXL_Index_column AS c
                                                                     WHERE tgt.database_id              = c.database_id
                                                                       AND tgt.object_id                = c.object_id
                                                                       AND 1                            = c.is_columnstore_eligible
                                                                    EXCEPT
                                                                    SELECT ic.column_id
-                                                                     FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
+                                                                     FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
                                                                     WHERE tgt.database_id      = ic.database_id
                                                                       AND tgt.object_id        = ic.object_id
                                                                       AND tgt.index_id         = ic.index_id
                                                                       AND tgt.type             = ic.type
                                                                   ) AS c
-                                                             JOIN tempdb.dbo.SQLXL_IDX_column AS ac
+                                                             JOIN tempdb.dbo.SQLXL_Index_column AS ac
                                                                ON tgt.database_id              = ac.database_id
                                                               AND tgt.object_id                = ac.object_id
                                                               AND c.column_id                  = ac.column_id
                                                              LEFT OUTER
                                                              JOIN (SELECT ic.column_id
-                                                                     FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
+                                                                     FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
                                                                     WHERE tgt.database_id      = ic.database_id
                                                                       AND tgt.object_id        = ic.object_id
                                                                       AND 0                    = ic.is_included_column
@@ -8840,7 +8840,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                         ELSE ISNULL(icol.[Column Descriptors],N'')
                                                    END
                                                   +IIF(LEN(icol.col_suffix) > 0,icol.col_suffix,N'')
-                                              FROM tempdb.dbo.SQLXL_IDX_uniqueness AS icol
+                                              FROM tempdb.dbo.SQLXL_Index_uniqueness AS icol
                                              WHERE tgt.database_id               = icol.database_id
                                                AND tgt.object_id                 = icol.object_id
                                                AND tgt.index_id                  = icol.index_id
@@ -8861,7 +8861,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,Partition_columnstore_compress_CNT         = ISNULL(p.colstore_Comp,0)
       ,Partition_columnstore_archive_compress_CNT = ISNULL(p.colstore_Arch,0)
   FROM (SELECT *
-          FROM TempDB.dbo.SQLXL_IDX_Compilation
+          FROM TempDB.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS tgt
   LEFT OUTER
@@ -8875,8 +8875,8 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                        THEN ac.Average_Length
                                        ELSE ac.max_length
                                   END)
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_column            AS ac
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN tempdb.dbo.SQLXL_Index_column            AS ac
             ON ic.database_id                       = ac.database_id
            AND ic.object_id                         = ac.object_id
            -- No object_id column in XL_IDX_column
@@ -8899,11 +8899,11 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
               ,ic.index_id
               ,ic.type
               ,sc.is_nullable
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns     AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_sys_objects           AS o
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns     AS ic
+          JOIN tempdb.dbo.SQLXL_Index_sys_objects           AS o
             ON ic.database_id                              = o.database_id
            AND ic.object_id                                = o.object_id
-          JOIN tempdb.dbo.SQLXL_IDX_sys_columns           AS sc
+          JOIN tempdb.dbo.SQLXL_Index_sys_columns           AS sc
             ON ic.database_id                              = sc.database_id
            AND (   (    ic.type  = N'F'
                     AND o.parent_object_id                = sc.object_id
@@ -8931,7 +8931,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
               ,Page_Comp           = SUM(p.Page_Comp    )
               ,colstore_Comp       = SUM(p.colstore_Comp)
               ,colstore_Arch       = SUM(p.colstore_Arch)
-          FROM TempDB.dbo.SQLXL_IDX_sys_partitions AS p
+          FROM TempDB.dbo.SQLXL_Index_sys_partitions AS p
          GROUP BY
                p.database_id
               ,p.object_id
@@ -8965,12 +8965,12 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                 END
                            ELSE N''
                       END
-                 FROM tempdb.dbo.SQLXL_IDX_uniqueness AS icol
+                 FROM tempdb.dbo.SQLXL_Index_uniqueness AS icol
                  LEFT OUTER
                  JOIN (SELECT database_id
                              ,object_ID
                              ,row_cnt
-                         FROM tempdb.dbo.SQLXL_IDX_Compilation
+                         FROM tempdb.dbo.SQLXL_Index_Compilation
                         WHERE rec_type = N'I'
                           AND type    IN (N'0',N'1',N'5') -- get parent row count from HEAP, CLUSTERED, or Columnstore record
                       ) AS p
@@ -9005,7 +9005,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.index_id,tgt.type,c.UNQ,c.column
        par_cx_uniq_ordered_column_TYP       = c.UNQ
       ,par_cx_uniq_ordered_column_ID        = c.column_id
       ,par_smallest_uniq_Nonclustered_idx   = ncx.index_id
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
   LEFT OUTER
   JOIN (-- find all tables with columns that are unique/incrementing
         SELECT c.database_id
@@ -9023,9 +9023,9 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.index_id,tgt.type,c.UNQ,c.column
                                                    ,c.seq_object_id DESC
                                                    ,dc.definition
                                       )
-          FROM tempdb.dbo.SQLXL_IDX_sys_columns             AS c
+          FROM tempdb.dbo.SQLXL_Index_sys_columns             AS c
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_sys_default_constraints AS dc
+          JOIN tempdb.dbo.SQLXL_Index_sys_default_constraints AS dc
             ON c.database_id                              = dc.database_id
            AND c.default_object_id                        = dc.object_id
          WHERE (   c.is_identity   = 1
@@ -9049,7 +9049,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.index_id,tgt.type,c.UNQ,c.column
                                                    ,i.Key_Columns_CNT             -- fewest key columns
                                                    ,i.ius_user_Total_CNT  DESC    -- most used
                                       )
-          FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+          FROM tempdb.dbo.SQLXL_Index_Compilation AS i
          WHERE i.rec_type = N'I'
            AND i.type                     = N'2'
            AND (   i.is_primary_key       = 1
@@ -9085,7 +9085,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,Lead_Element_is_newid            = src.Lead_Element_is_newid
       ,Lead_Element_is_Nullable         = src.Lead_Element_is_Nullable
 
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
  INNER
   JOIN (
         SELECT database_id                     = ic.database_id
@@ -9100,13 +9100,13 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
               ,Lead_Element_is_newsequentialid = IIF(sc.default_constraint = N'(newsequentialid())',1,0)
               ,Lead_Element_is_newid           = IIF(sc.default_constraint = N'(newid())'          ,1,0)
               ,Lead_Element_is_Nullable    = sc.is_nullable
-          FROM TempDB.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_column            AS sc
+          FROM TempDB.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN tempdb.dbo.SQLXL_Index_column            AS sc
             ON ic.database_id                          = sc.database_id
            AND ic.object_id                            = sc.object_id
            -- No object_id column in XL_IDX_column
            AND ic.column_id                            = sc.column_id
-          JOIN TempDB.dbo.SQLXL_IDX_sys_types         AS t
+          JOIN TempDB.dbo.SQLXL_Index_sys_types         AS t
             ON ic.database_id                          = t.database_id
            AND sc.user_type_id                         = t.user_type_id
          WHERE TRY_CAST(ic.type AS INT) BETWEEN 1 AND 4
@@ -9148,7 +9148,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,partition_function_is_system      = ISNULL(ds.partition_function_is_system,0)
       ,partition_function_create_DTTM    = ds.partition_function_create_date
       ,partition_function_modify_DTTM    = ds.partition_function_modify_date
-  FROM tempdb.dbo.SQLXL_IDX_Compilation       AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation       AS tgt
   LEFT OUTER
   JOIN (------------------------------------------------------------------------------------------------------------------------------------
         -- distinct list of data spaces for Filestream objects
@@ -9173,7 +9173,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
               ,partition_function_is_system
               ,partition_function_create_date
               ,partition_function_modify_date
-          FROM TempDB.dbo.SQLXL_IDX_sys_data_spaces
+          FROM TempDB.dbo.SQLXL_Index_sys_data_spaces
        )                AS ds
     ON tgt.database_id   = ds.database_id
    AND tgt.data_space_id = ds.data_space_id
@@ -9599,35 +9599,35 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                             > ISNULL(tgt.buffer_free_KB_CNT,0)
                                            ,(ISNULL(xis.allocated_bytes,0) - ISNULL(xis.used_bytes,0))/1024.0   -- InMemory
                                            ,ISNULL(tgt.buffer_free_KB_CNT,0))
-  FROM tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters            AS sp
+  FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters            AS sp
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_Compilation                       AS tgt
+  JOIN tempdb.dbo.SQLXL_Index_Compilation                       AS tgt
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_dm_db_index_operational_stats AS ios
+  JOIN TempDB.dbo.SQLXL_Index_sys_dm_db_index_operational_stats AS ios
     ON tgt.database_id   = ios.database_id
    AND tgt.object_id     = ios.object_id
    AND tgt.index_id      = ios.index_id
    AND TRY_CAST(tgt.type AS INT) IS NOT NULL -- avoids overlapping index IDs for FKC, MIX
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_dm_db_index_usage_stats       AS ius
+  JOIN TempDB.dbo.SQLXL_Index_sys_dm_db_index_usage_stats       AS ius
     ON tgt.database_id   = ius.database_id
    AND tgt.object_id     = ius.object_id
    AND tgt.index_id      = ius.index_id
    AND TRY_CAST(tgt.type AS INT) IS NOT NULL -- avoids overlapping index IDs for FKC, MIX
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_dm_db_missing_index_details   AS mix
+  JOIN TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_details   AS mix
     ON tgt.database_id   = mix.database_id
    AND tgt.object_id     = mix.object_id
    AND tgt.index_id      = mix.index_handle
    AND tgt.type          = N'M'              -- avoids overlapping index IDs for FKC, IDX
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_dm_db_xtp_index_stats         AS xis
+  JOIN TempDB.dbo.SQLXL_Index_sys_dm_db_xtp_index_stats         AS xis
     ON tgt.database_id   = xis.database_id
    AND tgt.object_id     = xis.object_id
    AND tgt.index_id      = xis.index_id
    AND tgt.type          = xis.type
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_operational_stats AS rgos
+  JOIN TempDB.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats AS rgos
     ON tgt.database_id   = rgos.database_id
    AND tgt.object_id     = rgos.object_id
    AND tgt.index_id      = rgos.index_id
@@ -9640,7 +9640,7 @@ IF @ssms = 1 RAISERROR('... Update indexes with WRITEs and Zero READs',0,0) WITH
 -- Special case - writes with no reads
 -- Final partition count update
 /******************************************************************************************************************************************/
-UPDATE tempdb.dbo.SQLXL_IDX_Compilation
+UPDATE tempdb.dbo.SQLXL_Index_Compilation
    SET
        ius_no_read_user_updates_CNT = IIF(ius_user_updates_CNT > 0 AND ius_user_read_CNT  = 0,ius_user_updates_CNT,0)
       ,ops_no_read_Total_write_CNT  = IIF(ops_Total_write_CNT  > 0 AND ops_Total_read_CNT = 0,ops_Total_write_CNT ,0)
@@ -9649,12 +9649,12 @@ UPDATE tempdb.dbo.SQLXL_IDX_Compilation
                                                 WHEN cs_partition_cnt  > 0 THEN cs_partition_cnt
                                                 ELSE 0
                                            END
-  FROM tempdb.dbo.SQLXL_IDX_Compilation
+  FROM tempdb.dbo.SQLXL_Index_Compilation
 OPTION (MAXDOP 1);
 
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Update Parent partition information, using HEAP or CLUSTERED values',0,0) WITH NOWAIT;
--- Update Parent records in tempdb.dbo.SQLXL_IDX_Compilation using HEAP or CLUSTERED values
+-- Update Parent records in tempdb.dbo.SQLXL_Index_Compilation using HEAP or CLUSTERED values
 /******************************************************************************************************************************************/
 UPDATE tgt
    SET
@@ -9682,11 +9682,11 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,partition_function_create_DTTM    = hoc.partition_function_create_DTTM
       ,partition_function_modify_DTTM    = hoc.partition_function_modify_DTTM
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N'P',N'S')
        ) AS tgt
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Compilation  AS hoc
+  JOIN tempdb.dbo.SQLXL_Index_Compilation  AS hoc
     ON tgt.database_id           = hoc.database_id
    AND tgt.object_id             = hoc.object_id
    AND hoc.type                 IN (N'0',N'1',N'5') -- HEAP, CLUSTERED, CLUSTERED COLUMNSTORE
@@ -9694,10 +9694,10 @@ OPTION (MAXDOP 1);
 
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Update index records - additional keys don''t improve selectivity - support',0,0) WITH NOWAIT;
--- Update tempdb.dbo.SQLXL_IDX_Compilation - additional keys don't improve selectivity much (1 out of 3 ain't bad)
+-- Update tempdb.dbo.SQLXL_Index_Compilation - additional keys don't improve selectivity much (1 out of 3 ain't bad)
 -- identify indexes without activity for period
 /******************************************************************************************************************************************/
-IF object_id(N'TempDB.dbo.SQLXL_IDX_additional_key_selectivity') IS NOT NULL DROP TABLE TempDB.dbo.SQLXL_IDX_additional_key_selectivity;
+IF object_id(N'TempDB.dbo.SQLXL_Index_additional_key_selectivity') IS NOT NULL DROP TABLE TempDB.dbo.SQLXL_Index_additional_key_selectivity;
 
 SET ANSI_WARNINGS ON;
 
@@ -9712,15 +9712,15 @@ SELECT dv1.database_id
                                             ,dv1.index_ID
                                     ORDER BY dv1.Row_ID
                                )
-  INTO TempDB.dbo.SQLXL_IDX_additional_key_selectivity
-  FROM tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector AS dv1
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns                AS ic
+  INTO TempDB.dbo.SQLXL_Index_additional_key_selectivity
+  FROM tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS dv1
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns                AS ic
     ON dv1.database_id                                     = ic.database_id
    AND dv1.object_id                                       = ic.object_id
    AND dv1.index_ID                                        = ic.index_ID
    AND dv1.Row_ID                                          = ic.key_column_sequence
    AND 0                                                   = ic.is_included_column  -- only KEY index elements are to be compared
-  JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector AS dv0
+  JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS dv0
     ON dv1.database_id                                     = dv0.database_id
    AND dv1.object_id                                       = dv0.object_id
    AND dv1.index_ID                                        = dv0.index_ID
@@ -9730,8 +9730,8 @@ SELECT dv1.database_id
 OPTION (MAXDOP 1)
 
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_additional_key_selectivity
-    ON TempDB.dbo.SQLXL_IDX_additional_key_selectivity
+ INDEX ixuc_SQLXL_Index_additional_key_selectivity
+    ON TempDB.dbo.SQLXL_Index_additional_key_selectivity
       (database_id
       ,object_id
       ,index_ID
@@ -9759,7 +9759,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                       ELSE N' '
                   END
                 + d.dlt
-             FROM TempDB.dbo.SQLXL_IDX_additional_key_selectivity AS d
+             FROM TempDB.dbo.SQLXL_Index_additional_key_selectivity AS d
             WHERE tgt.database_id                               = d.database_id
               AND tgt.object_id                                 = d.object_id
               AND tgt.index_ID                                  = d.index_ID
@@ -9767,7 +9767,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                   d.row_id
               FOR XML PATH(N''),TYPE
            ).value('(./text())[1]','NVARCHAR(4000)')
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
  WHERE tgt.rec_type                  = N'I'
    AND tgt.type                     IN (N'1',N'2')
    AND tgt.obj_type_short_label NOT IN (N'HST', N'IT')
@@ -9790,7 +9790,7 @@ SELECT tgt.database_name
       ,is_system_named
 --*/
 
-  FROM (SELECT * FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE rec_type = N'I') AS tgt
+  FROM (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS tgt
  WHERE (   (   (    LEFT(name,2) = N'PK'
                 AND CHARINDEX(N'__',name, 3) = 3
                 AND (   CHARINDEX(N'__',REVERSE(name),1) = 9
@@ -9814,7 +9814,7 @@ SET ANSI_WARNINGS ON;
 
 UPDATE tgt
    SET constraints = ISNULL(tgt.constraints+NCHAR(10),N'')+chk.check_constraints
-  FROM (SELECT * FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE rec_type IN (N'P',N'S')) AS tgt
+  FROM (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type IN (N'P',N'S')) AS tgt
   JOIN (------------------------------------------------------------------------------------------------------------------------------------
         -- Column-level Check Constraints
         ------------------------------------------------------------------------------------------------------------------------------------
@@ -9837,8 +9837,8 @@ UPDATE tgt
                               +IIF(cxo.is_schema_published    = 1,N' ,SCH_PBLSHD'  ,N'')
                               ,N'')
                       +N' '+LTRIM(RTRIM(cx.definition))
-                  FROM TempDB.dbo.SQLXL_IDX_sys_check_constraints AS cx
-                  JOIN TempDB.dbo.SQLXL_IDX_sys_objects           AS cxo
+                  FROM TempDB.dbo.SQLXL_Index_sys_check_constraints AS cx
+                  JOIN TempDB.dbo.SQLXL_Index_sys_objects           AS cxo
                     ON cx.database_id                           = cxo.database_id
                    AND cx.object_id                             = cxo.object_id
                  WHERE cc.database_id                           = cx.database_id
@@ -9850,7 +9850,7 @@ UPDATE tgt
                 ----------------------------------------------------------------------------------------------------------------------------
                 SELECT cc.database_id
                       ,cc.object_id
-                  FROM TempDB.dbo.SQLXL_IDX_sys_check_constraints AS cc
+                  FROM TempDB.dbo.SQLXL_Index_sys_check_constraints AS cc
                  WHERE uses_sql_proc       = 1
                     OR uses_sql_ftn        = 1
                     OR uses_sql_mthd       = 1
@@ -9868,7 +9868,7 @@ IF @ssms = 1 RAISERROR('... Check if Table has Computed Columns using SQL proced
 /******************************************************************************************************************************************/
 UPDATE tgt
    SET constraints = ISNULL(tgt.constraints+NCHAR(10),N'')+chk.computed_column
-  FROM (SELECT * FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE rec_type IN (N'P',N'S')) AS tgt
+  FROM (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type IN (N'P',N'S')) AS tgt
   JOIN (------------------------------------------------------------------------------------------------------------------------------------
         -- Computed columns
         ------------------------------------------------------------------------------------------------------------------------------------
@@ -9890,8 +9890,8 @@ UPDATE tgt
                                 +IIF(cx.uses_database_collation = 0,N' NOT DB COLLATED',N'')
                             ,1,1,N'')
                           ,N'')
-                  FROM TempDB.dbo.SQLXL_IDX_sys_columns        AS cx
-                  JOIN TempDB.dbo.SQLXL_IDX_sys_objects        AS cxo
+                  FROM TempDB.dbo.SQLXL_Index_sys_columns        AS cx
+                  JOIN TempDB.dbo.SQLXL_Index_sys_objects        AS cxo
                     ON cx.database_id                           = cxo.database_id
                    AND cx.object_id                             = cxo.object_id
                  WHERE cc.database_id                           = cx.database_id
@@ -9903,7 +9903,7 @@ UPDATE tgt
                 ----------------------------------------------------------------------------------------------------------------------------
                 SELECT cc.database_id
                       ,cc.object_id
-                  FROM TempDB.dbo.SQLXL_IDX_sys_columns AS cc
+                  FROM TempDB.dbo.SQLXL_Index_sys_columns AS cc
                  WHERE cc.definition IS NOT NULL
                    AND (   uses_sql_proc       = 1
                         OR uses_sql_ftn        = 1
@@ -9924,19 +9924,19 @@ IF @ssms = 1 RAISERROR('... Consolidate Key Constraints',0,0) WITH NOWAIT;
 UPDATE tgt
    SET
        constraints = STUFF((SELECT NCHAR(10)+QUOTENAME(kx.type)+N' '+kx.name
-                              FROM tempDB.dbo.SQLXL_IDX_sys_key_constraints AS kx
+                              FROM tempDB.dbo.SQLXL_Index_sys_key_constraints AS kx
                              WHERE tgt.database_id                           = kx.database_id
                                AND tgt.object_id                             = kx.parent_object_id
                                AND tgt.index_id                              = kx.unique_index_id
                                FOR XML PATH(N''), TYPE
                            ).value('(./text())[1]','NVARCHAR(4000)')
                           ,1,1,N'')
-  FROM (SELECT * FROM TempDB.dbo.SQLXL_IDX_Compilation WHERE rec_type = N'I') AS tgt
+  FROM (SELECT * FROM TempDB.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS tgt
   JOIN (
         SELECT database_id
               ,parent_object_id                         -- target table object id
               ,unique_index_id
-          FROM tempDB.dbo.SQLXL_IDX_sys_key_constraints
+          FROM tempDB.dbo.SQLXL_Index_sys_key_constraints
          GROUP BY
                database_id
               ,parent_object_id
@@ -9954,14 +9954,14 @@ IF @ssms = 1 RAISERROR('... Incorporate Column Constraints',0,0) WITH NOWAIT;
 UPDATE tgt
    SET
        constraints = ISNULL(constraints+NCHAR(10),N'') + STUFF(c.txt,1,1,N'') -- NOTE: after "*/" this must be new line, else syntax error
-  FROM (SELECT * FROM TempDB.dbo.SQLXL_IDX_Compilation WHERE rec_type = N'I') AS tgt
+  FROM (SELECT * FROM TempDB.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS tgt
   JOIN (
         SELECT ic.database_id
               ,ic.object_id
               ,ic.index_id
               ,ic.type
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_column            AS c
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN tempdb.dbo.SQLXL_Index_column            AS c
             ON ic.database_id                          = c.database_id
            AND ic.object_id                            = c.object_id
            AND ic.Column_ID                         = c.column_id
@@ -9982,8 +9982,8 @@ UPDATE tgt
  APPLY (SELECT(SELECT ISNULL(NCHAR(10)+QUOTENAME(c2.name)+N' DEF: ' +c2.default_constraint,N'')
                      +ISNULL(NCHAR(10)+QUOTENAME(c2.name)+N' CHK: ' +c2.check_constraints ,N'')
                      +ISNULL(NCHAR(10)+QUOTENAME(c2.name)+N' CCOL: '+c2.computed_column_definition,N'')
-                 FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic2
-                 JOIN tempdb.dbo.SQLXL_IDX_column            AS c2
+                 FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic2
+                 JOIN tempdb.dbo.SQLXL_Index_column            AS c2
                    ON ic2.database_id                      = c2.database_id
                   AND ic2.object_id                        = c2.object_id
                   AND ic2.Column_ID                        = c2.column_id
@@ -10003,7 +10003,7 @@ IF @ssms = 1 RAISERROR('... Incorporate Parent Constraints',0,0) WITH NOWAIT;
 UPDATE tgt
    SET
        constraints = ISNULL(constraints+NCHAR(10),N'') + STUFF(chk.chkcon,1,1,N'')
-  FROM TempDB.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM TempDB.dbo.SQLXL_Index_Compilation AS tgt
   JOIN (------------------------------------------------------------------------------------------------------------------------------------
         -- table-level Check Constraints
         ------------------------------------------------------------------------------------------------------------------------------------
@@ -10046,7 +10046,7 @@ SET ANSI_WARNINGS ON
                               ,delete_referential_action_desc = CONVERT(SYSNAME,NULL)
                               ,uses_database_collation
                               ,is_system_named
-                          FROM TempDB.dbo.SQLXL_IDX_sys_check_constraints AS cx
+                          FROM TempDB.dbo.SQLXL_Index_sys_check_constraints AS cx
                          WHERE cc.database_id                              = cx.database_id
                            AND cc.parent_object_id                         = cx.parent_object_id
                            AND 0                                           = cx.parent_column_id
@@ -10067,11 +10067,11 @@ SET ANSI_WARNINGS ON
                               ,delete_referential_action_desc
                               ,uses_database_collation = NULL
                               ,is_system_named
-                          FROM TempDB.dbo.SQLXL_IDX_sys_edge_constraints  AS cx
+                          FROM TempDB.dbo.SQLXL_Index_sys_edge_constraints  AS cx
                          WHERE cc.database_id                              = cx.database_id
                            AND cc.parent_object_id                         = cx.parent_object_id
                        ) AS cx
-                  JOIN tempDB.dbo.SQLXL_IDX_sys_objects AS cxo
+                  JOIN tempDB.dbo.SQLXL_Index_sys_objects AS cxo
                     ON cx.database_id                    = cxo.database_id
                    AND cx.object_id                      = cxo.object_id
                  ORDER BY cx.object_id
@@ -10083,7 +10083,7 @@ SET ANSI_WARNINGS ON
                 SELECT DISTINCT
                        cc.database_id
                       ,cc.parent_object_id
-                  FROM TempDB.dbo.SQLXL_IDX_sys_check_constraints cc
+                  FROM TempDB.dbo.SQLXL_Index_sys_check_constraints cc
                  WHERE cc.parent_column_id = 0 -- not a table constraint
                ) cc
        ) chk (database_id
@@ -10119,7 +10119,7 @@ SELECT
                              -- Database
                              ISNULL(
                              (SELECT NCHAR(10) + N'DB: ' + ep.name + N': ' + CAST(ep.value AS NVARCHAR(4000))
-                                                  FROM TempDB.dbo.SQLXL_IDX_sys_extended_properties AS ep
+                                                  FROM TempDB.dbo.SQLXL_Index_sys_extended_properties AS ep
                                                  WHERE tgt.database_id = ep.database_id
                                                    AND 0               = ep.class
                                                    AND 0               = ep.major_id
@@ -10132,7 +10132,7 @@ SELECT
                            -- Parent schema
                            + ISNULL(
                              (SELECT NCHAR(10) + N'Schema: ' + ep.name + N': ' + CAST(ep.value AS NVARCHAR(4000))
-                                            FROM TempDB.dbo.SQLXL_IDX_sys_extended_properties AS ep
+                                            FROM TempDB.dbo.SQLXL_Index_sys_extended_properties AS ep
                                            WHERE tgt.database_id = ep.database_id
                                              AND 3               = ep.class
                                              AND tgt.schema_id   = ep.major_id
@@ -10145,7 +10145,7 @@ SELECT
                            -- Parent object
                            + ISNULL(
                              (SELECT NCHAR(10) + N'Parent: ' + ep.name + N': ' + CAST(ep.value AS NVARCHAR(4000))
-                                            FROM TempDB.dbo.SQLXL_IDX_sys_extended_properties AS ep
+                                            FROM TempDB.dbo.SQLXL_Index_sys_extended_properties AS ep
                                            WHERE tgt.database_id       = ep.database_id
                                              AND 1                     = ep.class
                                              AND tgt.parent_object_id  = ep.major_id
@@ -10158,7 +10158,7 @@ SELECT
                            + ISNULL(
                              (-- Include Foreign Key Constraints
                               SELECT NCHAR(10) + N'Foreign Key: ' + ep.name + N': ' + CAST(ep.value AS NVARCHAR(4000))
-                                            FROM TempDB.dbo.SQLXL_IDX_sys_extended_properties AS ep
+                                            FROM TempDB.dbo.SQLXL_Index_sys_extended_properties AS ep
                                            WHERE tgt.database_id       = ep.database_id
                                              AND 1                     = ep.class
                                              AND tgt.object_id         = ep.major_id
@@ -10171,7 +10171,7 @@ SELECT
                                              FOR XML PATH(N''), TYPE).value('(./text())[1]','NVARCHAR(4000)'),N'')
                            + ISNULL(
                              (SELECT NCHAR(10) + N'index: ' + ep.name + N': ' + CAST(ep.value AS NVARCHAR(4000))
-                                            FROM TempDB.dbo.SQLXL_IDX_sys_extended_properties AS ep
+                                            FROM TempDB.dbo.SQLXL_Index_sys_extended_properties AS ep
                                            WHERE tgt.database_id       = ep.database_id
                                              AND 7                     = ep.class
                                              AND tgt.parent_object_id  = ep.major_id
@@ -10183,12 +10183,12 @@ SELECT
                                              FOR XML PATH(N''), TYPE).value('(./text())[1]','NVARCHAR(4000)'),N'')
                            + ISNULL(
                              (SELECT NCHAR(10) +QUOTENAME(c.name)+N' '+ep.name +N': ' + CAST(ep.value AS NVARCHAR(4000))
-                                            FROM TempDB.dbo.SQLXL_IDX_sys_index_columns       AS ic
-                                            JOIN TempDB.dbo.SQLXL_IDX_sys_columns             AS c
+                                            FROM TempDB.dbo.SQLXL_Index_sys_index_columns       AS ic
+                                            JOIN TempDB.dbo.SQLXL_Index_sys_columns             AS c
                                               ON ic.database_id       = c.database_id
                                              AND ic.object_id         = c.object_id
                                              AND ic.column_id         = c.column_id
-                                            JOIN TempDB.dbo.SQLXL_IDX_sys_extended_properties AS ep
+                                            JOIN TempDB.dbo.SQLXL_Index_sys_extended_properties AS ep
                                               ON ic.database_id       = ep.database_id
                                              AND ic.object_id         = ep.major_id
                                              AND ic.column_id         = ep.minor_id
@@ -10202,7 +10202,7 @@ SELECT
                                                 ,c.name
                                              FOR XML PATH(N''), TYPE).value('(./text())[1]','NVARCHAR(4000)'),N'')
                              ,1,1,N'') COLLATE DATABASE_DEFAULT
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
 OPTION (MAXDOP 1);
 
 SET ANSI_WARNINGS OFF;
@@ -10234,8 +10234,8 @@ SELECT tgt.database_id
                                                           -- loop through columns in foreign key since can have more than one
                                                           ----------------------------------------------------------------------------------
                                                           SELECT NCHAR(10)+N'    ,' + QUOTENAME(eix.name)
-                                                            FROM TempDB.dbo.SQLXL_IDX_sys_foreign_key_columns AS fkc
-                                                            JOIN tempdb.dbo.SQLXL_IDX_column                  AS eix
+                                                            FROM TempDB.dbo.SQLXL_Index_sys_foreign_key_columns AS fkc
+                                                            JOIN tempdb.dbo.SQLXL_Index_column                  AS eix
                                                               ON fkc.database_id                               = eix.database_id
                                                              AND fkc.referenced_object_id                      = eix.object_id
                                                              AND fkc.referenced_column_id                      = eix.column_id
@@ -10261,19 +10261,19 @@ SELECT tgt.database_id
       ,rk_referencing_fkc_action_default_CNT = ISNULL(fkc_ref.rk_referencing_fkc_action_default_CNT,0)
       ,rk_referencing_fkc_system_named_CNT   = ISNULL(fkc_ref.rk_referencing_fkc_system_named_CNT  ,0)
   FROM (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS tgt
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_foreign_keys AS fkc_par
+  JOIN TempDB.dbo.SQLXL_Index_sys_foreign_keys AS fkc_par
     ON tgt.database_id                        = fkc_par.database_id
    AND tgt.object_id                          = fkc_par.object_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_objects      AS ref_obj                    -- cross reference to get referenced object properties
+  JOIN TempDB.dbo.SQLXL_Index_sys_objects      AS ref_obj                    -- cross reference to get referenced object properties
     ON fkc_par.database_id                     = ref_obj.database_id
    AND fkc_par.referenced_object_id            = ref_obj.object_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_schemas      AS s                    -- cross reference to get referenced object schema
+  JOIN TempDB.dbo.SQLXL_Index_sys_schemas      AS s                    -- cross reference to get referenced object schema
     ON ref_obj.database_id                    = s.database_id
    AND ref_obj.schema_id                      = s.schema_id
   LEFT OUTER
@@ -10293,7 +10293,7 @@ SELECT tgt.database_id
               ,rk_referencing_fkc_action_null_CNT    = SUM(IIF(delete_referential_action = 2,1,0))
               ,rk_referencing_fkc_action_default_CNT = SUM(IIF(delete_referential_action = 3,1,0))
               ,rk_referencing_fkc_system_named_CNT   = SUM(IIF(is_system_named           = 1,1,0))
-          FROM TempDB.dbo.SQLXL_IDX_sys_foreign_keys
+          FROM TempDB.dbo.SQLXL_Index_sys_foreign_keys
          GROUP BY
                database_id
               ,referenced_object_id
@@ -10333,7 +10333,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
        ---------------------------------------------------------------------------------------------
       ,covered_fkc_IDs               = STUFF(covering_fk.idx_id,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND type IN (N'1',N'2',N'F')
        ) AS tgt
@@ -10352,7 +10352,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
               ,i.column_width_bytes
               ,i.Included_column_width_bytes
           FROM (SELECT *
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation
+                  FROM tempdb.dbo.SQLXL_Index_Compilation
                  WHERE rec_type = N'I'
                 )                      AS i
          WHERE tgt.type                 = N'F'
@@ -10384,7 +10384,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
         SELECT TOP (100) PERCENT
                N','+QUOTENAME(i.index_id)
           FROM (SELECT *
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation
+                  FROM tempdb.dbo.SQLXL_Index_Compilation
                  WHERE rec_type = N'I'
                 )                      AS i
          WHERE tgt.type                 = N'F'
@@ -10414,7 +10414,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
         SELECT TOP 100 PERCENT
                N','+QUOTENAME(i.object_id)
           FROM (SELECT *
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation
+                  FROM tempdb.dbo.SQLXL_Index_Compilation
                  WHERE rec_type = N'I'
                 )                      AS i
          WHERE i.type                   = N'F'
@@ -10441,7 +10441,7 @@ IF @ssms = 1 RAISERROR('... Create table of Synergies between indexes, foreign k
 -- Look for the least "key" columns in both compared records - limits the iterations through SEQUENCE and OVERLAP matches below
 --<BS> expand L & R
 /******************************************************************************************************************************************/
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_IDX_Synergies') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_IDX_Synergies;
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Synergies') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_Synergies;
 
 ;WITH ico AS (
 SELECT ic.database_id
@@ -10453,7 +10453,7 @@ SELECT ic.database_id
       ,ic.key_column_sequence
       ,ic.partition_ordinal
       ,ic.is_included_column
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic  -- includes missing indexes
+  FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic  -- includes missing indexes
 UNION ALL
 SELECT database_id         = database_id
       ,parent_object_id    = parent_object_id
@@ -10464,7 +10464,7 @@ SELECT database_id         = database_id
       ,key_column_sequence = constraint_column_id
       ,partition_ordinal   = 0
       ,is_included_column  = 0
-  FROM tempdb.dbo.SQLXL_IDX_sys_foreign_key_columns
+  FROM tempdb.dbo.SQLXL_Index_sys_foreign_key_columns
 )
 SELECT idx_com.database_id
       ,idx_com.parent_object_id
@@ -10486,7 +10486,7 @@ SELECT idx_com.database_id
       ,matching_overlap_COL       = N'O.'+ovl.matching_overlap_COL
       ,con.matching_contained_CNT
       ,matching_contained_COL     = N'C.'+con.matching_contained_COL
-  INTO tempdb.dbo.SQLXL_IDX_Synergies
+  INTO tempdb.dbo.SQLXL_Index_Synergies
   FROM (------------------------------------------------------------------------------------------------------------------------------------
         -- find all "indexes" within a table with one or more common "key" columns
         ------------------------------------------------------------------------------------------------------------------------------------
@@ -10571,7 +10571,7 @@ SELECT idx_com.database_id
                ) idx_com
          INNER
           JOIN (SELECT * 
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation 
+                  FROM tempdb.dbo.SQLXL_Index_Compilation 
                  WHERE rec_type       = N'I'
                    AND obj_type      <> N'IT' -- Internal tables don't get compared
                    AND internal_type IS NULL
@@ -10582,7 +10582,7 @@ SELECT idx_com.database_id
            AND idx_com.l_type      = il.type
          INNER
           JOIN (SELECT * 
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation 
+                  FROM tempdb.dbo.SQLXL_Index_Compilation 
                  WHERE rec_type       = N'I'
                    AND obj_type      <> N'IT' -- Internal tables don't get compared
                    AND internal_type IS NULL
@@ -10674,14 +10674,14 @@ SELECT idx_com.database_id
                ) c
           ----------------------------------------------------------------------------------
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector AS dvl
+          JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS dvl
             ON idx_com.database_id                                    = dvl.database_id
            AND idx_com.l_object_id                                    = dvl.object_id
            AND idx_com.l_index_id                                     = dvl.index_ID
            AND loop_sequence.n                                        = dvl.Row_ID
           ----------------------------------------------------------------------------------
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector AS dvr
+          JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS dvr
             ON idx_com.database_id                                    = dvr.database_id
            AND idx_com.r_object_id                                    = dvr.object_id
            AND idx_com.r_index_id                                     = dvr.index_ID
@@ -10703,7 +10703,7 @@ SELECT idx_com.database_id
                                             -- list of column_ids for the overlap, table column_id order
                                             ------------------------------------------------------------------------------------------------
                                             SELECT CAST(ix.column_id AS VARCHAR(10))+N'.'
-                                              FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ix
+                                              FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ix
                                              WHERE idx_com.database_id                     = ix.database_id
                                                AND idx_com.l_object_id                     = ix.object_id
                                                AND idx_com.l_index_id                      = ix.index_id
@@ -10786,7 +10786,7 @@ SELECT idx_com.database_id
                                                   -- list of column_ids contained, in table column_id order
                                                   ------------------------------------------------------------------------------------------
                                                   SELECT CAST(ix.column_id AS VARCHAR(10))+N'.'
-                                                    FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ix
+                                                    FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ix
                                                    WHERE idx_com.database_id                     = ix.database_id
                                                      AND idx_com.l_object_id                     = ix.object_id
                                                      AND idx_com.l_index_id                      = ix.index_id
@@ -10839,7 +10839,7 @@ OPTION (MAXDOP 1);
 /******************************************************************************************************************************************/
 IF @ssms = 1 RAISERROR('... Organize all SYNERGIES by "index"',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************/
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_IDX_Synergies_index') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_IDX_Synergies_index;
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Synergies_index') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_Synergies_index;
 
 SELECT s.database_id
       ,s.object_id
@@ -10849,7 +10849,7 @@ SELECT s.database_id
       ,synergy_direction  = s.synergy_direction
       ,s.matching_CNT
       ,matching_COL       = s.matching_COL
-  INTO tempdb.dbo.SQLXL_IDX_Synergies_index
+  INTO tempdb.dbo.SQLXL_Index_Synergies_index
   FROM (
         SELECT s.database_id
               ,object_id         = s.l_object_id
@@ -10859,7 +10859,7 @@ SELECT s.database_id
               ,synergy_direction = N''
               ,matching_CNT      = s.matching_sequence_CNT
               ,matching_COL      = s.matching_sequence_COL
-          FROM Tempdb.Dbo.SQLXL_IDX_Synergies AS s
+          FROM Tempdb.Dbo.SQLXL_Index_Synergies AS s
          WHERE s.matching_sequence_CNT         > 0
            AND LEFT(s.matching_sequence_COL,1) = N'S'
         UNION
@@ -10871,7 +10871,7 @@ SELECT s.database_id
               ,synergy_direction = N''
               ,s.matching_sequence_CNT
               ,s.matching_sequence_COL
-          FROM Tempdb.Dbo.SQLXL_IDX_Synergies AS s
+          FROM Tempdb.Dbo.SQLXL_Index_Synergies AS s
          WHERE s.matching_sequence_CNT         > 0
            AND LEFT(s.matching_sequence_COL,1) = N'S'
         UNION
@@ -10883,7 +10883,7 @@ SELECT s.database_id
               ,synergy_direction = N''
               ,matching_CNT      = s.matching_sequence_CNT
               ,matching_COL      = s.matching_sequence_COL
-          FROM Tempdb.Dbo.SQLXL_IDX_Synergies AS s
+          FROM Tempdb.Dbo.SQLXL_Index_Synergies AS s
          WHERE s.matching_sequence_CNT         > 0
            AND LEFT(s.matching_sequence_COL,1) = N'F'
         UNION
@@ -10895,7 +10895,7 @@ SELECT s.database_id
               ,synergy_direction = N''
               ,s.matching_sequence_CNT
               ,s.matching_sequence_COL
-          FROM Tempdb.Dbo.SQLXL_IDX_Synergies AS s
+          FROM Tempdb.Dbo.SQLXL_Index_Synergies AS s
          WHERE s.matching_sequence_CNT         > 0
            AND LEFT(s.matching_sequence_COL,1) = N'F'
         UNION
@@ -10907,7 +10907,7 @@ SELECT s.database_id
               ,synergy_direction = N''
               ,s.matching_overlap_CNT
               ,s.matching_overlap_COL
-          FROM Tempdb.Dbo.SQLXL_IDX_Synergies AS s
+          FROM Tempdb.Dbo.SQLXL_Index_Synergies AS s
          WHERE s.matching_overlap_CNT > 0
         UNION
         SELECT s.database_id
@@ -10918,7 +10918,7 @@ SELECT s.database_id
               ,synergy_direction = N''
               ,s.matching_overlap_CNT
               ,s.matching_overlap_COL
-          FROM Tempdb.Dbo.SQLXL_IDX_Synergies AS s
+          FROM Tempdb.Dbo.SQLXL_Index_Synergies AS s
          WHERE s.matching_overlap_CNT > 0
         UNION
         SELECT s.database_id
@@ -10929,7 +10929,7 @@ SELECT s.database_id
               ,synergy_direction = N'<'
               ,s.matching_contained_CNT
               ,s.matching_contained_COL
-          FROM Tempdb.Dbo.SQLXL_IDX_Synergies AS s
+          FROM Tempdb.Dbo.SQLXL_Index_Synergies AS s
          WHERE s.matching_contained_CNT > 0
         UNION
         SELECT s.database_id
@@ -10940,14 +10940,14 @@ SELECT s.database_id
               ,synergy_direction = N'>'
               ,s.matching_contained_CNT
               ,s.matching_contained_COL
-          FROM Tempdb.Dbo.SQLXL_IDX_Synergies AS s
+          FROM Tempdb.Dbo.SQLXL_Index_Synergies AS s
          WHERE s.matching_contained_CNT > 0
        ) s
 OPTION (MAXDOP 1);
 
 CREATE CLUSTERED
- INDEX ixc_SQLXL_IDX_Synergies_index
-    ON tempdb.dbo.SQLXL_IDX_Synergies_index(database_id,object_id,index_id,type,synergy_type)
+ INDEX ixc_SQLXL_Index_Synergies_index
+    ON tempdb.dbo.SQLXL_Index_Synergies_index(database_id,object_id,index_id,type,synergy_type)
   WITH (DATA_COMPRESSION = PAGE);
 
 /******************************************************************************************************************************************/
@@ -10966,7 +10966,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,
                                         +CASE WHEN src.synergy_direction = N'>' THEN src.synergy_direction ELSE N'' END
                                         +src.matching_COL
                                         +CASE WHEN src.synergy_direction = N'<' THEN src.synergy_direction ELSE N'' END
-                                    FROM tempdb.dbo.SQLXL_IDX_Synergies_index AS src
+                                    FROM tempdb.dbo.SQLXL_Index_Synergies_index AS src
                                    WHERE tgt.database_id                       = src.database_id
                                      AND tgt.object_id                         = src.object_id
                                      AND tgt.index_id                          = src.index_id
@@ -10983,7 +10983,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,
                                  ).value('(./text())[1]','NVARCHAR(886)')
                                  ,1,1,N'') AS VARCHAR(886))
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS tgt
   JOIN (------------------------------------------------------------------------------------------------------------------------------------
@@ -10994,7 +10994,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,
               ,object_id
               ,index_id
               ,type
-          FROM tempdb.dbo.SQLXL_IDX_Synergies_index
+          FROM tempdb.dbo.SQLXL_Index_Synergies_index
        )               AS src
     ON tgt.database_id  = src.database_id
    AND tgt.object_id    = src.object_id
@@ -11015,13 +11015,13 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.mix_Advantage_AMT
 --*/
        mix_advantage_weighted_AMT = tgt.mix_Advantage_AMT * (1.0 * tgt.ius_user_read_CNT / usg.reads)
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE type = N'M'
        ) AS tgt
   JOIN (SELECT database_id
               ,parent_object_id
               ,reads = SUM(ius_user_read_CNT)
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
          GROUP BY
                database_id
@@ -11060,7 +11060,7 @@ SELECT r.database_id,r.object_id,r.index_id,r.type,
       ,ius_last_system_seek_DTTM      = r.ius_last_system_seek_DTTM
       ,ius_last_system_scan_DTTM      = r.ius_last_system_scan_DTTM
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS tgt
   JOIN (------------------------------------------------------------------------------------------------------------------------------------
@@ -11097,7 +11097,7 @@ SELECT r.database_id,r.object_id,r.index_id,r.type,
                       ,fkc_object_id       = r_object_id
                       ,mix_object_id       = l_object_id
                       ,mix_id              = l_index_id
-                  FROM tempdb.dbo.SQLXL_IDX_Synergies
+                  FROM tempdb.dbo.SQLXL_Index_Synergies
                  WHERE l_type              = N'M'
                    AND r_type              = N'F'
                 UNION
@@ -11105,16 +11105,16 @@ SELECT r.database_id,r.object_id,r.index_id,r.type,
                       ,fkc_object_id        = l_object_id
                       ,mix_object_id       = r_object_id
                       ,mix_id              = r_index_id
-                  FROM tempdb.dbo.SQLXL_IDX_Synergies
+                  FROM tempdb.dbo.SQLXL_Index_Synergies
                  WHERE l_type                = N'F'
                    AND r_type                = N'M'
                )                           AS o
-          JOIN (SELECT * FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE rec_type = N'I') AS fk
+          JOIN (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS fk
             ON o.database_id                = fk.database_id
            AND o.fkc_object_id               = fk.object_id
            AND o.fkc_object_id               = fk.index_id
            AND N'F'                         = fk.type
-          JOIN (SELECT * FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE rec_type = N'I') AS mx
+          JOIN (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS mx
             ON o.database_id                = mx.database_id
            AND o.mix_object_id              = mx.object_id
            AND o.mix_id                     = mx.index_ID
@@ -11144,7 +11144,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,mix.*,
 --*/
        fkc_candidate_covering_MIX_ID = mix.mix_index_ID
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS tgt
   JOIN (------------------------------------------------------------------------------------------------------------------------------------
@@ -11180,7 +11180,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,mix.*,
                       ,matching_sequence_CNT
                       ,matching_overlap_CNT
                       ,matching_contained_CNT
-                  FROM tempdb.dbo.SQLXL_IDX_Synergies
+                  FROM tempdb.dbo.SQLXL_Index_Synergies
                  WHERE l_type     = N'M'
                    AND r_type     = N'F'
                    AND (   matching_sequence_CNT  > 0
@@ -11195,7 +11195,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,mix.*,
                       ,matching_sequence_CNT
                       ,matching_overlap_CNT
                       ,matching_contained_CNT
-                  FROM tempdb.dbo.SQLXL_IDX_Synergies
+                  FROM tempdb.dbo.SQLXL_Index_Synergies
                  WHERE l_type     = N'F'
                    AND r_type     = N'M'
                    AND (   matching_sequence_CNT  > 0
@@ -11204,7 +11204,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,mix.*,
                        )
                )                 AS syn
           JOIN (SELECT *
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation
+                  FROM tempdb.dbo.SQLXL_Index_Compilation
                  WHERE rec_type = N'I'
                    AND N'F'     = type
                )                 AS fkc
@@ -11212,7 +11212,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,mix.*,
            AND syn.fkc_object_id  = fkc.object_id
            AND syn.fkc_object_id  = fkc.index_id
           JOIN (SELECT *
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation
+                  FROM tempdb.dbo.SQLXL_Index_Compilation
                  WHERE rec_type = N'I'
                    AND N'M'     = type
                )                 AS mix
@@ -11245,9 +11245,9 @@ SET NOCOUNT ON
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Create Metric Control tables
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF (OBJECT_ID(N'TempDB.dbo.SQLXL_IDX_Metric_Rollup') IS NOT NULL) DROP TABLE TempDB.dbo.SQLXL_IDX_Metric_Rollup;
+IF (OBJECT_ID(N'TempDB.dbo.SQLXL_Index_Metric_Rollup') IS NOT NULL) DROP TABLE TempDB.dbo.SQLXL_Index_Metric_Rollup;
 
-CREATE TABLE TempDB.dbo.SQLXL_IDX_Metric_Rollup
+CREATE TABLE TempDB.dbo.SQLXL_Index_Metric_Rollup
       (rollup_nbr  INT     IDENTITY(1,1)
       ,Level_1     SYSNAME COLLATE DATABASE_DEFAULT NULL
       ,abbr_1      SYSNAME COLLATE DATABASE_DEFAULT NULL
@@ -11268,7 +11268,7 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Metric_Rollup
 -- ,(##,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
-  INTO tempdb.dbo.SQLXL_IDX_Metric_Rollup
+  INTO tempdb.dbo.SQLXL_Index_Metric_Rollup
       (Level_1,abbr_1
       ,Level_2,abbr_2
       ,Level_3,abbr_3
@@ -11815,7 +11815,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
        )
@@ -11823,7 +11823,7 @@ UPDATE tgt
    FOR XML PATH(N'')
 ),1,8,N'')
 + N'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
   JOIN (SELECT database_id
               ,parent_object_id
               ,object_id'
@@ -11832,7 +11832,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
        )
@@ -11840,7 +11840,7 @@ UPDATE tgt
    FOR XML PATH(N''), TYPE
 ).value('(./text())[1]','NVARCHAR(MAX)')
 + N'
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE N''I''       = rec_type
          GROUP BY
                database_id
@@ -11876,7 +11876,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
        )
@@ -11884,7 +11884,7 @@ UPDATE tgt
    FOR XML PATH(N'')
 ),1,8,N'')
 + N'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
   JOIN (SELECT database_id
               ,parent_object_id'
 +(SELECT NCHAR(10) + N'              ,' -- list of columns in table
@@ -11892,7 +11892,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
        )
@@ -11900,7 +11900,7 @@ UPDATE tgt
    FOR XML PATH(N''), TYPE
 ).value('(./text())[1]','NVARCHAR(MAX)')
 + N'
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE N''I''       = rec_type
          GROUP BY
                database_id
@@ -11930,7 +11930,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'DATETIME' AND c.name LIKE N'%_DTTM')
         OR (t.name LIKE N'%INT'    AND c.name LIKE N'%_days_ago%')
         OR c.name    IN (N'row_CNT',N'is_activity_for_period')
@@ -11938,7 +11938,7 @@ UPDATE tgt
    FOR XML PATH(N'')
 ),1,8,N'')
 + N'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
   JOIN (SELECT database_id
               ,parent_object_id
               ,object_id'
@@ -11947,7 +11947,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'DATETIME' AND c.name LIKE N'%_DTTM')
         OR (t.name LIKE N'%INT'    AND c.name LIKE N'%_days_ago%')
         OR c.name    IN (N'row_CNT',N'is_activity_for_period')
@@ -11955,7 +11955,7 @@ UPDATE tgt
    FOR XML PATH(N'')
 )
 + N'
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE N''I''  = rec_type
          GROUP BY
                database_id
@@ -11987,7 +11987,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'DATETIME' AND c.name LIKE N'%_DTTM')
         OR (t.name LIKE N'%INT'    AND c.name LIKE N'%_days_ago%')
         OR c.name    IN (N'row_CNT',N'is_activity_for_period')
@@ -11995,7 +11995,7 @@ UPDATE tgt
    FOR XML PATH(N'')
 ),1,8,N'')
 + N'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
   JOIN (SELECT database_id
               ,parent_object_id'
 +(SELECT NCHAR(10) + N'              ,'
@@ -12003,7 +12003,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'DATETIME' AND c.name LIKE N'%_DTTM')
         OR (t.name LIKE N'%INT'    AND c.name LIKE N'%_days_ago%')
         OR c.name    IN (N'row_CNT',N'is_activity_for_period')
@@ -12011,7 +12011,7 @@ UPDATE tgt
    FOR XML PATH(N'')
 )
 + N'
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE N''I''  = rec_type
          GROUP BY
                database_id
@@ -12040,7 +12040,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
        )
@@ -12048,14 +12048,14 @@ UPDATE tgt
    FOR XML PATH(N'')
 ),1,8,N'')
 + N'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
   JOIN (SELECT database_id'
 +(SELECT NCHAR(10) + N'              ,'
       + c.name + N' = SUM(' + c.name +N')'
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
        )
@@ -12063,7 +12063,7 @@ UPDATE tgt
    FOR XML PATH(N'')
 )
 + N'
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N''P''
          GROUP BY
                database_id
@@ -12090,7 +12090,7 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
        )
@@ -12098,14 +12098,14 @@ UPDATE tgt
    FOR XML PATH(N'')
 ),1,8,N'')
 + N'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
 CROSS JOIN (SELECT na = 0'
 +(SELECT NCHAR(10) + N'              ,'
       + c.name + N' = SUM(' + c.name +N')'
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
        )
@@ -12113,7 +12113,7 @@ CROSS JOIN (SELECT na = 0'
    FOR XML PATH(N'')
 )
 + N'
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE N''D'' = rec_type
        ) AS src
  WHERE tgt.rec_type         = N''A'';'
@@ -12141,13 +12141,13 @@ UPDATE tgt
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND t.name      = 'float'
    AND c.name LIKE N'%_AVG'
    FOR XML PATH(N''),TYPE
 ).value('(./text())[1]','NVARCHAR(MAX)'),1,8,N'')
 + N'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt';
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt';
 
 EXECUTE sys.sp_executesql @sql;IF @@Error > 0 SELECT '### BLAMMO ! ###',@sql;
 
@@ -12163,9 +12163,9 @@ DECLARE @sql       NVARCHAR(MAX)
        ,@name      SYSNAME
        ,@ssms      TINYINT = 1
 --*/
-IF (OBJECT_ID(N'TempDB.dbo.SQLXL_IDX_Metrics') IS NOT NULL) DROP TABLE TempDB.dbo.SQLXL_IDX_Metrics
+IF (OBJECT_ID(N'TempDB.dbo.SQLXL_Index_Metrics') IS NOT NULL) DROP TABLE TempDB.dbo.SQLXL_Index_Metrics
 
-CREATE TABLE TempDB.dbo.SQLXL_IDX_Metrics
+CREATE TABLE TempDB.dbo.SQLXL_Index_Metrics
 (
  diagnostic_ID    INT            IDENTITY(1,1)
 -----------------------------
@@ -12193,7 +12193,7 @@ SELECT -- TOP 1 -- *** LOCAL TESTING
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
     AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
          OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
         )
@@ -12220,7 +12220,7 @@ BEGIN
 -- Compute Percent of Parent or Internal Table ' + @name +N' for Indexes
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_Metrics
+  INTO TempDB.dbo.SQLXL_Index_Metrics
       (rec_type
       ,database_id
       ,parent_object_id
@@ -12240,13 +12240,13 @@ SELECT i.rec_type
       ,metric          = ''' + @name + N'''
       ,metric_AMT      = i.' + @name + N'
       ,diagnostic_PCT  = ROUND(100.0 * i.' + @name + N' / a.' + @name + N',1)
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  INNER HASH
   JOIN (SELECT database_id
               ,parent_object_id
               ,object_id
               ,' + @name + N' = SUM(' + @name + N')
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N''I'')
            AND NOT (    type IN (N''M'') -- Omit missing index values from where they''ve been rolled up into another source column
                     AND N''' + @name + N''' NOT LIKE N''MIX_%''
@@ -12271,7 +12271,7 @@ OPTION (FORCE ORDER,MAXDOP 1);'
 -- Compute Percent of Total ' + @name +N' for Parent & Internal Tables
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_Metrics
+  INTO TempDB.dbo.SQLXL_Index_Metrics
       (rec_type
       ,database_id
       ,parent_object_id
@@ -12291,10 +12291,10 @@ SELECT c.rec_type
       ,metric          = ''' + @name + N'''
       ,metric_AMT      = c.' + @name + N'
       ,diagnostic_PCT  = 100.0 * c.' + @name + N' / a.' + @name + N'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS c
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS c
  CROSS
   JOIN (SELECT ' + @name + N'
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE database_id      = 0
            AND ' + @name   + N' > 0
            AND parent_object_id = 0
@@ -12316,11 +12316,11 @@ CLOSE agg_crsr;
 DEALLOCATE agg_crsr;
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Create index on SQLXL_IDX_Metrics
+-- Create index on SQLXL_Index_Metrics
 --------------------------------------------------------------------------------------------------------------------------------------------
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_Metrics
-    ON tempdb.dbo.SQLXL_IDX_Metrics
+ INDEX ixuc_SQLXL_Index_Metrics
+    ON tempdb.dbo.SQLXL_Index_Metrics
        (diagnostic_ID)
   WITH (DATA_COMPRESSION = PAGE);
 
@@ -12334,7 +12334,7 @@ UPDATE tgt
    SET diagnostic       = N'(' + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'% #' + CAST(c.diagnostic_rank AS NVARCHAR(10)) + N')'
       ,diagnostic_rank  = c.diagnostic_rank
       ,previous_sum_PCT = ISNULL(c.previous_sum_PCT,0.0)
-  FROM TempDB.dbo.SQLXL_IDX_Metrics AS tgt
+  FROM TempDB.dbo.SQLXL_Index_Metrics AS tgt
   JOIN (
         SELECT c.diagnostic_ID
               ,c.rec_type
@@ -12370,7 +12370,7 @@ UPDATE tgt
                                                                     ORDER BY diagnostic_PCT DESC
                                                                             ,object_id
                                                                )
-                  FROM TempDB.dbo.SQLXL_IDX_Metrics
+                  FROM TempDB.dbo.SQLXL_Index_Metrics
                  WHERE rec_type IN (N'P',N'S')
                ) AS c
        )                AS c
@@ -12385,7 +12385,7 @@ UPDATE tgt
    SET diagnostic       = N'(' + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'% #' + CAST(c.diagnostic_rank AS NVARCHAR(10)) + N')'
       ,diagnostic_rank  = c.diagnostic_rank
       ,previous_sum_PCT = ISNULL(c.previous_sum_PCT,0.0)
-  FROM TempDB.dbo.SQLXL_IDX_Metrics AS tgt
+  FROM TempDB.dbo.SQLXL_Index_Metrics AS tgt
   JOIN (
         SELECT c.diagnostic_ID
               ,c.rec_type
@@ -12424,7 +12424,7 @@ UPDATE tgt
                                                                     ORDER BY diagnostic_PCT DESC
                                                                             ,index_id
                                                             )
-                  FROM TempDB.dbo.SQLXL_IDX_Metrics
+                  FROM TempDB.dbo.SQLXL_Index_Metrics
                  WHERE rec_type = N'I'
                    AND diagnostic_PCT IS NOT NULL
                ) AS c
@@ -12438,9 +12438,9 @@ OPTION (MAXDOP 1);
 -- Create Diagnostics Table
 -- type id: 0-Critical,2-Warning,4-Performance,6-nonDefault,8-Information,10-execution metrics; FUTURE:12-footprint metrics
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF (OBJECT_ID(N'TempDB.dbo.SQLXL_IDX_Diagnostics') IS NOT NULL) DROP TABLE TempDB.dbo.SQLXL_IDX_Diagnostics
+IF (OBJECT_ID(N'TempDB.dbo.SQLXL_Index_Diagnostics') IS NOT NULL) DROP TABLE TempDB.dbo.SQLXL_Index_Diagnostics
 
-CREATE TABLE TempDB.dbo.SQLXL_IDX_Diagnostics
+CREATE TABLE TempDB.dbo.SQLXL_Index_Diagnostics
 (
  diagnostic_ID                              INT                                     IDENTITY(1,1)
 -------------------------------------------------------
@@ -12462,7 +12462,7 @@ CREATE TABLE TempDB.dbo.SQLXL_IDX_Diagnostics
 -- Insert consolidated metrics into diagnostic table
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
-  INTO TempDB.dbo.SQLXL_IDX_Diagnostics
+  INTO TempDB.dbo.SQLXL_Index_Diagnostics
       (rec_type
       ,database_id
       ,parent_object_id
@@ -12566,9 +12566,9 @@ SELECT COUNT(1)
 --            ,f.metric_AMT
               ,rollup_level = r.level_1
               ,r.rollup_nbr
-          FROM tempdb.dbo.SQLXL_IDX_Metrics       AS f
+          FROM tempdb.dbo.SQLXL_Index_Metrics       AS f
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_Metric_Rollup AS r
+          JOIN tempdb.dbo.SQLXL_Index_Metric_Rollup AS r
             ON f.metric                            = r.level_1
             OR f.metric                            = r.level_2
             OR f.metric                            = r.level_3
@@ -12584,11 +12584,11 @@ SELECT COUNT(1)
                )
            AND COALESCE(r.level_1,r.level_2,r.level_3,r.level_4,r.level_5,r.level_6) IS NOT NULL
        ) f
-  JOIN tempdb.dbo.SQLXL_IDX_Metric_Rollup AS r
+  JOIN tempdb.dbo.SQLXL_Index_Metric_Rollup AS r
     ON f.rollup_nbr       = r.rollup_nbr
    AND f.rollup_level     = r.level_1
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics AS f1
+  JOIN tempdb.dbo.SQLXL_Index_Metrics AS f1
     ON r.Level_1          = f1.metric
    AND f.rec_type         = f1.rec_type
    AND f.database_id      = f1.database_id
@@ -12597,7 +12597,7 @@ SELECT COUNT(1)
    AND f.index_id         = f1.index_id
    AND f.type             = f1.type
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics AS f2
+  JOIN tempdb.dbo.SQLXL_Index_Metrics AS f2
     ON r.Level_2          = f2.metric
    AND f.rec_type         = f2.rec_type
    AND f.database_id      = f2.database_id
@@ -12606,7 +12606,7 @@ SELECT COUNT(1)
    AND f.index_id         = f2.index_id
    AND f.type             = f2.type
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics AS f3
+  JOIN tempdb.dbo.SQLXL_Index_Metrics AS f3
     ON r.Level_3          = f3.metric
    AND f.rec_type         = f3.rec_type
    AND f.database_id      = f3.database_id
@@ -12615,7 +12615,7 @@ SELECT COUNT(1)
    AND f.index_id         = f3.index_id
    AND f.type             = f3.type
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics AS f4
+  JOIN tempdb.dbo.SQLXL_Index_Metrics AS f4
     ON r.Level_4          = f4.metric
    AND f.rec_type         = f4.rec_type
    AND f.database_id      = f4.database_id
@@ -12624,7 +12624,7 @@ SELECT COUNT(1)
    AND f.index_id         = f4.index_id
    AND f.type             = f4.type
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics AS f5
+  JOIN tempdb.dbo.SQLXL_Index_Metrics AS f5
     ON r.Level_5          = f5.metric
    AND f.rec_type         = f5.rec_type
    AND f.database_id      = f5.database_id
@@ -12633,7 +12633,7 @@ SELECT COUNT(1)
    AND f.index_id         = f5.index_id
    AND f.type             = f5.type
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics AS f6
+  JOIN tempdb.dbo.SQLXL_Index_Metrics AS f6
     ON r.Level_6          = f6.metric
    AND f.rec_type         = f6.rec_type
    AND f.database_id      = f6.database_id
@@ -12651,8 +12651,8 @@ SELECT COUNT(1)
 OPTION (MAXDOP 1);
 
 CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_IDX_IDX_Diagnostics
-    ON TempDB.dbo.SQLXL_IDX_Diagnostics
+ INDEX ixuc_SQLXL_Index_IDX_Diagnostics
+    ON TempDB.dbo.SQLXL_Index_Diagnostics
       (database_id
       ,parent_object_id
       ,object_id
@@ -12723,18 +12723,18 @@ SELECT tgt.ops_Total_read_CNT, p.ops_Total_read_CNT,
                                                / tgt.ops_Total_write_CNT
                                         ,0)
   FROM (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS tgt
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
-         WHERE rec_type = N'P'
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
+         WHERE rec_type IN (N'P')
        ) AS p
     ON tgt.database_id           = p.database_id
    AND tgt.parent_object_id      = p.parent_object_id
  CROSS 
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'A'
        ) AS a
  WHERE tgt.type NOT IN (N'F') -- uncovered Foreign Key Constraints get candidate covering missing index total but don't get ratios computed
@@ -12792,10 +12792,10 @@ SELECT database_id,parent_object_id,object_id,index_id,type,
                                        ,100.0 * (tgt.ops_Total_page_merge_CNT + tgt.ios_column_value_push_off_row_CNT)
                                               / tgt.ops_Total_write_CNT
                                        ,0)
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
  CROSS 
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'A'
        ) AS a
  WHERE tgt.rec_type IN (N'P',N'S')
@@ -12809,7 +12809,7 @@ SELECT c.name
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_IDX_Compilation')
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
     AND (   (t.name    = 'float'    AND RIGHT(c.name,4) = N'_AMT')
          OR (t.name LIKE N'%INT'    AND c.name LIKE N'%CNT%')
          OR (t.name    = 'DATETIME' AND c.name LIKE N'%_DTTM')
@@ -12819,19 +12819,19 @@ SELECT c.name
         )
 EXCEPT
 SELECT Level_1 FROM (
-SELECT Level_1 FROM tempdb.dbo.SQLXL_IDX_Metric_Rollup UNION
-SELECT Level_2 FROM tempdb.dbo.SQLXL_IDX_Metric_Rollup UNION
-SELECT Level_3 FROM tempdb.dbo.SQLXL_IDX_Metric_Rollup UNION
-SELECT Level_4 FROM tempdb.dbo.SQLXL_IDX_Metric_Rollup UNION
-SELECT Level_5 FROM tempdb.dbo.SQLXL_IDX_Metric_Rollup UNION
-SELECT Level_6 FROM tempdb.dbo.SQLXL_IDX_Metric_Rollup
+SELECT Level_1 FROM tempdb.dbo.SQLXL_Index_Metric_Rollup UNION
+SELECT Level_2 FROM tempdb.dbo.SQLXL_Index_Metric_Rollup UNION
+SELECT Level_3 FROM tempdb.dbo.SQLXL_Index_Metric_Rollup UNION
+SELECT Level_4 FROM tempdb.dbo.SQLXL_Index_Metric_Rollup UNION
+SELECT Level_5 FROM tempdb.dbo.SQLXL_Index_Metric_Rollup UNION
+SELECT Level_6 FROM tempdb.dbo.SQLXL_Index_Metric_Rollup
 ) AS c
 ORDER BY 1
 */
 
 /*** LOCAL TESTING ***
-UPDATE tempdb.dbo.SQLXL_IDX_Compilation SET Diagnostics = NULL
---TRUNCATE TABLE tempdb.dbo.SQLXL_IDX_Diagnostics
+UPDATE tempdb.dbo.SQLXL_Index_Compilation SET Diagnostics = NULL
+--TRUNCATE TABLE tempdb.dbo.SQLXL_Index_Diagnostics
 
 USE tempdb
 DECLARE @cover_foreign_keys               TINYINT = 2
@@ -12877,18 +12877,18 @@ IF @ssms = 1 RAISERROR('... Instance',0,0) WITH NOWAIT;
 -- Critical = 0
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Instance - Columnstore indexes in use and Trace Flag 834 found (BI72)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 0
       ,diagnostic = 'Trace Flag 834 (large-page allocations for the buffer pool) in use with Columnstore indexes - not a good thing! See:'
                   + NCHAR(10)
                   + N'https://docs.microsoft.com/en-US/troubleshoot/sql/admin/performance-issues-using-columstore-indexes-large-pages (BI72)'
-  FROM tempdb.dbo.SQLXL_IDX_sys_instance
+  FROM tempdb.dbo.SQLXL_Index_sys_instance
  WHERE 834 IN (SELECT name 
-                 FROM TempDB.dbo.SQLXL_IDX_sys_instance 
+                 FROM TempDB.dbo.SQLXL_Index_sys_instance 
                 WHERE source = N'TRACESTATUS'
               )
    AND    0 < (SELECT COUNT(1) 
-                 FROM tempdb.dbo.SQLXL_IDX_Compilation 
+                 FROM tempdb.dbo.SQLXL_Index_Compilation 
                 WHERE type IN (N'5',N'6')
               );
 
@@ -12896,7 +12896,7 @@ SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,ty
 -- Warning = 2
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Instance - Good to know - Instance and server cofiguration information
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 2
       ,diagnostic = COALESCE(REPLACE(LEFT(i.run_value,CHARINDEX(NCHAR(09),i.run_value) - 3),N'MICROSOFT ',N'')
                             ,N'<Configuration @@VERSION not found>'
@@ -12916,24 +12916,24 @@ SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,ty
   FROM (SELECT r = NULL) AS r
  OUTER
  APPLY (SELECT run_value
-          FROM tempdb.dbo.SQLXL_IDX_sys_instance
+          FROM tempdb.dbo.SQLXL_Index_sys_instance
          WHERE source = N'Configuration'
            AND name   = N'@@VERSION'
        ) AS i
  OUTER
  APPLY (SELECT run_value
-          FROM tempdb.dbo.SQLXL_IDX_sys_instance
+          FROM tempdb.dbo.SQLXL_Index_sys_instance
          WHERE source = N'dm_os_sys_info'
            AND name   = N'sqlserver_start_time'
        ) AS s
  OUTER
  APPLY (SELECT collection_DTTM
-          FROM tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters 
+          FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters 
        ) AS sp;
 
 ----------------------------------------------------------------------------------------------------
 ;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 2)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT cte.*,src.diagnostic
   FROM cte
  CROSS
@@ -12943,21 +12943,21 @@ SELECT  N'RAM OS:'    + tempdb.dbo.SQLXL_3SD(MemSrv,N'KB')
       + N' SQL Used:' + tempdb.dbo.SQLXL_3SD(SQLusd,N'KB') + N' (' + tempdb.dbo.SQLXL_3SD(1.0 * sQLusd/(SQLmax*1024.0),N'%') + N')'
   FROM (--
         SELECT MemSrv = COALESCE((SELECT CAST(run_value AS BIGINT)
-                                    FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                                    FROM tempdb.dbo.SQLXL_Index_sys_instance
                                    WHERE source = N'dm_os_sys_info'
                                      AND name   = N'physical_memory_kb'
                                  )
                                 ,N'<dm_os_sys_info physical_memory_kb not found>'
                                 )
               ,SQLmax = COALESCE((SELECT CAST(run_value AS BIGINT)
-                                    FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                                    FROM tempdb.dbo.SQLXL_Index_sys_instance
                                    WHERE source = N'sp_configure'
                                      AND name   = N'max server memory (MB)'
                                  )
                                 ,N'<sp_configure max server memory (MB) not found'
                                 )
               ,SQLusd = COALESCE((SELECT CAST(run_value AS BIGINT)
-                                    FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                                    FROM tempdb.dbo.SQLXL_Index_sys_instance
                                    WHERE source = N'dm_os_sys_info'
                                      AND name   = N'committed_kb'
                                  )
@@ -12967,7 +12967,7 @@ SELECT  N'RAM OS:'    + tempdb.dbo.SQLXL_3SD(MemSrv,N'KB')
 
 UNION ALL
 SELECT COALESCE((SELECT N'CPU ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                   FROM tempdb.dbo.SQLXL_Index_sys_instance
                   WHERE source = N'dm_os_sys_info'
                     AND name   = N'cpu_count'
                 )
@@ -12975,7 +12975,7 @@ SELECT COALESCE((SELECT N'CPU ' + QUOTENAME(run_value)
                )
 -- Diagnostic - Instance - non-default - max degree of parallelism
       +COALESCE((SELECT N' MAXDOP ' + QUOTENAME(run_value) + IIF(run_value <> N'0',N', default 0 (all processors)',N'')
-                   FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                   FROM tempdb.dbo.SQLXL_Index_sys_instance
                   WHERE source         = N'sp_configure'
                     AND name           = N'max degree of parallelism'
                 ) 
@@ -12984,28 +12984,28 @@ SELECT COALESCE((SELECT N'CPU ' + QUOTENAME(run_value)
 
 UNION ALL
 SELECT COALESCE((SELECT N'Sockets ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                   FROM tempdb.dbo.SQLXL_Index_sys_instance
                   WHERE source = N'dm_os_sys_info'
                     AND name   = N'socket_count'
                 )
                ,N'<dm_os_sys_info socket_count not found>'
                )
       +COALESCE((SELECT N' Cores/Socket ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                   FROM tempdb.dbo.SQLXL_Index_sys_instance
                   WHERE source = N'dm_os_sys_info'
                     AND name   = N'cores_per_socket'
                 )
                ,N'<dm_os_sys_info cores_per_socket not found>'
                )
       +COALESCE((SELECT N' Hypthr Ratio ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                   FROM tempdb.dbo.SQLXL_Index_sys_instance
                   WHERE source = N'dm_os_sys_info'
                     AND name   = N'hyperthread_ratio'
                 )
                ,N'<dm_os_sys_info hyperthread_ratio not found>'
                )
       +COALESCE((SELECT N' SoftNUMA ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                   FROM tempdb.dbo.SQLXL_Index_sys_instance
                   WHERE source = N'dm_os_sys_info'
                     AND name   = N'softnuma_configuration_desc'
                 )
@@ -13017,17 +13017,17 @@ SELECT COALESCE((SELECT N'Sockets ' + QUOTENAME(run_value)
 ----------------------------------------------------------------------------------------------------
 -- Performance = 4
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 -- Diagnostic - Instance - Missing index count across instance
 SELECT rec_type = 'A',a.database_id,a.parent_object_id,a.object_id,a.index_id,a.type,diagnostic_type_id = 4,diagnostic =
        COALESCE(N'Missing indexes: ' + CAST(ISNULL(a.Missing_index_CNT,0) AS NVARCHAR(20)) + N' out of 600 possible'
                ,N'< Missing index count not found>'
                )
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS a
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS a
  WHERE a.rec_type = N'A';
 
 ;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 4)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT cte.*,src.diagnostic
   FROM cte
  CROSS
@@ -13036,12 +13036,12 @@ SELECT cte.*,src.diagnostic
 -- Diagnostic - Instance - SQL <2019, Entp Ed, Mem model <> LARGE_PAGES, 8GB+ RAM, TF834 not enabled, NO columnstore, enable Lock/Large Pages?
 -- Diagnostic - Instance - SQL 2019+, Entp Ed, Mem model <> LARGE_PAGES, 8GB+ RAM, TF876 (Lock/Lg Pages) not enabled
 SELECT CASE WHEN 8192 <= (SELECT CAST(run_value AS INT)               -- Large Pages requires minimum 8GB of memory
-                            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                            FROM tempdb.dbo.SQLXL_Index_sys_instance
                            WHERE source    = N'sp_configure'
                              AND name      = N'max server memory (MB)'
                          )
              AND (SELECT run_value
-                    FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                    FROM tempdb.dbo.SQLXL_Index_sys_instance
                    WHERE source    = N'SERVERPROPERTY'
                      AND name      = N'Edition'
                      AND (   run_value LIKE N'ENTERPRISE%'
@@ -13050,24 +13050,24 @@ SELECT CASE WHEN 8192 <= (SELECT CAST(run_value AS INT)               -- Large P
                  ) IS NOT NULL
             THEN N'SQL Memory ' + run_value
                 + IIF(run_value = N'LOCK_PAGES',N', use "LARGE_PAGES?"',N', use "LOCK_PAGES/LARGE_PAGES?"')
-                + CASE WHEN (SELECT version_major FROM tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters) >= 15
-                       THEN CASE WHEN 876 NOT IN (SELECT name FROM TempDB.dbo.SQLXL_IDX_sys_instance WHERE source = N'TRACESTATUS')
+                + CASE WHEN (SELECT version_major FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters) >= 15
+                       THEN CASE WHEN 876 NOT IN (SELECT name FROM TempDB.dbo.SQLXL_Index_sys_instance WHERE source = N'TRACESTATUS')
                                  THEN NCHAR(10) + '> Req TF876 (SQL 2019+)'
                                  ELSE N''
                             END
-                       WHEN (SELECT COUNT(1) FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE type IN (N'5',N'6')) > 0
-                       THEN CASE WHEN 834 IN (SELECT name FROM TempDB.dbo.SQLXL_IDX_sys_instance WHERE source = N'TRACESTATUS')
+                       WHEN (SELECT COUNT(1) FROM tempdb.dbo.SQLXL_Index_Compilation WHERE type IN (N'5',N'6')) > 0
+                       THEN CASE WHEN 834 IN (SELECT name FROM TempDB.dbo.SQLXL_Index_sys_instance WHERE source = N'TRACESTATUS')
                                  THEN N'' -- remove TF834 flagged above
                                  ELSE N' - Columnstore indexes found, do not enable TF834 (SQL <2019)'
                             END
-                       ELSE CASE WHEN 834 IN (SELECT name FROM TempDB.dbo.SQLXL_IDX_sys_instance WHERE source = N'TRACESTATUS')
+                       ELSE CASE WHEN 834 IN (SELECT name FROM TempDB.dbo.SQLXL_Index_sys_instance WHERE source = N'TRACESTATUS')
                                  THEN N''
                                  ELSE N' - Requires TF834 (<SQL 2019)'
                             END
                   END
             ELSE NULL
        END
-  FROM tempdb.dbo.SQLXL_IDX_sys_instance
+  FROM tempdb.dbo.SQLXL_Index_sys_instance
  WHERE source     = N'dm_os_sys_info'
    AND name       = N'sql_memory_model_desc'
    AND run_value <> N'LARGE_PAGES'
@@ -13083,7 +13083,7 @@ SELECT IIF(i.run_value IS NULL
   FROM (SELECT r = NULL) AS r
  OUTER
  APPLY (SELECT run_value,name
-          FROM tempdb.dbo.SQLXL_IDX_sys_instance
+          FROM tempdb.dbo.SQLXL_Index_sys_instance
          WHERE source         = N'sp_configure'
            AND name           = N'fill factor (%)'
        ) i
@@ -13099,7 +13099,7 @@ SELECT IIF(i.run_value IS NULL
   FROM (SELECT r = NULL) AS r
  OUTER
  APPLY (SELECT run_value,name
-          FROM tempdb.dbo.SQLXL_IDX_sys_instance
+          FROM tempdb.dbo.SQLXL_Index_sys_instance
          WHERE source         = N'sp_configure'
            AND name           = N'min memory per query (KB)'
        ) i
@@ -13115,7 +13115,7 @@ SELECT IIF(i.run_value IS NULL
   FROM (SELECT r = NULL) AS r
  OUTER
  APPLY (SELECT run_value,name
-          FROM tempdb.dbo.SQLXL_IDX_sys_instance
+          FROM tempdb.dbo.SQLXL_Index_sys_instance
          WHERE source         = N'servers'
            AND name           = N'is_rda_server'
        ) i
@@ -13128,62 +13128,62 @@ SELECT IIF(i.run_value IS NULL
 -- Omitting "default full-text language" since will vary based on language
 ----------------------------------------------------------------------------------------------------
 ;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 6)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT cte.*,src.diagnostic
   FROM cte
  CROSS JOIN (
 -- Diagnostic - Instance - non-default - cost threshold for parallelism <> 5
           SELECT name + N' ' + QUOTENAME(run_value) + N', default 5'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source  = N'sp_configure'
              AND name   = N'Cost threshold for parallelism'
              AND run_value NOT IN (N'5')
 
 -- Diagnostic - Instance - non-default - blocked process threshold <> 5
 UNION ALL SELECT name + N' ' + QUOTENAME(run_value) + N', default 5 (seconds)'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'blocked process threshold (s)'
              AND run_value NOT IN (N'5')
 
 -- Diagnostic - Instance - non-default - index create memory (KB) <> 0
 UNION ALL SELECT name + N' ' + QUOTENAME(run_value) + N', default 0'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'Index create memory (KB)'
              AND run_value NOT IN (N'0')
 
 -- Diagnostic - Instance - non-default - Optimize for ad hoc workloads ENABLED
 UNION ALL SELECT name + N' [ON], default OFF'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'Optimize for ad hoc workloads'
              AND run_value NOT IN (N'0')
 
 -- Diagnostic - Instance - non-default - Network packet size <> 4096
 UNION ALL SELECT N'Network packet size ' + run_value + N'B, default 4096B'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'network packet size (B)'
              AND run_value NOT IN (N'4096')
 
 -- Diagnostic - Instance - non-default - max text repl size (B) <> 65536
 UNION ALL SELECT N'Text Replication Size MAX ' + QUOTENAME(run_value) + N', default 65536'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'max text repl size (B)'
              AND run_value NOT IN (N'65536')
 
 -- Diagnostic - Instance - non-default - query governor cost limit > 0
 UNION ALL SELECT N'Query governor cost limit ' + QUOTENAME(run_value) + N', default 0'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source    = N'sp_configure'
              AND name      = N'query governor cost limit'
              AND run_value > 0
 
 -- Diagnostic - Instance - non-default - Query waits for resources before it times out <> -1
 UNION ALL SELECT N'Query waits for resources ' + QUOTENAME(run_value) + N' (sec), default -1 (25X estimated query cost)'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source    = N'sp_configure'
              AND name      = N'query wait (s)'
              AND run_value > 0
@@ -13193,55 +13193,55 @@ UNION ALL SELECT N'Query waits for resources ' + QUOTENAME(run_value) + N' (sec)
 ------------------------------------------------------------
 -- Diagnostic - Instance - non-default - Full Text is Installed
 UNION ALL SELECT N'Fulltext feature [INSTALLED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source     = N'SERVERPROPERTY'
              AND name       = N'IsFullTextInstalled'
              AND run_value IN (N'1')
 
 -- Diagnostic - Instance - non-default - Fulltext Crawl Bandwidth MAX <> 100
 UNION ALL SELECT N'> Fulltext Crawl Bandwidth MAX = ' + QUOTENAME(run_value) + N', default 100'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'FT crawl bandwidth (max)'
              AND run_value NOT IN (N'100')
 
 -- Diagnostic - Instance - non-default - Fulltext Crawl Bandwidth MIN <> 0
 UNION ALL SELECT N'> Fulltext Crawl Bandwidth MIN = ' + QUOTENAME(run_value) + N', default 0'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'FT crawl bandwidth (min)'
              AND run_value NOT IN (N'0')
 
 -- Diagnostic - Instance - non-default - ft notify bandwidth maximum <> 100
 UNION ALL SELECT N'> Fulltext Notify Bandwidth MAX = ' + QUOTENAME(run_value) + N', default 100'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'FT notify bandwidth (max)'
              AND run_value NOT IN (N'100')
 
 -- Diagnostic - Instance - non-default - ft notify bandwidth minimum <> 0
 UNION ALL SELECT N'> Fulltext Notify Bandwidth MIN = ' + QUOTENAME(run_value) + N', default 0'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'FT notify bandwidth (min)'
              AND run_value NOT IN (N'0')
 
 -- Diagnostic - Instance - Good to know - default Fulltext language (if Fulltext enabled)
 UNION ALL SELECT N'> Default Fulltext language = ' + QUOTENAME(i.run_value) + N' ' + l.alias + N' ' + QUOTENAME(l.name)
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance AS i
+            FROM tempdb.dbo.SQLXL_Index_sys_instance AS i
             JOIN sys.syslanguages                  AS l
               ON TRY_CAST(i.run_value AS SMALLINT)  = l.lcid
            WHERE i.source = N'sp_configure'
              AND i.name   = N'default full-text language'
              AND 1 = (SELECT TRY_CAST(run_value AS TINYINT)
-                        FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                        FROM tempdb.dbo.SQLXL_Index_sys_instance
                        WHERE source = N'SERVERPROPERTY'
                          AND name   = N'IsFullTextInstalled'
                      )
 
 -- Diagnostic - Instance - non-default - max full-text crawl range <> 4 CPUs
 UNION ALL SELECT N'> Fulltext Crawl Range MAX = ' + QUOTENAME(run_value) + N', default 4'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'max full-text crawl range'
              AND run_value NOT IN (N'4')
@@ -13249,35 +13249,35 @@ UNION ALL SELECT N'> Fulltext Crawl Range MAX = ' + QUOTENAME(run_value) + N', d
 ------------------------------------------------------------
 -- Diagnostic - Instance - non-default - Advanced Analytics is Installed
 UNION ALL SELECT N'Advanced Analytics [INSTALLED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsAdvancedAnalyticsInstalled'
              AND run_value     IN (N'1')
 
 -- Diagnostic - Instance - non-default - Big Data Cluster is Installed
 UNION ALL SELECT N'Big Data Cluster [INSTALLED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsBigDataCluster'
              AND run_value     IN (N'1')
 
 -- Diagnostic - Instance - non-default - Always On (HADR) Enabled
 UNION ALL SELECT N'Always On (HADR) [ENABLED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsHadrEnabled'
              AND run_value     IN (N'1')
 
 -- Diagnostic - Instance - non-default - PolyBase is Installed
 UNION ALL SELECT N'PolyBase feature [INSTALLED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsPolyBaseInstalled'
              AND run_value     IN (N'1')
 
 -- Diagnostic - Instance - non-default - XTP (In-Memory Tables) is Supported
 UNION ALL SELECT N'XTP In-memory tables [SUPPORTED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsXTPSupported'
              AND run_value     IN (N'1')
@@ -13285,52 +13285,52 @@ UNION ALL SELECT N'XTP In-memory tables [SUPPORTED]'
 ------------------------------------------------------------
 -- Diagnostic - Instance - non-default - TempDB Is Metadata Memory Optimized
 UNION ALL SELECT N'TempDB Metadata Memory Optimized [ENABLED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsTempDbMetadataMemoryOptimized'
              AND run_value  IN (N'1')
 
 -- Diagnostic - Instance - SQL 2019+ TempDB Metadata Memory Optimized NOT enabled'
 UNION ALL SELECT N'TempDB Metadata Memory Optimized [NOT ENABLED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source     = N'SERVERPROPERTY'
              AND name       = N'IsTempDbMetadataMemoryOptimized'
              AND run_value IN (N'0')
              AND (SELECT version_major 
-                    FROM tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters
+                    FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters
                  ) >= 15 -- 2019+
 
 -- Diagnostic - Instance - non-default - Server Is Clustered
 UNION ALL SELECT N'Server is [CLUSTERED]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsClustered'
              AND run_value     IN (N'1')
 
 -- Diagnostic - Instance - non-default - Uses External Authentication Only
 UNION ALL SELECT N'External Authentication [ONLY]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsExternalAuthenticationOnly'
              AND run_value     IN (N'1')
 
 -- Diagnostic - Instance - non-default - Uses Integrated Security Only
 UNION ALL SELECT N'Integrated Security [ONLY]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsIntegratedSecurityOnly'
              AND run_value     IN (N'1')
 
 -- Diagnostic - Instance - non-default - Is SQL Server Local DB
 UNION ALL SELECT N'[SQL Server Express LocalDB]'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsLocalDB'
              AND run_value     IN (N'1')
 
 -- Diagnostic - Instance - non-default - Is in Single User Mode
 UNION ALL SELECT N'Instance in [SINGLE USER] mode'
-            FROM tempdb.dbo.SQLXL_IDX_sys_instance
+            FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsSingleUser'
              AND run_value     IN (N'1')
@@ -13392,10 +13392,10 @@ VALUES -- default values for database scoped configurations
 
 SET ANSI_WARNINGS ON; -- Needed for "FOR XML PATH"
 
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 ----------------------------------------------------------------------------------------------------
--- Critical = 0 - tempdb.dbo.SQLXL_IDX_sys_databases
+-- Critical = 0 - tempdb.dbo.SQLXL_Index_sys_databases
 ----------------------------------------------------------------------------------------------------
 SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
       ,diagnostic_type_id=0
@@ -13425,15 +13425,15 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
     ,N'')
 
 ,1,1,N'')
-  FROM tempdb.dbo.SQLXL_IDX_sys_databases                           AS d
+  FROM tempdb.dbo.SQLXL_Index_sys_databases                           AS d
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_availability_replicas               AS ar
+  JOIN TempDB.dbo.SQLXL_Index_sys_availability_replicas               AS ar
     ON d.replica_id                                               = ar.replica_id
   LEFT OUTER
-  JOIN TempDB.dbo.SQLXL_IDX_sys_dm_hadr_availability_replica_states AS rs
+  JOIN TempDB.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states AS rs
     ON d.replica_id                                               = rs.replica_id
 ----------------------------------------------------------------------------------------------------
--- Warning = 2 - tempdb.dbo.SQLXL_IDX_sys_databases
+-- Warning = 2 - tempdb.dbo.SQLXL_Index_sys_databases
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
@@ -13465,9 +13465,9 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
         ,N'')
     )
 ,1,1,N'')
-  FROM tempdb.dbo.SQLXL_IDX_sys_databases AS d
+  FROM tempdb.dbo.SQLXL_Index_sys_databases AS d
 ----------------------------------------------------------------------------------------------------
--- Performance = 4 - tempdb.dbo.SQLXL_IDX_sys_databases
+-- Performance = 4 - tempdb.dbo.SQLXL_Index_sys_databases
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
@@ -13624,28 +13624,28 @@ SELECT database_id=d.database_id,parent_object_id=d.database_id,object_id=d.data
         ,N'')                         -- IIF(qso.actual_state > 0
     ,N'')                             -- IIF(mv.ProductMajorVersion >= 13
 ,1,1,N'')
-  FROM tempdb.dbo.SQLXL_IDX_sys_databases                         AS d
+  FROM tempdb.dbo.SQLXL_Index_sys_databases                         AS d
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_database_automatic_tuning_options AS ato
+  JOIN tempdb.dbo.SQLXL_Index_sys_database_automatic_tuning_options AS ato
     ON d.database_id                                               = ato.database_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_database_query_store_options      AS qso
+  JOIN tempdb.dbo.SQLXL_Index_sys_database_query_store_options      AS qso
     ON d.database_id                                               = qso.database_id
  CROSS
   JOIN (SELECT collation = run_value
-         FROM tempdb.dbo.SQLXL_IDX_sys_instance
+         FROM tempdb.dbo.SQLXL_Index_sys_instance
         WHERE source = N'SERVERPROPERTY'
           AND name   = N'COLLATION'
       ) AS i
  CROSS
   JOIN (SELECT ProductMajorVersion = TRY_CAST(run_value AS INT)
-         FROM tempdb.dbo.SQLXL_IDX_sys_instance
+         FROM tempdb.dbo.SQLXL_Index_sys_instance
         WHERE source = N'SERVERPROPERTY'
           AND name   = N'ProductMajorVersion'
       ) AS mv
 
 ----------------------------------------------------------------------------------------------------
--- Non-Default = 6 - tempdb.dbo.SQLXL_IDX_sys_databases
+-- Non-Default = 6 - tempdb.dbo.SQLXL_Index_sys_databases
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT rec_type='D',database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
@@ -13752,10 +13752,10 @@ SELECT rec_type='D',database_id,parent_object_id=d.database_id,object_id=d.datab
 -- Diagnostic - DB - non-default - Memory optimized tables elevate to SNAPSHOT is OFF
 +IIF(d.is_memory_optimized_elevate_to_snapshot_on = 0,NCHAR(10) + N'XTP Memory optimized elevate to SNAPSHOT [OFF]',N'')
 ,1,1,N'')
-  FROM tempdb.dbo.SQLXL_IDX_sys_databases d
+  FROM tempdb.dbo.SQLXL_Index_sys_databases d
 
 ----------------------------------------------------------------------------------------------------
--- Information = 8 - tempdb.dbo.SQLXL_IDX_sys_databases
+-- Information = 8 - tempdb.dbo.SQLXL_Index_sys_databases
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
@@ -13765,7 +13765,7 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
  IIF(d.source_database_id > 0
     ,NCHAR(10) + N'Snapshot source DB '
                + QUOTENAME((SELECT name
-                              FROM tempdb.dbo.SQLXL_IDX_sys_databases x
+                              FROM tempdb.dbo.SQLXL_Index_sys_databases x
                              WHERE d.source_database_id = x.database_id
                            ))
     ,N'')
@@ -13821,9 +13821,9 @@ SET ANSI_WARNINGS ON
 SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id
       ,sc.*
 --*/
-  FROM tempdb.dbo.SQLXL_IDX_sys_databases d
+  FROM tempdb.dbo.SQLXL_Index_sys_databases d
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters AS sp
+  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS sp
  OUTER
  APPLY (SELECT -- double SELECT to accomodate the ").value('(./text())[1]','NVARCHAR(4000)')" below
 -- Diagnostic - DB - DB Config non-default - ACCELERATED_PLAN_FORCING
@@ -13866,7 +13866,7 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
         (SELECT  NCHAR(10) + N'DB scoped config ' + src.name
                + NCHAR(10) + N'> value ' +QUOTENAME(CAST(db.value AS NVARCHAR(100))) + N' is not DEFAULT: ' + QUOTENAME(src.default_value)
            FROM #database_scoped_configurations                         AS src
-           JOIN tempdb.dbo.SQLXL_IDX_sys_database_scoped_configurations AS db
+           JOIN tempdb.dbo.SQLXL_Index_sys_database_scoped_configurations AS db
              ON src.name           = db.name
             AND (   (    db.is_value_default IS NULL 
                      AND src.default_value <> CAST(db.value AS VARCHAR(100))
@@ -13879,7 +13879,7 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
        ) sc(diagnostic)
 
 ----------------------------------------------------------------------------------------------------
--- Metrics = 10 - tempdb.dbo.SQLXL_IDX_sys_databases
+-- Metrics = 10 - tempdb.dbo.SQLXL_Index_sys_databases
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
@@ -13895,12 +13895,12 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
 SELECT database_id=d.database_id,i.*
 --*/
 
-  FROM tempdb.dbo.SQLXL_IDX_sys_databases d
+  FROM tempdb.dbo.SQLXL_Index_sys_databases d
  CROSS
  APPLY (SELECT unused_idx_CNT = SUM(IIF((ISNULL(i.ops_Total_read_CNT,0)+ISNULL(i.ius_User_read_CNT,0)) = 0,1,0))
               ,idx_CNT        = COUNT(1)
           FROM (SELECT *
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation
+                  FROM tempdb.dbo.SQLXL_Index_Compilation
                  WHERE rec_type = N'I'
                ) AS i
          WHERE i.obj_type    = N'U'
@@ -13922,7 +13922,7 @@ IF (OBJECT_ID(N'#database_scoped_configurations') IS NOT NULL) DROP TABLE #datab
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - < 10% of indexes with Included Columns (BI30 & 31)
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
       ,diagnostic_type_id=4
       ,diagnostic=N'Included Columns: <10% Indexes - '
@@ -13934,7 +13934,7 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
   FROM (SELECT database_id
               ,included_index_CNT = SUM(IIF(Included_Columns_CNT > 0,1,0))
               ,index_CNT          = COUNT(1)
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND type    IN (N'1',N'2')
          GROUP BY
@@ -13945,7 +13945,7 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - < 5% of views have indexes (BI32)
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
       ,diagnostic_type_id=4
       ,diagnostic=N'Index on Views: <5% Views - CX: '
@@ -13960,7 +13960,7 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
               ,clustered_index_CNT    = SUM(IIF(type = N'1',1,0))
               ,Nonclustered_index_CNT = SUM(IIF(type = N'2',1,0))
               ,view_CNT               = SUM(IIF(type IN (N'0',N'1'),1,0))
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type        = N'I'
            AND par_object_type = N'V'
          GROUP BY
@@ -13971,7 +13971,7 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - < 5% of indexes with Filters (BI32)
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
       ,diagnostic_type_id=4
       ,diagnostic=N'Filtered Indexes: <5% Indexes - '
@@ -13984,7 +13984,7 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
               ,filtered_index_CNT = SUM(IIF(i.filter_definition > N'',1,0))
               ,index_CNT          = COUNT(1)
           FROM (SELECT *
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation
+                  FROM tempdb.dbo.SQLXL_Index_Compilation
                  WHERE rec_type = N'I'
                ) i
          WHERE i.par_object_type = N'U'
@@ -13998,12 +13998,12 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
 -- Change Tracking
 ----------------------------------------------------------------------------------------------------
 ;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 4)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 -- Diagnostic - DB - non-default - Change Tracking Properties
 SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 8,diagnostic =
   N'Change Tracking - Auto Cleanup = ' + IIF(is_auto_cleanup_on = 1,N'[ON]',N'[OFF]')
 + N' Retention = [' + CAST(retention_period AS NVARCHAR(10)) + N' ' + retention_period_units_desc + N']'
-  FROM tempdb.dbo.SQLXL_IDX_sys_databases d
+  FROM tempdb.dbo.SQLXL_Index_sys_databases d
  WHERE d.is_auto_cleanup_on IS NOT NULL;
 
 SET ANSI_WARNINGS OFF;
@@ -14017,7 +14017,7 @@ IF @ssms = 1 RAISERROR('... Parent',0,0) WITH NOWAIT;
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent is not a Plain Old Rowstore
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 -- Diagnostic - Table - is XTP Memory Optimized (BI73)
 -- Diagnostic - Table - is XTP InMemory and NOT PERSISTED (SCHEMA_ONLY)
@@ -14132,19 +14132,19 @@ SELECT i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
 ---------------------------------------------------------------------------------------------------
 ,1,1,N'')
   FROM (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N'I',N'P',N'S')
        ) AS i
   LEFT OUTER
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N'S')
        ) AS s
     ON i.database_id = s.database_id
    AND i.object_id   = s.object_id
   LEFT OUTER
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N'P')
        ) AS p
     ON i.database_id      = p.database_id
@@ -14179,7 +14179,7 @@ SELECT data_type = N'bigint'
       ,max_value = 9223372036854775807
       ,max_fmt = TempDB.dbo.SQLXL_3SD(9223372036854775807,N'I')
 )
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
       ,diagnostic_type_id = IIF(100. * COALESCE(CAST(c.Last_Value AS BIGINT)
                                                ,CAST(c.seq_current_value AS BIGINT)
@@ -14207,8 +14207,8 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
                                          ,CAST(c.seq_current_value AS BIGINT)
                                          ,0),N'I')
           +N'/' + cte.max_fmt + N' (BI68)'
-  FROM tempdb.dbo.SQLXL_IDX_sys_columns AS c
-  JOIN tempdb.dbo.SQLXL_IDX_sys_types   AS t
+  FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
+  JOIN tempdb.dbo.SQLXL_Index_sys_types   AS t
     ON c.database_id                     = t.database_id
    AND c.user_type_id                    = t.user_type_id
   JOIN cte
@@ -14220,7 +14220,7 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
 ----------------------------------------------------------------------------------------------------
 -- Parent - Warning = 2
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 2,diagnostic = STUFF(
 -- Diagnostic - Table - Created without "ANSI NULLS ON"
@@ -14235,7 +14235,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 ----------------------------------------------------------------------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        ) AS p
 
@@ -14283,12 +14283,12 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 ----------------------------------------------------------------------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                        AS p
   LEFT OUTER
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE type IN (N'0',N'1',N'5')
        )                                    AS raw
     ON p.database_id                         = raw.database_id
@@ -14327,7 +14327,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 ----------------------------------------------------------------------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N'P',N'S')
        ) AS p
 
@@ -14365,7 +14365,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
     ,NCHAR(10) + N'Nonclustered indexes: ' + CAST(p.Nonclustered_index_CNT AS NVARCHAR(10))
     +IIF(    sp.version_major >= 13 
          AND (SELECT run_value
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE source    = N'SERVERPROPERTY'
                  AND name      = N'Edition'
                  AND (   run_value LIKE N'ENTERPRISE%'
@@ -14416,11 +14416,11 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 ------------------------------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                        AS p
  CROSS JOIN
-       tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters AS sp
+       tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS sp
 
 UNION ALL
 SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 8
@@ -14439,10 +14439,10 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
                        END COLLATE DATABASE_DEFAULT
                       ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                               AS p
-  JOIN tempdb.dbo.SQLXL_IDX_sys_tables AS tbl
+  JOIN tempdb.dbo.SQLXL_Index_sys_tables AS tbl
     ON p.database_id = tbl.database_id
    AND p.object_ID   = tbl.object_id
   LEFT OUTER HASH
@@ -14453,7 +14453,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
               ,data_space_id
               ,data_space_name
               ,data_space_type_desc
-          FROM tempdb.dbo.SQLXL_IDX_sys_data_spaces
+          FROM tempdb.dbo.SQLXL_Index_sys_data_spaces
          GROUP BY
                database_id
               ,data_space_id
@@ -14470,7 +14470,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
               ,data_space_id
               ,data_space_name
               ,data_space_type_desc
-          FROM tempdb.dbo.SQLXL_IDX_sys_data_spaces
+          FROM tempdb.dbo.SQLXL_Index_sys_data_spaces
          GROUP BY
                database_id
               ,data_space_id
@@ -14488,7 +14488,7 @@ OPTION (FORCE ORDER);
 ----------------------------------------------------------------------------------------------------
 SET ANSI_WARNINGS ON -- FOR XML ahead
 
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 -- Diagnostic - Table - Has large data types
 SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.object_id,type = N'U',diagnostic_type_id = 8
       ,diagnostic = N'Large datatypes: ' + p.col
@@ -14498,7 +14498,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
               ,p.object_ID
               ,col = STUFF((SELECT DISTINCT
                                    N',' +user_type_name+IIF(max_length = -1,N'(MAX)',N'')
-                              FROM tempdb.dbo.SQLXL_IDX_sys_columns AS c
+                              FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
                              WHERE p.database_id      = c.database_id
                                AND p.object_id        = c.object_id
                                AND (   c.max_length = -1
@@ -14507,7 +14507,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
                                FOR XML PATH(N''),TYPE                     -- can be more than 1 column in foreign key
                             ).value('(./text())[1]','NVARCHAR(4000)'),1,1,N'')
           FROM (SELECT * 
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation 
+                  FROM tempdb.dbo.SQLXL_Index_Compilation 
                  WHERE rec_type = N'P'
                ) AS p
        ) p
@@ -14523,7 +14523,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
               ,p.object_ID
               ,col = STUFF((SELECT DISTINCT
                                    N',' +user_type_name+IIF(max_length = -1,N'(MAX)',N'')
-                              FROM tempdb.dbo.SQLXL_IDX_sys_columns AS c
+                              FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
                              WHERE p.database_id      = c.database_id
                                AND p.object_id        = c.object_id
                                AND (   c.user_type_name IN (N'IMAGE',N'TEXT',N'NTEXT')
@@ -14531,7 +14531,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
                                FOR XML PATH(N''),TYPE                     -- can be more than 1 column in foreign key
                             ).value('(./text())[1]','NVARCHAR(4000)'),1,1,N'')
           FROM (SELECT * 
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation 
+                  FROM tempdb.dbo.SQLXL_Index_Compilation 
                  WHERE rec_type = N'P'
                ) AS p
        ) p
@@ -14542,7 +14542,7 @@ SET ANSI_WARNINGS OFF
 -- Parent - Information = 8 Other
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - No PRIMARY KEY
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.object_id,type = N'U',diagnostic_type_id = 8
       ,diagnostic = 'No Primary Key' 
                   + IIF(i.index_id > 0
@@ -14550,18 +14550,18 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
                        ,N'')
   FROM (
         SELECT database_id,parent_object_id,object_id
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type             = N'P'
            AND obj_type             = N'U'
            AND obj_type_short_label = N'TBL' -- omits History & Internal tables, Clustered columnstores cannot have PK constraints
        EXCEPT
         SELECT database_id,parent_object_id,object_id
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type       = N'I'
            AND is_primary_key = 1
        ) p
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Compilation AS i
+  JOIN tempdb.dbo.SQLXL_Index_Compilation AS i
     ON N'I'                              = i.rec_type
    AND p.database_id                     = i.database_id
    AND p.parent_object_id                = i.parent_object_id
@@ -14571,7 +14571,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
 ----------------------------------------------------------------------------------------------------
 -- Writes but no reads - BOTH Table & Index
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - Total of indexes with writes and no reads (BI22)
 -- Diagnostic - Index - Hi writes and no reads (BI22)
@@ -14588,7 +14588,7 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
               ,Object_Id
               ,index_Id
               ,Type
-          FROM Tempdb.Dbo.SQLXL_IDX_Metrics
+          FROM Tempdb.Dbo.SQLXL_Index_Metrics
          WHERE Rec_Type NOT IN (N'A',N'D')
            AND (   Metric = N'ops_no_read_Total_write_CNT'
                 OR Metric = N'ius_No_Read_User_Updates_CNT'
@@ -14605,7 +14605,7 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
               ,Type
        ) i
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics   AS w
+  JOIN tempdb.dbo.SQLXL_Index_Metrics   AS w
     ON i.rec_type                      = w.rec_type
    AND i.database_id                   = w.database_id
    AND i.parent_object_id              = w.parent_object_id
@@ -14614,7 +14614,7 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
    AND i.type                          = w.type
    AND N'ops_no_read_Total_write_CNT' = w.metric
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics   AS r
+  JOIN tempdb.dbo.SQLXL_Index_Metrics   AS r
     ON i.rec_type                      = r.rec_type
    AND i.database_id                   = r.database_id
    AND i.parent_object_id              = r.parent_object_id
@@ -14626,7 +14626,7 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Wide tables (35+ cols or > 2000 non-LOB bytes) - BI check_id 26
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - has 35 or more columns (BI26)
 -- Diagnostic - Table - has a non-LOB width greater than 2000 bytes (BI26)
@@ -14636,8 +14636,8 @@ N'Wide table - ' + CAST(c.column_lng AS NVARCHAR(10)) + N' bytes in ' + CAST(c.c
               ,c.object_id
               ,column_CNT = SUM(IIF(c.max_length = -1,0,1))
               ,column_lng = SUM(IIF(c.max_length = -1,0,c.max_length))
-          FROM tempdb.dbo.SQLXL_IDX_sys_tables  AS t
-          JOIN tempdb.dbo.SQLXL_IDX_sys_columns AS c
+          FROM tempdb.dbo.SQLXL_Index_sys_tables  AS t
+          JOIN tempdb.dbo.SQLXL_Index_sys_columns AS c
             ON t.database_id                     = c.database_id
            AND t.object_id                       = c.object_id
          GROUP BY
@@ -14650,14 +14650,14 @@ N'Wide table - ' + CAST(c.column_lng AS NVARCHAR(10)) + N' bytes in ' + CAST(c.c
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - String column with non-database collation
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8
 -- Diagnostic - Table - has columns with Collation not matching database collation (BI69)
       ,diagnostic = N'String collation not match DB: ' + CAST(COUNT(1) AS NVARCHAR(10)) + N' columns (BI69)'
-  FROM tempdb.dbo.SQLXL_IDX_sys_columns   AS c
-  JOIN tempdb.dbo.SQLXL_IDX_sys_databases AS d
+  FROM tempdb.dbo.SQLXL_Index_sys_columns   AS c
+  JOIN tempdb.dbo.SQLXL_Index_sys_databases AS d
     ON c.database_id                    = d.database_id
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects   AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects   AS o
     ON c.database_id                    = o.database_id
    AND c.object_id                      = o.object_id
    AND 0                                = o.is_ms_shipped
@@ -14670,7 +14670,7 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
 -- Parent - Table/column check constraint has non-standard property
 -- or references a procedure, function, or CLR - (BI94)
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT DISTINCT
        rec_type = 'P',cx.database_id,cx.parent_object_id,cx.parent_object_id,cx.parent_object_id,N'U',diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - has constraint(s) - see details
@@ -14718,9 +14718,9 @@ IIF(    ISNULL(cx.uses_sql_proc,0) = 0
 /*** LOCAL TESTING ***
 SELECT *
 --*/
-  FROM tempdb.dbo.SQLXL_IDX_sys_check_constraints AS cx
+  FROM tempdb.dbo.SQLXL_Index_sys_check_constraints AS cx
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_columns           AS c
+  JOIN tempdb.dbo.SQLXL_Index_sys_columns           AS c
     ON cx.database_id                              = c.database_id
    AND cx.parent_object_id                         = c.object_id
    AND cx.parent_column_id                         = c.column_id
@@ -14728,7 +14728,7 @@ SELECT *
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - Computed columns
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 0
 -- Diagnostic - Table - Computed Column
       ,diagnostic = N'Computed Column '
@@ -14742,7 +14742,7 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
 
 -- Diagnostic - Table - Computed Column - uses a SQL method - can force serialization (BI99)
                  +IIF(c.uses_sql_mthd = 1,NCHAR(10) + N'> references a SQL method - can force serialization (BI94)',N'')
-  FROM tempdb.dbo.SQLXL_IDX_sys_columns AS c
+  FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
  WHERE c.uses_sql_proc    = 1
     OR c.uses_sql_ftn     = 1
     OR c.uses_sql_mthd    = 1
@@ -14757,7 +14757,7 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
                      + N' ('
                      + IIF(ic.is_included_column = 0,N'Key',N'Inc')
                      + N')'
-                  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
+                  FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
                  WHERE c.database_id                           = ic.database_id
                    AND c.object_id                             = ic.object_id
                    AND c.column_id                             = ic.column_id
@@ -14766,14 +14766,14 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
                    FOR XML PATH (N'')
                ),1,2,N'')
        ,N'')
-  FROM tempdb.dbo.SQLXL_IDX_sys_columns AS c
+  FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
  WHERE c.is_computed  = 1
    AND c.is_persisted = 0
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - Replicated columns - (BI70)
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8
 -- Diagnostic - Table - has replicated columns & count (not change data capture) (BI70)
       ,diagnostic = N'Replicated columns: '
@@ -14789,13 +14789,13 @@ SELECT c.*
               ,object_id
               ,replicated_columns = SUM(IIF(is_replicated = 1,1,0))
               ,all_columns        = SUM(1)
-          FROM tempdb.dbo.SQLXL_IDX_sys_columns
+          FROM tempdb.dbo.SQLXL_Index_sys_columns
          GROUP BY
                database_id
               ,object_id
         HAVING SUM(IIF(is_replicated = 1,1,0)) > 0
        ) AS c
-  JOIN tempdb.dbo.SQLXL_IDX_sys_tables AS t
+  JOIN tempdb.dbo.SQLXL_Index_sys_tables AS t
     ON c.database_id                    = t.database_id
    AND c.object_id                      = t.OBJECT_ID
    AND 0                                = t.is_tracked_by_cdc
@@ -14803,13 +14803,13 @@ SELECT c.*
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - Tables with filtered statistics
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',s.database_id,s.object_id,s.object_id,s.object_id,N'U',diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - has non-indexed statistics - may indicate more indexes needed
 N'Table has ' + CAST(SUM(IIF(s.has_filter = 1,1,0)) AS NVARCHAR(10)) + N' non-index filtered statistics'
-  FROM tempdb.dbo.SQLXL_IDX_sys_stats   AS s
+  FROM tempdb.dbo.SQLXL_Index_sys_stats   AS s
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_indexes AS i
+  JOIN tempdb.dbo.SQLXL_Index_sys_indexes AS i
     ON s.database_id                  = i.database_id
    AND s.object_id                    = i.object_id
    AND s.stats_id                     = i.index_id
@@ -14822,18 +14822,18 @@ HAVING SUM(IIF(s.has_filter = 1,1,0)) > 0;
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - Tables many unused/lightly used indexes
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 -- Diagnostic - Table - has mmany lightly used Nonclustered indexes, no existing nonclustered Columnstore
 SELECT rec_type = 'P',i.database_id,i.parent_object_id,i.parent_object_id,i.parent_object_id,N'U',diagnostic_type_id = 8,diagnostic =
         CAST(COUNT(1) AS VARCHAR(10))
       + N' low read nonclustered indexes (<2%)'
       + IIF(p.Nonclustered_ColumnStore_CNT = 0,N' - consider NCS?',N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'P'
        ) AS p
     ON i.database_id      = p.database_id
@@ -14857,13 +14857,13 @@ HAVING COUNT(1) > 1
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - CDC - History File group
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.parent_object_id,p.parent_object_id,N'U',diagnostic_type_id = 8,diagnostic = STUFF(
 -- Diagnostic - Table - Change data capture filegroup name
  NCHAR(10)+IIF(p.cdc_filegroup_name IS NOT NULL,N'Filegroup Name ' + QUOTENAME(p.cdc_filegroup_name),N'Uses default Filegroup')
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                        AS p
  WHERE p.cdc_is_history_table = 1;
@@ -14871,7 +14871,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.parent_object_id,p.pare
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - DML Triggers - enabled, non-MS
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',p.database_id,p.object_id,p.object_id,p.object_id,N'U',diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - has triggers and count by trigger type
 N'*DML Triggers*'
@@ -14879,7 +14879,7 @@ N'*DML Triggers*'
 +IIF(p.par_SQL_trigger_CNT           > 0,N' SQL: '        + CAST(p.par_SQL_trigger_CNT           AS NVARCHAR(10)),N'')
 +IIF(p.par_is_instead_of_trigger_CNT > 0,N' Instead Of: ' + CAST(p.par_is_instead_of_trigger_CNT AS NVARCHAR(10)),N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        ) AS p
  WHERE p.par_CLR_trigger_CNT           > 0
@@ -14889,14 +14889,14 @@ N'*DML Triggers*'
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - Identity Columns not using 1 as increment (BI74)
 -- Diagnostic - Table - Identity Columns with negative seed (BI74)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
   N'IDN Col ' + QUOTENAME(c.name)
 + IIF(c.increment_value <> 1,N' increment ' + CAST(c.increment_value AS NVARCHAR(10)),N'')
 + IIF(c.seed_value      <  0,N' seed '      + CAST(c.seed_value      AS NVARCHAR(10)),N'')
 + N' (BI74)'
-  FROM tempdb.dbo.SQLXL_IDX_sys_columns AS c
-  JOIN tempdb.dbo.SQLXL_IDX_sys_types   AS t
+  FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
+  JOIN tempdb.dbo.SQLXL_Index_sys_types   AS t
     ON c.database_id                     = t.database_id
    AND c.user_type_id                    = t.user_type_id
  WHERE c.increment_value <> 1
@@ -14905,14 +14905,14 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Sequences - not using 1 as increment (BI74)
 -- Diagnostic - Sequences - with negative start value (BI74)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
   N'Sequence Column ' + QUOTENAME(c.name)
 + IIF(c.seq_increment   <> 1,N' has increment value of ' + CAST(c.seq_increment   AS NVARCHAR(10)),N'')
 + IIF(c.seq_start_value <  0,N' has seed value of '      + CAST(c.seq_start_value AS NVARCHAR(10)),N'')
 + N' (BI74)'
-  FROM tempdb.dbo.SQLXL_IDX_sys_columns AS c
-  JOIN tempdb.dbo.SQLXL_IDX_sys_types   AS t
+  FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
+  JOIN tempdb.dbo.SQLXL_Index_sys_types   AS t
     ON c.database_id                     = t.database_id
    AND c.user_type_id                    = t.user_type_id
  WHERE c.seq_increment   <> 1
@@ -14928,7 +14928,7 @@ SET ANSI_WARNINGS ON
 ----------------------------------------------------------------------------------------------------
 -- Index Critical = 1 - non-rowstore/relational index types
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 1,diagnostic = STUFF(
  IIF(i.type = N'3'
@@ -14984,12 +14984,12 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ------------------------------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   LEFT OUTER
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'P'
        ) AS p
     ON i.database_id              = p.database_id
@@ -15001,7 +15001,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------------------------------------------------------------------
 -- Index Warning = 2
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 2,diagnostic = STUFF(
 -- Diagnostic - Index - index row locks not allowed
@@ -15076,17 +15076,17 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ------------------------------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON i.database_id                     = o.database_id
    AND i.parent_object_id                = o.parent_object_id
    AND i.OBJECT_ID                       = o.OBJECT_ID
   LEFT OUTER
   JOIN (SELECT * 
-         FROM tempdb.dbo.SQLXL_IDX_Compilation 
+         FROM tempdb.dbo.SQLXL_Index_Compilation 
         WHERE rec_type = N'P'
        ) AS p
     ON i.database_id                     = p.database_id
@@ -15101,7 +15101,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Index Performance = 4
 -- Filtered indexes - included in Information 8 below
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic = STUFF(
 -- Diagnostic - Index - Compression - count of compressed Partitions (BI63)
@@ -15147,7 +15147,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
 ) i
@@ -15162,7 +15162,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - column constraint is not trusted
 -- Diagnostic - Index - column constraint uses non-database collation
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 4
       ,diagnostic = N'Constraint on column'
                    +NCHAR(10) + N'> ' + QUOTENAME(c.name)
@@ -15173,12 +15173,12 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
                    +IIF(cx.is_not_for_replication  = 0,NCHAR(10) + N'> is REPLICATED' ,N'')
                    +IIF(cx.is_not_trusted          = 1,NCHAR(10) + N'> is NOT TRUSTED',N'')
                    +IIF(cx.uses_database_collation = 0,NCHAR(10) + N'> uses non-Database Collation',N'')
-  FROM tempdb.dbo.SQLXL_IDX_sys_check_constraints AS cx
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns     AS ic
+  FROM tempdb.dbo.SQLXL_Index_sys_check_constraints AS cx
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns     AS ic
     ON cx.database_id                              = ic.database_id
    AND cx.parent_object_id                         = ic.object_id
    AND cx.parent_column_id                         = ic.column_id
-  JOIN tempdb.dbo.SQLXL_IDX_column                AS c
+  JOIN tempdb.dbo.SQLXL_Index_column                AS c
     ON cx.database_id                              = c.database_id
    AND cx.parent_object_id                         = c.object_id
    AND cx.parent_column_id                         = c.column_id
@@ -15195,15 +15195,15 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 -- Diagnostic - Index - computed column references a function - can force serialization (BI99)
 -- Diagnostic - Index - computed column references a SQL method - can force serialization (BI99)
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 4
       ,diagnostic = N'Computed Column '
                    +NCHAR(10) + N'> ' + QUOTENAME(c.name)
                    +IIF(c.uses_sql_proc = 1,NCHAR(10) + N'> references a procedure - can force serialization (BI99)' ,N'')
                    +IIF(c.uses_sql_ftn  = 1,NCHAR(10) + N'> references a function - can force serialization (BI99)' ,N'')
                    +IIF(c.uses_sql_mthd = 1,NCHAR(10) + N'> references a SQL method - can force serialization (BI99)',N'')
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns     AS ic
-  JOIN tempdb.dbo.SQLXL_IDX_sys_columns           AS c
+  FROM tempdb.dbo.SQLXL_Index_sys_index_columns     AS ic
+  JOIN tempdb.dbo.SQLXL_Index_sys_columns           AS c
     ON ic.database_id                              = c.database_id
    AND ic.object_id                                = c.object_id
    AND ic.column_id                                = c.column_id
@@ -15214,7 +15214,7 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 ----------------------------------------------------------------------------------------------------
 -- Index Performance = 4 -- Writes as a percent of table rows
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4
       ,diagnostic = N'Writes:'
 
@@ -15258,7 +15258,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
                         ,NCHAR(10) + N'> ' + N'STATISTICS NORECOMPUTE enabled (BI92)'
                         ,N''))
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.type                           <> N'0' -- HEAPS handled separately                                                        colstro
@@ -15268,7 +15268,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
        )
 
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic = STUFF(
 
@@ -15369,7 +15369,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 SELECT COUNT(1)
 --*/
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND obj_type_short_label NOT IN (N'TVF'
                                            ,N'VW'
@@ -15377,14 +15377,14 @@ SELECT COUNT(1)
        ) AS i
  CROSS JOIN (
              SELECT ProductMajorVersion = TRY_CAST(run_value AS INT)
-               FROM tempdb.dbo.SQLXL_IDX_sys_instance
+               FROM tempdb.dbo.SQLXL_Index_sys_instance
               WHERE source = N'SERVERPROPERTY'
                 AND name   = N'ProductMajorVersion'
             ) AS mv
  CROSS JOIN
-       tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters AS sp
+       tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS sp
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON i.database_id                     = o.database_id
    AND i.parent_object_id                = o.parent_object_id
    AND i.OBJECT_ID                       = o.OBJECT_ID
@@ -15395,7 +15395,7 @@ SELECT COUNT(1)
 -- Index Performance = 4 COLUMNSTORE
 -- Columnstores needing possible REORGANIZE
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,parent_object_id = i.object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
 -- Diagnostic - Index - Columnstore has more than 1 partition
@@ -15454,13 +15454,13 @@ SELECT rec_type = 'I',i.database_id,parent_object_id = i.object_id,i.object_id,i
                                                        ,total_rows,0))
               ,deleted_rowgroup_CNT           = SUM(IIF(deleted_rows > 0,1,0))
               ,deleted_rows_CNT               = SUM(IIF(deleted_rows > 0,deleted_rows,0))
-          FROM tempdb.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_physical_stats
+          FROM tempdb.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats
          GROUP BY
                database_id
               ,object_id
               ,index_id
        ) c
-  JOIN tempdb.dbo.SQLXL_IDX_sys_indexes AS i
+  JOIN tempdb.dbo.SQLXL_Index_sys_indexes AS i
     ON c.database_id      = i.database_id
    AND c.object_id        = i.object_id
    AND c.index_id         = i.index_id
@@ -15475,12 +15475,12 @@ SELECT rec_type = 'I',i.database_id,parent_object_id = i.object_id,i.object_id,i
 ----------------------------------------------------------------------------------------------------
 -- Index Performance = 4 -- Additional key DENSITY VECTOR
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4
 -- Diagnostic - Index - adding another key element doesn't make index much more selective
       ,diagnostic  = i.low_selectivity_additional_keys
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.low_selectivity_additional_keys IS NOT NULL
@@ -15488,7 +15488,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------------------------------------------------------------------
 -- Index Non-Default = 6
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 6,diagnostic = STUFF(    -- sys.indexes
 -- Diagnostic - Index - Columnstore compression delay > 0
@@ -15547,26 +15547,26 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 SELECT *
 --*/
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  CROSS JOIN (SELECT ProductMajorVersion = TRY_CAST(run_value              AS INT)
-               FROM tempdb.dbo.SQLXL_IDX_sys_instance
+               FROM tempdb.dbo.SQLXL_Index_sys_instance
               WHERE source = N'SERVERPROPERTY'
                 AND name   = N'ProductMajorVersion'
             ) AS mv
  CROSS JOIN (SELECT ProductVersion      = TRY_CAST(PARSENAME(run_value,2) AS INT)
-               FROM tempdb.dbo.SQLXL_IDX_sys_instance
+               FROM tempdb.dbo.SQLXL_Index_sys_instance
               WHERE source = N'SERVERPROPERTY'
                 AND name   = N'ProductVersion'
             ) AS pv
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON i.database_id                     = o.database_id
    AND i.parent_object_id                = o.parent_object_id
    AND i.object_id                       = o.object_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Compilation AS p
+  JOIN tempdb.dbo.SQLXL_Index_Compilation AS p
     ON i.database_id                     = p.database_id
    AND i.parent_object_id                = p.parent_object_id
    AND N'P'                              = p.rec_type
@@ -15577,7 +15577,7 @@ SELECT *
 -- Index Information = 8
 -- Skipping is_primary_key,is_unique_constraint since covered later
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic = STUFF(
 
@@ -15629,20 +15629,20 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -----------------------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        )                                AS i
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON i.database_id                     = o.database_id
    AND i.object_id                       = o.object_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_StatHeader AS sssh
+  JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader AS sssh
     ON i.database_id                     = sssh.database_id
    AND i.object_id                       = sssh.object_id
    AND i.index_id                        = sssh.index_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_column      AS c
+  JOIN tempdb.dbo.SQLXL_Index_column      AS c
     ON i.database_id                     = c.database_id
    AND i.object_id                       = c.object_id
    AND COALESCE(i.par_cx_uniq_ordered_column_ID,i.par_possible_uniq_column_id) = c.column_id
@@ -15653,7 +15653,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Information = 8
 -- Synergies
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8
 -- Diagnostic - Index - Synergies found between indexes, missing indexes, and Foreign Key Constraints (BI1&2)
       ,diagnostic = N'Synergy -'
@@ -15676,7 +15676,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
                       ,matching_foreign_CNT   = IIF(i.matching_sequence_CNT  > 0 AND LEFT(i.matching_sequence_COL,1)=N'F',1,0)
                       ,matching_overlap_CNT   = IIF(i.matching_overlap_CNT   > 0 AND matching_overlap_COL  > N'',1,0)
                       ,matching_contained_CNT = IIF(i.matching_contained_CNT > 0 AND matching_contained_COL> N'',1,0)
-                  FROM tempdb.dbo.SQLXL_IDX_Synergies AS i
+                  FROM tempdb.dbo.SQLXL_Index_Synergies AS i
                  WHERE ISNULL(i.matching_sequence_CNT ,0)
                       +ISNULL(i.matching_overlap_CNT  ,0)
                       +ISNULL(i.matching_contained_CNT,0) > 0
@@ -15687,7 +15687,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
                       ,matching_foreign_CNT   = IIF(i.matching_sequence_CNT  > 0 AND LEFT(i.matching_sequence_COL,1)=N'F',1,0)
                       ,matching_overlap_CNT   = IIF(i.matching_overlap_CNT   > 0 AND matching_overlap_COL  > N'',1,0)
                       ,matching_contained_CNT = IIF(i.matching_contained_CNT > 0 AND matching_contained_COL> N'',1,0)
-                  FROM tempdb.dbo.SQLXL_IDX_Synergies AS i
+                  FROM tempdb.dbo.SQLXL_Index_Synergies AS i
                  WHERE ISNULL(i.matching_sequence_CNT ,0)
                       +ISNULL(i.matching_overlap_CNT  ,0)
                       +ISNULL(i.matching_contained_CNT,0) > 0
@@ -15699,7 +15699,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - Hi Scans to Reads - NOTE: No InMemory since all non-hash reads are scans
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
        N'Hi Scan %Reads: '
       + LTRIM(IIF(i.ius_user_scans_CNT > 0
@@ -15713,11 +15713,11 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
                  + N' (BI81)'
                  , N'')
              )
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  CROSS
   JOIN (SELECT ius_user_read_CNT
               ,ops_Total_read_CNT
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'A'
        ) AS a
  WHERE rec_type = N'I'
@@ -15735,14 +15735,14 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - High (> 25X) Ratio histogram bucket count Hi to low - candidate for parameter sniffing
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8,diagnostic =
  N'Parameter sniffing candidate - Range ' 
 +tempdb.dbo.SQLXL_3SD(ssh.param_sniff,N'N')  
 +N'x for Key ' 
 +CAST(ic.key_column_sequence AS NVARCHAR(10))   
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns                    AS ic
-  JOIN TempDB.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram_summary AS ssh
+  FROM tempdb.dbo.SQLXL_Index_sys_index_columns                    AS ic
+  JOIN TempDB.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary AS ssh
     ON ic.database_id                                             = ssh.database_id
    AND ic.object_id                                               = ssh.object_id
    AND ic.index_id                                                = ssh.index_id
@@ -15753,7 +15753,7 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - with Lookups > 5% of total reads
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
  N'Lookup %Reads: '
 +LTRIM(IIF(i.ius_user_lookups_CNT > 0
@@ -15772,9 +15772,9 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
       WHEN N'6' THEN N' - add more columns to index?'
       ELSE N' - Review'
  END
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  CROSS
-  JOIN (SELECT ius_user_read_CNT,ops_Total_read_CNT FROM tempdb.dbo.SQLXL_IDX_Compilation WHERE rec_type = N'A') AS a
+  JOIN (SELECT ius_user_read_CNT,ops_Total_read_CNT FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'A') AS a
  WHERE rec_type = N'I'
    AND (   i.ius_lookups_to_read_PCT          > 5.0
         OR i.ios_singleton_lookup_to_read_PCT > 5.0
@@ -15786,7 +15786,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Possible UNIQUEIDENTIFIER not stored as UNIQUEIDENTIFIER data type - name or %char data length (16,29,22,32,36,38,68)
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8
 -- Diagnostic - Table - has what looks like a GUID stored as something else
       ,diagnostic = IIF(ic.is_included_column = 0,N'Key ',N'')
@@ -15794,8 +15794,8 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
                   + NCHAR(10)
                   + N' > Possible UNIQUEID, type is ' + UPPER(cx.user_type_name)
                   + N'(' + IIF(cx.max_length = -1,N'MAX',CAST(cx.max_length AS NVARCHAR(4))) + N')'
-  FROM tempdb.dbo.SQLXL_IDX_sys_columns       AS cx
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
+  FROM tempdb.dbo.SQLXL_Index_sys_columns       AS cx
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
     ON cx.database_id                          = ic.database_id
    AND cx.object_id                            = ic.object_id
    AND cx.column_id                            = ic.column_id
@@ -15824,7 +15824,7 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET ANSI_WARNINGS ON;
 
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
  N'Index Filtered: ' + STUFF(
 -- Diagnostic - index has filter on lead key column
@@ -15844,14 +15844,14 @@ SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,di
 +IIF(ed.non_index > 0
     ,N', ' + CAST(ed.non_index    AS NVARCHAR(10)) + N' non-key column(s) (BI34) '
           +ISNULL((SELECT NCHAR(10) + N'> ' + QUOTENAME(c.name)
-                     FROM tempdb.dbo.SQLXL_IDX_sys_sql_expression_dependencies AS edc
+                     FROM tempdb.dbo.SQLXL_Index_sys_sql_expression_dependencies AS edc
                      LEFT OUTER
-                     JOIN tempdb.dbo.SQLXL_IDX_sys_columns       AS c
+                     JOIN tempdb.dbo.SQLXL_Index_sys_columns       AS c
                        ON edc.database_id                         = c.database_id
                       AND edc.referencing_id                      = c.object_id
                       AND edc.referenced_minor_id                 = c.column_id
                      LEFT OUTER
-                     JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
+                     JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
                        ON edc.database_id                         = ic.database_id
                       AND edc.referencing_id                      = ic.object_id
                       AND edc.referencing_minor_id                = ic.index_id
@@ -15876,9 +15876,9 @@ SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,di
               ,non_lead_key     = SUM(IIF(ic.key_column_sequence > 1,1,0))
               ,non_key          = SUM(IIF(ic.is_included_column  = 1,1,0))
               ,non_index        = SUM(IIF(ic.column_id       IS NULL,1,0))
-          FROM tempdb.dbo.SQLXL_IDX_sys_sql_expression_dependencies AS ed
+          FROM tempdb.dbo.SQLXL_Index_sys_sql_expression_dependencies AS ed
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns               AS ic
+          JOIN tempdb.dbo.SQLXL_Index_sys_index_columns               AS ic
             ON ed.database_id          = ic.database_id
            AND ed.referencing_id       = ic.object_id
            AND ed.referencing_minor_id = ic.index_id
@@ -15890,7 +15890,7 @@ SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,di
               ,ed.referencing_id
               ,ed.referencing_minor_id
        ) ed
-  JOIN tempdb.dbo.SQLXL_IDX_sys_indexes AS i
+  JOIN tempdb.dbo.SQLXL_Index_sys_indexes AS i
     ON ed.database_id                    = i.database_id
    AND ed.object_id                      = i.object_id
    AND ed.index_id                       = i.index_id
@@ -15921,35 +15921,35 @@ SELECT x.database_id
       ,has_persisted_sample         = SUM(IIF(s.has_persisted_sample = 1,1,0))
   INTO #key_column_filtered_statistics
   FROM (SELECT database_id,parent_object_id = object_id,object_id,stats_id 
-          FROM tempdb.dbo.SQLXL_IDX_sys_stats
+          FROM tempdb.dbo.SQLXL_Index_sys_stats
          WHERE has_filter = 1 
         EXCEPT 
         SELECT database_id,parent_object_id = object_id,object_id,index_id
-          FROM tempdb.dbo.SQLXL_IDX_sys_indexes
+          FROM tempdb.dbo.SQLXL_Index_sys_indexes
          WHERE has_filter = 1 
        ) AS x
-  JOIN tempdb.dbo.SQLXL_IDX_sys_stats AS s
+  JOIN tempdb.dbo.SQLXL_Index_sys_stats AS s
     ON x.database_id            = s.database_id
    AND x.object_id              = s.object_id
    AND x.stats_id               = s.stats_id
-  JOIN tempdb.dbo.SQLXL_IDX_sys_sql_expression_dependencies AS sep
+  JOIN tempdb.dbo.SQLXL_Index_sys_sql_expression_dependencies AS sep
     ON s.database_id            = sep.database_id
    AND s.object_id              = sep.referencing_id
    AND s.stats_id               = sep.referencing_minor_id
    AND 9                        = sep.referencing_class
   JOIN (
         SELECT database_id,parent_object_id = object_id,object_id,index_id,type,column_id,key_column_sequence
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns
          WHERE is_included_column = 0
         UNION ALL
         SELECT database_id,parent_object_id,constraint_object_id,constraint_object_id,N'F',parent_column_id,constraint_column_id
-          FROM tempdb.dbo.SQLXL_IDX_sys_foreign_key_columns
+          FROM tempdb.dbo.SQLXL_Index_sys_foreign_key_columns
        ) AS ic
     ON x.database_id            = ic.database_id
    AND x.parent_object_id       = ic.parent_object_id
 -- AND x.object_id              = ic.object_ID -- Commented out since we're only looking for filters on Table columns
    AND sep.referenced_minor_id  = ic.column_id
-  JOIN tempdb.dbo.SQLXL_IDX_sys_columns AS c
+  JOIN tempdb.dbo.SQLXL_Index_sys_columns AS c
     ON x.database_id            = c.database_id
    AND x.object_id              = c.object_id
    AND sep.referenced_minor_id  = c.column_id
@@ -15966,7 +15966,7 @@ SELECT x.database_id
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Statistics - Filtered Statistics on key columns (Index, Missing, FKC) NOT on an Index
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic =
  N'Column Filtered Statistics (BI93)'
           +ISNULL((SELECT N' Key '
@@ -16004,7 +16004,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - SPARSE column, potential for filtering
 -- Diagnostic - Index - Ratio hi histogram bucket to low is HIGH, candidate for parameter sniffing
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8,diagnostic =
  N'Key ' + CAST(ic.key_column_sequence AS NVARCHAR(10)) + N':'
 +CASE WHEN c.data_type = N'BIT'
@@ -16040,17 +16040,17 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
               ,key_column_sequence
               ,is_index_column_filtered
               ,column_id
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns
          WHERE is_included_column = 0
            AND partition_ordinal  = 0
            AND type          NOT IN (N'0',N'1',N'5',N'F') -- exclude HEAPS, CLUSTERED, CLUSTERED COLUMNSTORE, Foreign Key Constraints
        ) ic
-  JOIN tempdb.dbo.SQLXL_IDX_column AS c
+  JOIN tempdb.dbo.SQLXL_Index_column AS c
     ON ic.database_id               = c.database_id
    AND ic.object_id                 = c.object_id
    AND ic.Column_ID                 = c.column_id
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS i
     ON ic.database_id               = i.database_id
@@ -16086,7 +16086,7 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - Another key has better lead uniqueness, does not cover foreign key
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',xc.database_id,xc.object_id,xc.object_id,xc.index_id,xc.type,diagnostic_type_id = 8
       ,diagnostic = N'Key ' + u.[Column Descriptors] + N' is more unique than key 1'
   FROM (
@@ -16108,8 +16108,8 @@ SELECT rec_type = 'I',xc.database_id,xc.object_id,xc.object_id,xc.index_id,xc.ty
                                                            ,u.type
                                                    ORDER BY u.col_uniqueness ASC
                                               )
-                  FROM tempdb.dbo.SQLXL_IDX_uniqueness  AS u
-                  JOIN tempdb.dbo.SQLXL_IDX_Compilation AS c
+                  FROM tempdb.dbo.SQLXL_Index_uniqueness  AS u
+                  JOIN tempdb.dbo.SQLXL_Index_Compilation AS c
                     ON u.database_id = c.database_id
                    AND u.object_id   = c.object_ID
                    AND N'P'          = c.rec_type              -- parents only
@@ -16128,12 +16128,12 @@ SELECT rec_type = 'I',xc.database_id,xc.object_id,xc.object_id,xc.index_id,xc.ty
               ,u.index_id
               ,u.type
               ,u.column_id
-          FROM tempdb.dbo.SQLXL_IDX_uniqueness AS u
+          FROM tempdb.dbo.SQLXL_Index_uniqueness AS u
          WHERE TRY_CAST(u.type AS INT) BETWEEN 1 AND 2
            AND u.is_included_column    = 0
            AND u.key_column_sequence   = 1
        ) xc
-  JOIN tempdb.dbo.SQLXL_IDX_uniqueness u
+  JOIN tempdb.dbo.SQLXL_Index_uniqueness u
     ON xc.database_id = u.database_id
    AND xc.object_id   = u.object_id
    AND xc.index_id    = u.index_id
@@ -16144,7 +16144,7 @@ SELECT rec_type = 'I',xc.database_id,xc.object_id,xc.object_id,xc.index_id,xc.ty
 -- Diagnostic - Index - Rowstore index has more than 5 included columns
 -- Diagnostic - Index - Rowstore index included columns 100 or more bytes
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8
       ,diagnostic = N'Bulky includes: '
                 +STUFF(                N', ' + CAST(ic.cnt AS VARCHAR(10)) + N' cols'
@@ -16156,13 +16156,13 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
               ,cnt = COUNT(1)
               ,len = SUM(IIF(c.max_length < 0,0,c.max_length))
               ,big = SUM(IIF(c.max_length < 0,1,0))
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_column            AS c
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN tempdb.dbo.SQLXL_Index_column            AS c
             ON ic.database_id                          = c.database_id
            AND ic.object_id                            = c.object_id
            AND ic.column_id                            = c.Column_ID
           LEFT OUTER
-          JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS ix                  -- filter out CLUSTERED index columns
+          JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS ix                  -- filter out CLUSTERED index columns
             ON ic.database_id                          = ix.database_id
            AND ic.object_id                            = ix.object_id
            AND 1                                       = ix.index_id
@@ -16175,7 +16175,7 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
                ic.database_id,ic.object_id,ic.index_id,ic.type
        ) AS ic
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'P'
        ) AS p
     ON ic.database_id  = p.database_id
@@ -16189,14 +16189,14 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - with resumable operations and metrics
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 0
       ,diagnostic = N'[RESUMABLE OPERATION - ' + r.state_desc + N']'
                   +NCHAR(10) + N'> Started: ' + CAST(DATEDIFF(DAY,r.start_time,GETDATE()) AS NVARCHAR(10)) + N' days ago)'
                   +NCHAR(10) + N'> Paused:'  + CONVERT(NVARCHAR(10),r.last_pause_time,11) + N'@' +CONVERT(NVARCHAR(8),r.last_pause_time,114)
                              + N' Complete: ' + CAST(r.percent_complete_MAX AS NVARCHAR(2)) + N'%'
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_resumable_operations AS r
-  JOIN tempdb.dbo.SQLXL_IDX_sys_indexes                    AS i
+  FROM tempdb.dbo.SQLXL_Index_sys_index_resumable_operations AS r
+  JOIN tempdb.dbo.SQLXL_Index_sys_indexes                    AS i
     ON r.database_id                                        = i.database_id
    AND r.object_id                                          = i.object_id
    AND r.index_id                                           = i.index_id
@@ -16205,7 +16205,7 @@ SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,di
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- LEAD KEY - ALL ELEMENTS
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT *
   FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic = STUFF(
@@ -16280,7 +16280,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ------------------------------------------------------------
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND TYPE    IN (N'1'  -- clustered rowstore
                           ,N'2'  -- Nonclustered rowstore
@@ -16288,12 +16288,12 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
        ) AS i
  CROSS
   JOIN (SELECT ProductMajorVersion = TRY_CAST(run_value AS INT)
-          FROM tempdb.dbo.SQLXL_IDX_sys_instance
+          FROM tempdb.dbo.SQLXL_Index_sys_instance
          WHERE source = N'SERVERPROPERTY'
            AND name   = N'ProductMajorVersion'
        ) AS mv
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_column    AS c
+  JOIN tempdb.dbo.SQLXL_Index_column    AS c
     ON i.database_id                   = c.database_id
    AND i.object_id                     = c.object_id
    AND i.par_cx_uniq_ordered_column_ID = c.column_id
@@ -16307,7 +16307,7 @@ WHERE i.diagnostic IS NOT NULL;
 -- Diagnostic - Index - Count of NULL rows and percent of table
 -- Diagnostic - Index - Key Element is non-standard data type
 -- Diagnostic - Index - Key Element is string or LOB type (BI27)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT TOP 100 PERCENT
        i.rec_type
@@ -16349,33 +16349,33 @@ SELECT COUNT(1)
 --*/  
   FROM (-- 
         SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND obj_type_short_label NOT IN (N'HST',N'IT')
            AND TYPE    IN (N'1',N'2')
        )                                      AS i
-  JOIN tempdb.dbo.SQLXL_IDX_sys_databases     AS d
+  JOIN tempdb.dbo.SQLXL_Index_sys_databases     AS d
     ON i.database_id                           = d.database_id
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
     ON i.database_id                           = ic.database_id
    AND i.object_id                             = ic.object_id
    AND i.index_id                              = ic.index_id
    AND i.type                                  = ic.type
    AND 0                                       = ic.is_included_column
-  JOIN tempdb.dbo.SQLXL_IDX_sys_columns       AS c
+  JOIN tempdb.dbo.SQLXL_Index_sys_columns       AS c
     ON ic.database_id                          = c.database_id
    AND ic.object_id                            = c.object_id
    AND ic.column_id                            = c.column_id
-  JOIN tempdb.dbo.SQLXL_IDX_sys_types         AS typ
+  JOIN tempdb.dbo.SQLXL_Index_sys_types         AS typ
     ON c.database_id                           = typ.database_id
    AND c.user_type_id                          = typ.user_type_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram_summary AS hsi
+  JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary AS hsi
     ON i.database_id      = hsi.database_id
    AND i.object_id        = hsi.object_id
    AND i.index_id         = hsi.index_id
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_Histogram_summary AS hsc
+  JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary AS hsc
     ON i.database_id      = hsc.database_id
    AND i.object_id        = hsc.object_id
    AND ic.column_id       = hsc.column_id
@@ -16392,7 +16392,7 @@ WHERE i.diagnostic IS NOT NULL
 IF @ssms = 1 RAISERROR('... Index Types',0,0) WITH NOWAIT;
 --------------------------------------------------------------------------------------------------------------------------------------------
 
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 2,diagnostic =
 -----------------------------------------------------------------
@@ -16402,11 +16402,11 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
     +IIF(p.xtp_scans_started_CNT > 0,N' Scan: '   + tempdb.dbo.SQLXL_3SD(       p.xtp_scans_started_CNT   ,N'I'),N'')
     +IIF(p.xtp_scans_started_CNT > 0,N' Retry: '  + tempdb.dbo.SQLXL_3SD(ISNULL(p.xtp_scans_retries_CNT,0),N'I'),N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        )                          AS i
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                          AS p
     ON i.database_id               = p.database_id
@@ -16495,7 +16495,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,p.type,i.type,i.type
 --*/
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        )                           AS i
   LEFT OUTER
@@ -16508,7 +16508,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,p.
               ,is_primary_key       = SUM(IIF(is_primary_key = 1,1,0))
               ,is_unique_constraint = SUM(IIF(is_unique_constraint = 1,1,0))
               ,is_unique            = SUM(IIF(is_unique = 1,1,0))
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type        = N'I'
            AND par_object_type = N'U'
          GROUP BY
@@ -16523,7 +16523,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,p.
    AND i.parent_object_id           = ip.parent_object_id
    AND i.object_id                  = ip.object_id
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N'P',N'S')
        )                           AS p
     ON i.database_id                = p.database_id
@@ -16578,11 +16578,11 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON i.database_id                     = o.database_id
    AND i.object_id                       = o.object_id
   LEFT OUTER
@@ -16594,7 +16594,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
               ,object_id
               ,index_id
               ,cnt         = COUNT(1)
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns
          WHERE 0 = is_included_column
          GROUP BY
                database_id
@@ -16610,7 +16610,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
         -- which is included automagically
         --------------------------------------------------------------------------------------------
         SELECT uniqueness = 1.0*dv.All_Density * i.stathdr_Rows_CNT
-          FROM tempdb.dbo.SQLXL_IDX_sys_ShowStatistics_DensityVector AS dv
+          FROM tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS dv
          WHERE i.database_id                                          = dv.database_id
            AND i.object_id                                            = dv.object_id
            AND i.index_id                                             = dv.index_ID
@@ -16684,16 +16684,16 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
     ,N'')
 ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_sys_objects AS o
+  JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON i.database_id                  = o.database_id
    AND i.object_id                    = o.object_id
   LEFT OUTER
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'P'
        ) AS p
     ON i.database_id                  = p.database_id
@@ -16714,7 +16714,7 @@ IF @ssms = 1 RAISERROR('... Foreign Key Constraints',0,0) WITH NOWAIT;
 
 SET ANSI_WARNINGS ON; -- Needed for FOR XML PATH
 
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 -- Diagnostic - Foreign Key Constraint - Self Referencing
 SELECT rec_type          = N'I'
@@ -16725,7 +16725,7 @@ SELECT rec_type          = N'I'
       ,type              = N'F'
       ,diagnostic_type_id   = 0
       ,diagnostic           = QUOTENAME(N'Self referencing FKC')
-  FROM TempDB.dbo.SQLXL_IDX_sys_foreign_keys AS fk
+  FROM TempDB.dbo.SQLXL_Index_sys_foreign_keys AS fk
  WHERE fk.parent_object_id = fk.referenced_object_id
 
 -- Diagnostic - Foreign Key Constraint - *DISABLED*
@@ -16748,7 +16748,7 @@ SELECT rec_type           = N'I'
                                  +IIF(fk.is_ignored_in_optimization = 1,N' *IGNORED IN OPTIMIZATION*',N'')
                                  ,1,1,N'')
   FROM (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS fk
  WHERE fk.type = N'F'
@@ -16769,7 +16769,7 @@ SELECT DISTINCT
       ,type              = N'F'
       ,diagnostic_type_id   = 2
       ,diagnostic           = N'*Duplicate FKC*'
-  FROM TempDB.dbo.SQLXL_IDX_Synergies AS o
+  FROM TempDB.dbo.SQLXL_Index_Synergies AS o
  WHERE o.l_type     = N'F'
    AND o.r_type     = N'F'
    AND o.matching_sequence_CNT = o.lc_key_CNT
@@ -16786,7 +16786,7 @@ SELECT DISTINCT
       ,type              = N'F'
       ,diagnostic_type_id   = 2
       ,diagnostic           = N'*Included FKC*'
-  FROM TempDB.dbo.SQLXL_IDX_Synergies AS o
+  FROM TempDB.dbo.SQLXL_Index_Synergies AS o
  WHERE o.l_type     = N'F'
    AND o.r_type     = N'F'
    AND o.lc_key_CNT < o.rc_key_CNT
@@ -16803,7 +16803,7 @@ SELECT DISTINCT
       ,type              = N'F'
       ,diagnostic_type_id   = 2
       ,diagnostic           = N'*Overlapping FKC*'
-  FROM TempDB.dbo.SQLXL_IDX_Synergies AS o
+  FROM TempDB.dbo.SQLXL_Index_Synergies AS o
  WHERE o.l_type     = N'F'
    AND o.r_type     = N'F'
    AND o.matching_overlap_CNT = o.lc_key_CNT
@@ -16820,7 +16820,7 @@ SELECT DISTINCT
       ,type              = N'F'
       ,diagnostic_type_id   = 2
       ,diagnostic           = N'*Contained FKC*'
-  FROM TempDB.dbo.SQLXL_IDX_Synergies AS o
+  FROM TempDB.dbo.SQLXL_Index_Synergies AS o
  WHERE o.l_type     = N'F'
    AND o.r_type     = N'F'
    AND o.matching_contained_CNT > 0
@@ -16843,7 +16843,7 @@ SELECT rec_type           = N'I'
                                 OR fk.update_referential_action > 0
                                ,NCHAR(10) + N'> NOTE: action forces serializable isolation (BI71)'
                                ,N'')
-  FROM TempDB.dbo.SQLXL_IDX_sys_foreign_keys AS fk
+  FROM TempDB.dbo.SQLXL_Index_sys_foreign_keys AS fk
  WHERE fk.delete_referential_action > 0
 ) fk
  WHERE fk.diagnostic IS NOT NULL;
@@ -16853,7 +16853,7 @@ SELECT rec_type           = N'I'
 -- are there missing indexes found? See "Update Foreign Key Constraints" for rules
 -- Note: as of Mar 2023 BlitzIndex refers to 2 CHECK_ID 72's - Woo!
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT rec_type= N'I',i.database_id,i.parent_object_id,i.object_id,index_id=i.object_id,type=N'F',diagnostic_type_id=4,diagnostic =
 -- Diagnostic - Foreign Key Constraint - No covering index lead key element (BI72)
@@ -16894,12 +16894,12 @@ SELECT rec_type= N'I',i.database_id,i.parent_object_id,i.object_id,index_id=i.ob
 SELECT COUNT(1)
 --*/
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND type = N'F'
        )                   AS i
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N'P',N'S')
            AND type      = N'U'
        )                   AS p
@@ -16908,7 +16908,7 @@ SELECT COUNT(1)
    AND i.parent_object_id   = p.object_id
  CROSS
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'A'
        )                   AS a
  WHERE N'F'                 = i.type
@@ -16918,7 +16918,7 @@ SELECT COUNT(1)
 UNION ALL
 SELECT rec_type   = N'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id= 8
       ,diagnostic = N'FKC References - ' + QUOTENAME(CAST(i.rk_referencing_fkc_CNT AS NVARCHAR(10)))
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  WHERE i.rec_type               = N'I'
    AND i.rk_referencing_fkc_CNT > 0
 
@@ -16926,7 +16926,7 @@ SELECT rec_type   = N'I',i.database_id,i.parent_object_id,i.object_id,i.index_id
 UNION ALL
 SELECT rec_type = N'I',fk.database_id,fk.parent_object_id,fk.object_id,index_id=fk.object_id,type=N'F',diagnostic_type_id=8
       ,diagnostic = N'Covered by index ID(s) ' + fk.fkc_covered_by_idx_IDS
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS fk
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS fk
  WHERE fk.rec_type                = N'I'
    AND fk.type                    = 'F'
    AND fk.fkc_covered_by_idx_IDS IS NOT NULL
@@ -16939,7 +16939,7 @@ SELECT rec_type = N'I',fk.database_id,fk.parent_object_id,fk.object_id,index_id=
 
 IF @ssms = 1 RAISERROR('... Missing Indexes',0,0) WITH NOWAIT;
 
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT * FROM (
 SELECT -- Index level
        rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
@@ -16958,9 +16958,9 @@ SELECT -- Index level
       +IIF(mix.fkc_id IS NOT NULL
           ,NCHAR(10) + N'> Possible cover for Foreign Key(s) ' + STUFF(mix.fkc_id,1,1,N'')
           ,N'')
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_IDX_Metrics     AS m
+  JOIN tempdb.dbo.SQLXL_Index_Metrics     AS m
     ON i.database_id                     = m.database_id
    AND i.parent_object_id                = m.parent_object_id
    AND i.object_ID                       = m.object_id
@@ -16970,9 +16970,9 @@ SELECT -- Index level
    AND N'mix_Advantage_AMT'              = m.metric
  OUTER APPLY
        (SELECT N',' + CAST(syn.l_index_id AS VARCHAR(10))
-          FROM tempdb.dbo.SQLXL_IDX_Synergies   AS syn
+          FROM tempdb.dbo.SQLXL_Index_Synergies   AS syn
                -- uncovered Foreign Key Constraints ------------------------------------
-          JOIN tempdb.dbo.SQLXL_IDX_Compilation AS fkc
+          JOIN tempdb.dbo.SQLXL_Index_Compilation AS fkc
             ON syn.database_id                   = fkc.database_id
            AND syn.parent_object_id              = fkc.parent_object_id
            AND syn.l_index_id                    = fkc.index_id
@@ -16996,8 +16996,8 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
       ,diagnostic = N'> Table '
                 +IIF(p.Clustered_ColumnStore_CNT > 0,N'is Clustered Columnstore',N'')
                 +IIF(p.Nonclustered_ColumnStore_CNT > 0,N'has Nonclustered Columnstore (FK can''t use)',N'')
-  FROM tempdb.dbo.SQLXL_IDX_Compilation  AS i
-  JOIN tempdb.dbo.SQLXL_IDX_Compilation  AS p
+  FROM tempdb.dbo.SQLXL_Index_Compilation  AS i
+  JOIN tempdb.dbo.SQLXL_Index_Compilation  AS p
     ON i.database_id                      = p.database_id
    AND i.parent_object_id                 = p.parent_object_id
    AND p.rec_type                        IN (N'P',N'S')
@@ -17016,12 +17016,12 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
                        ,N'')
                   + NCHAR(10) + N'> Consider Nonclustered Columnstore?'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        ) AS p
  CROSS
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'A'
        ) AS a
  WHERE ISNULL(p.Missing_index_CNT           ,0) >= 3
@@ -17038,7 +17038,7 @@ SET ANSI_WARNINGS OFF;
 IF @ssms = 1 RAISERROR('... Other Elements',0,0) WITH NOWAIT;
 
 -- Diagnostic - Object - possible temporary object based on name
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT DISTINCT
        c.rec_type
       ,c.database_id
@@ -17092,7 +17092,7 @@ SELECT DISTINCT
               ,c.name
               ,n.nbr
               ,c.is_system_named
-          FROM tempdb.dbo.SQLXL_IDX_Compilation AS c
+          FROM tempdb.dbo.SQLXL_Index_Compilation AS c
          OUTER APPLY
                (SELECT string FROM TempDB.dbo.SQLXL_Parse_Strings(c.name,N' ')) AS p1
          OUTER APPLY
@@ -17121,7 +17121,7 @@ SET ANSI_WARNINGS ON;
 ----------------------------------------------------------------------------------------------------
 -- Start from a clean slate of prescriptions
 ----------------------------------------------------------------------------------------------------
-UPDATE tempdb.dbo.SQLXL_IDX_Compilation
+UPDATE tempdb.dbo.SQLXL_Index_Compilation
    SET prescription = NULL;
 
 ----------------------------------------------------------------------------------------------------
@@ -17139,7 +17139,7 @@ SELECT TOP 0
       ,srt          = CAST(NULL AS INT)
       ,prescription = CAST(NULL AS NVARCHAR(1000))
   INTO #prescription
-  FROM tempdb.dbo.SQLXL_IDX_Compilation;
+  FROM tempdb.dbo.SQLXL_Index_Compilation;
 
 CREATE CLUSTERED index ixuc_#prescription
     ON #prescription
@@ -17193,7 +17193,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                                    ,N'')
                       END
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND type     = N'F'
        ) AS i
@@ -17205,7 +17205,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
               ,seq = MAX(IIF(s.matching_sequence_CNT > 0,1,0))
               ,ovl = MAX(IIF(s.matching_overlap_CNT  > 0,1,0))
               ,con = MAX(IIF(s.matching_contained_CNT> 0 AND s.lc_key_CNT < s.rc_key_CNT,1,0))
-          FROM TempDB.dbo.SQLXL_IDX_Synergies AS s
+          FROM TempDB.dbo.SQLXL_Index_Synergies AS s
          WHERE s.l_type     = N'F'
            AND s.r_type     = N'F'
            AND s.matching_sequence_CNT = s.lc_key_CNT
@@ -17226,14 +17226,14 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
         --------------------------------------------------------------------------------------------
         SELECT TOP (1)
                index_id = sy.r_index_id
-          FROM TempDB.dbo.SQLXL_IDX_Synergies        AS sx
-          JOIN TempDB.dbo.SQLXL_IDX_Synergies        AS sy
+          FROM TempDB.dbo.SQLXL_Index_Synergies        AS sx
+          JOIN TempDB.dbo.SQLXL_Index_Synergies        AS sy
             ON sx.database_id                         = sy.database_id
            AND sx.parent_object_id                    = sy.parent_object_id
            AND sx.matching_sequence_col               = sy.matching_sequence_col
            AND N'F'                                   = sy.l_type
            AND N'F'                                   = sy.r_type
-          JOIN tempdb.dbo.SQLXL_IDX_sys_foreign_keys AS fk
+          JOIN tempdb.dbo.SQLXL_Index_sys_foreign_keys AS fk
             ON sy.database_id                         = fk.database_id
            AND sy.parent_object_id                    = fk.parent_object_id
            AND sy.l_index_id                          = fk.object_id
@@ -17281,7 +17281,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                                         ELSE N''
                                    END
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (
@@ -17298,8 +17298,8 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
               ,s.matching_sequence_CNT
               ,s.matching_sequence_COL
               ,pct_of_table            = 1.0 * s.matching_sequence_all_density * il.row_CNT
-          FROM tempdb.dbo.SQLXL_IDX_Synergies   AS s
-          JOIN tempdb.dbo.SQLXL_IDX_Compilation AS il
+          FROM tempdb.dbo.SQLXL_Index_Synergies   AS s
+          JOIN tempdb.dbo.SQLXL_Index_Compilation AS il
             ON N'I'                              = il.rec_type
            AND s.database_id                     = il.database_id
            AND s.parent_object_id                = il.parent_object_id
@@ -17341,7 +17341,7 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = i.obj_type_hdr
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.obj_type_short_label IN (N'HST',N'IT') -- History table or internal table
@@ -17361,7 +17361,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_des
                          ,N'XTP HP'
                          ,i.type_short_desc)
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.type IN (N'1',N'5') -- Clustered, Clustered Columnstore
@@ -17380,10 +17380,10 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = kc.type
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
-  JOIN tempdb.dbo.SQLXL_IDX_sys_key_constraints AS kc
+  JOIN tempdb.dbo.SQLXL_Index_sys_key_constraints AS kc
     ON i.database_id                             = kc.database_id
    AND i.parent_object_id                        = kc.parent_object_id
    AND TRY_CAST(i.index_id AS INT)               = kc.unique_index_id;
@@ -17401,7 +17401,7 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = COALESCE(i.type_short_desc,N'Missing Desc') + N' Idx'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE TRY_CAST(i.type AS INT) IN (3,4,6,90) -- XML,Spatial,Nonclustered ColumnStore,FullText
@@ -17423,7 +17423,7 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = N'FKC Reference'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.rk_referencing_fkc_CNT > 0
@@ -17433,11 +17433,11 @@ UNION ALL
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = N'Used by CDC'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'P'
        ) AS p
     ON i.database_id              = p.database_id
@@ -17449,7 +17449,7 @@ UNION ALL
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = N'Used by SVN'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE 2 = i.par_temporal_type -- SYSTEM_VERSIONED_TEMPORAL_TABLE
@@ -17460,7 +17460,7 @@ UNION ALL
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = N'Used by Ledger'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE (   2 = i.par_ledger_type -- UPDATABLE_LEDGER_TABLE
@@ -17474,11 +17474,11 @@ SELECT DISTINCT -- can be multiple spatial indexes using a primary key
        i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = N'Used by ' +x.type_short_desc
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS x
     ON i.database_id              = x.database_id
@@ -17495,11 +17495,11 @@ UNION ALL
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,action_desc = N'Retain',@srt
       ,prescription = N'Used by ' +f.type_short_desc
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS f
     ON i.database_id              = f.database_id
@@ -17554,7 +17554,7 @@ DECLARE @srt INT = 0
               ,active = IIF(    is_disabled             = 0    -- are enabled
                             AND is_not_trusted          = 0    -- and trusted
                             ,1,0)
-          FROM tempdb.dbo.SQLXL_IDX_sys_foreign_keys  AS fk
+          FROM tempdb.dbo.SQLXL_Index_sys_foreign_keys  AS fk
          WHERE 1 = 1
            AND (   (    @cover_foreign_keys = 1
                     AND (is_disabled = 0 AND is_not_trusted = 0)
@@ -17569,7 +17569,7 @@ DECLARE @srt INT = 0
        ) fk
   JOIN (
         SELECT database_id,parent_object_id,object_id,index_id,type,fkc_covering_primary_idx_ID
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND N'F'     = type
            AND 0        < fkc_covering_primary_idx_ID
@@ -17580,7 +17580,7 @@ DECLARE @srt INT = 0
    AND fk.object_id                   = fx.index_id
   JOIN (
         SELECT database_id,parent_object_id,object_id,index_id,type
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND type    IN (N'1',N'2')
        )    AS i
@@ -17620,7 +17620,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
            AND prescription IS NOT NULL
        ) ref
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS i
     ON ref.database_id            = i.database_id
@@ -17658,11 +17658,11 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request'
           +IIF(uniq_idx.is_unique_constraint = 1,NCHAR(10) + N' Make UNIQUE',N'')
           ,N' See candidate')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'P'
        ) AS p
     ON i.database_id      = p.database_id
@@ -17673,8 +17673,8 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request'
                ic.index_id
               ,ix.is_primary_key
               ,ix.is_unique_constraint
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_sys_indexes       AS ix
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN tempdb.dbo.SQLXL_Index_sys_indexes       AS ix
             ON ic.database_id                          = ix.database_id
            AND ic.object_id                            = ix.object_id
            AND ic.index_id                             = ix.index_id
@@ -17714,19 +17714,19 @@ SELECT i.database_id,tgt.parent_object_id,i.object_id,i.index_id,i.type,
               ,par_cx_uniq_ordered_column_ID
               ,par_cx_uniq_ordered_column_TYP
               ,prescription
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type                      = N'I'
            AND type                          = N'0'
            AND par_cx_uniq_ordered_column_ID > 0
            AND par_is_memory_optimized       = 0
        )                                      AS tgt
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS i
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS i
     ON tgt.database_id                         = i.database_id
    AND tgt.object_id                           = i.object_id
    AND N'2'                                    = i.type
    AND tgt.par_cx_uniq_ordered_column_ID       = i.column_id
    AND 1                                       = i.key_column_sequence
-  JOIN tempdb.dbo.SQLXL_IDX_Compilation       AS p
+  JOIN tempdb.dbo.SQLXL_Index_Compilation       AS p
     ON N'P'                                    = p.rec_type
    AND i.database_id                           = p.database_id
    AND i.object_id                             = p.object_id
@@ -17746,11 +17746,11 @@ DECLARE @srt INT = 0;
    SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request',@srt
          ,prescription = N'MIX > FKC'
      FROM (SELECT *
-             FROM tempdb.dbo.SQLXL_IDX_Compilation
+             FROM tempdb.dbo.SQLXL_Index_Compilation
             WHERE rec_type = N'I'
           )                               AS i
      JOIN (SELECT *
-             FROM tempdb.dbo.SQLXL_IDX_Compilation
+             FROM tempdb.dbo.SQLXL_Index_Compilation
             WHERE rec_type = N'I'
           )                               AS fk
        ON i.database_id                    = fk.database_id
@@ -17773,11 +17773,11 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request',@srt
       ,prescription = N'CX from NCX ' + CAST(i.par_smallest_uniq_Nonclustered_idx AS NVARCHAR(10))
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                        AS p
     ON i.database_id             = p.database_id
@@ -17811,12 +17811,12 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request',@srt
       ,prescription = N'CX Candidate Col'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
 
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                        AS p
     ON i.database_id      = p.database_id
@@ -17850,12 +17850,12 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request',@srt
       ,prescription = N'Create Uniq CX'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
 
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                        AS p
     ON i.database_id      = p.database_id
@@ -17890,7 +17890,7 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request',@srt
       ,prescription = N'TVF Create Unique CX'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
 
@@ -17929,7 +17929,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                        ).value('(./text())[1]','NVARCHAR(4000)')
 
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
 
@@ -17962,7 +17962,7 @@ UPDATE i
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
 --*/
        prescription = N'Retain HP'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  WHERE i.rec_type                  = N'I'
    AND i.par_object_type           = N'U'
    AND i.type                      = N'0'  -- Heaps
@@ -17993,8 +17993,8 @@ SELECT ic.database_id
       ,ic.index_id
       ,ic.type
 --*/
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
-  JOIN tempdb.dbo.SQLXL_IDX_column            AS c
+  FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
+  JOIN tempdb.dbo.SQLXL_Index_column            AS c
     ON ic.database_id                          = c.database_id
    AND ic.object_id                            = c.object_id
    -- No Object_ID column in XL_IDX_column table
@@ -18003,7 +18003,7 @@ SELECT ic.database_id
               -- Get SQL version from source server. 2016 allows updatable Nonclustered columnstore
               --------------------------------------------------------------------------------------
               SELECT version = TRY_CAST(run_value AS TINYINT)
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE name   = N'ProductMajorVersion'
                  AND source = N'SERVERPROPERTY'
              )
@@ -18011,7 +18011,7 @@ SELECT ic.database_id
               -- Can't run columnstore on STANDARD EDITION (2)
               --------------------------------------------------------------------------------------
               SELECT edition = TRY_CAST(run_value AS TINYINT)
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
              )
@@ -18052,7 +18052,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
       ,stw      = i.ios_read_to_write_RAT
 --*/
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   LEFT OUTER
@@ -18065,7 +18065,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
               -- Get SQL version from source server. 2016 allow for updatable Nonclustered columnstore
               ----------------------------------------------------------------------------------------
               SELECT version = TRY_CAST(run_value AS TINYINT)
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE name   = N'ProductMajorVersion'
                  AND source = N'SERVERPROPERTY'
              )
@@ -18073,7 +18073,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
               -- Can't run columnstore on STANDARD EDITION (2)
               ----------------------------------------------------------------------------------------
               SELECT edition = TRY_CAST(run_value AS TINYINT)
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
              )
@@ -18136,7 +18136,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
        prescription = ISNULL(i.prescription + NCHAR(10),N'') -- should not be anything added before this point
                     + N'Replace new NCS'                     -- NOTE: keep in synch with below ACTION codes
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        ) AS i
   LEFT OUTER
@@ -18144,7 +18144,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
         SELECT database_id
               ,parent_object_id
               ,object_id
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND type IN (N'5'  -- Clustered columnstore - SQL 2016+ allows for Nonclustered rowstore indexes on clustered Columnstore
                        ,N'6'  -- Nonclustered columnstore - updatable with SQL 2016+
@@ -18167,7 +18167,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
               -- Get SQL version from source server. 2016 allow for updatable Nonclustered columnstore
               ----------------------------------------------------------------------------------------
               SELECT version = TRY_CAST(run_value AS TINYINT)
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE name   = N'ProductMajorVersion'
                  AND source = N'SERVERPROPERTY'
              )
@@ -18175,7 +18175,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
               -- Can't run columnstore on STANDARD EDITION (2)
               ----------------------------------------------------------------------------------------
               SELECT edition = TRY_CAST(run_value AS TINYINT)
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
              )
@@ -18196,7 +18196,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
                      + NCHAR(10)
                      + N' Use ' + IIF(p.new_ncs = 1,N'new',N'existing') + N' NCS'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE type IN (N'2',N'M')  -- Nonclustered index, Missing index, less than 5% of total reads
        )                                       AS i
   JOIN (
@@ -18204,7 +18204,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
               ,parent_object_id
               ,object_id
               ,new_ncs          = CAST(1 AS BIT)
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
            AND prescription = N'Replace new NCS'       -- NOTE: keep in synch with above ACTION codes
 
@@ -18213,7 +18213,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
               ,parent_object_id
               ,object_id
               ,new_ncs = CAST(0 AS BIT)
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
            AND type     = N'6'
        )                                       AS p
@@ -18229,7 +18229,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
               -- Get SQL version from source server. 2016 allow for updatable Nonclustered columnstore
               ----------------------------------------------------------------------------------------
               SELECT version = TRY_CAST(run_value AS TINYINT)
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE name   = N'ProductMajorVersion'
                  AND source = N'SERVERPROPERTY'
              )
@@ -18237,7 +18237,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
               -- Can't run columnstore on STANDARD EDITION (2)
               ----------------------------------------------------------------------------------------
               SELECT edition = TRY_CAST(run_value AS TINYINT)
-                FROM tempdb.dbo.SQLXL_IDX_sys_instance
+                FROM tempdb.dbo.SQLXL_Index_sys_instance
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
              )
@@ -18265,12 +18265,12 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
        prescription = N'Request' + NCHAR(10) + N' MIX Hi Gain' 
                     + IIF(i.Overlap_Code IS NOT NULL,NCHAR(10) + N' MIX Synergies',N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  CROSS
   JOIN (SELECT mix_Advantage_AMT
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'A'
        ) AS ins
  WHERE i.type                      = N'M'                     -- Missing index
@@ -18281,7 +18281,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
    AND i.prescription  IS NULL                                -- not already flagged above
    AND NOT
        EXISTS (SELECT NULL
-                 FROM tempdb.dbo.SQLXL_IDX_Synergies AS o
+                 FROM tempdb.dbo.SQLXL_Index_Synergies AS o
                 WHERE i.database_id                   = o.database_id
                   AND i.parent_object_id              = o.parent_object_id
                   AND i.index_ID                      = o.l_index_id
@@ -18305,7 +18305,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
 --*/
        prescription  = N'Reject' + NCHAR(10) + N' MIX Lo Gain'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.type             = N'M' -- Missing index
@@ -18326,7 +18326,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
 --*/
        prescription = N'Retain' + NCHAR(10) + N' Lead Sequence NCX'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (
@@ -18359,7 +18359,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                        o.database_id
                       ,o.parent_object_id
                       ,o.matching_sequence_COL
-                  FROM tempdb.dbo.SQLXL_IDX_Synergies AS o
+                  FROM tempdb.dbo.SQLXL_Index_Synergies AS o
                  WHERE o.l_type                        = N'2'
                    AND o.r_type                        = N'2'
                    AND LEFT(o.matching_sequence_COL,1) = N'S'
@@ -18373,10 +18373,10 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                       ,il.parent_object_id
                       ,o.matching_sequence_COL
                   FROM (SELECT * 
-                          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+                          FROM tempdb.dbo.SQLXL_Index_Compilation 
                          WHERE rec_type = N'I'
                        ) AS il
-                  JOIN tempdb.dbo.SQLXL_IDX_Synergies AS o
+                  JOIN tempdb.dbo.SQLXL_Index_Synergies AS o
                     ON o.database_id                   = il.database_id
                    AND o.parent_object_id              = il.parent_object_id
                    AND o.l_index_id                    = il.index_ID
@@ -18390,7 +18390,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
           ---------------------------------------------------------------------------------------------------------------------------------
           -- rejoin to Synergies table to get the indexes sharing the synergy sequences found above
           ---------------------------------------------------------------------------------------------------------------------------------
-          JOIN tempdb.dbo.SQLXL_IDX_Synergies   AS o
+          JOIN tempdb.dbo.SQLXL_Index_Synergies   AS o
             ON seq.database_id                   = o.database_id
            AND seq.parent_object_id              = o.parent_object_id
            AND seq.matching_sequence_COL         = o.matching_sequence_COL
@@ -18400,7 +18400,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
           -- Get properties for candidate sequence indexes
           ---------------------------------------------------------------------------------------------------------------------------------
           JOIN (SELECT * 
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation 
+                  FROM tempdb.dbo.SQLXL_Index_Compilation 
                  WHERE rec_type = N'I'
                ) AS il
             ON seq.database_id                   = il.database_id
@@ -18433,9 +18433,9 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
               ,index_id           = o.r_index_id  -- checking left side of overlap against right side retained index
               ,type               = o.r_type      -- checking left side of overlap against right side retained index
               ,o.matching_sequence_CNT
-          FROM tempdb.dbo.SQLXL_IDX_Synergies  AS o
+          FROM tempdb.dbo.SQLXL_Index_Synergies  AS o
           JOIN (SELECT * 
-                  FROM tempdb.dbo.SQLXL_IDX_Compilation 
+                  FROM tempdb.dbo.SQLXL_Index_Compilation 
                  WHERE rec_type = N'I'
                ) AS l
             ON o.database_id                   = l.database_id
@@ -18454,7 +18454,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
            AND l.prescription LIKE N'Retain%' -- hold on if flagged previously
        ) cte
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS i
     ON cte.database_id            = i.database_id
@@ -18478,9 +18478,9 @@ SELECT o.database_id
       ,o.r_index_id
       ,o.r_type
       ,r_reads = (ISNULL(r.ops_Total_read_CNT,0) + ISNULL(r.ius_User_read_CNT,0))
-  FROM tempdb.dbo.SQLXL_IDX_Synergies AS o
+  FROM tempdb.dbo.SQLXL_Index_Synergies AS o
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS l
     ON o.database_id               = l.database_id
@@ -18488,7 +18488,7 @@ SELECT o.database_id
    AND o.l_index_id                = l.index_ID
    AND o.l_type                    = l.type
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS r
     ON o.database_id               = r.database_id
@@ -18509,7 +18509,7 @@ UPDATE i
    SET
        prescription = N'Remove' + NCHAR(10) + N' Overlaps NCX Seq'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN cte
@@ -18530,11 +18530,11 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
 --*/
        prescription = N'Remove' + NCHAR(10) + N' Lo R/W Ratio'
   FROM (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'P'
        )  AS p
     ON i.database_id              = p.database_id
@@ -18565,11 +18565,11 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
 --*/
        prescription = N'Remove' + NCHAR(10) + N' Lo/No Activity'
   FROM (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'P'
        )  AS p
     ON i.database_id      = p.database_id
@@ -18606,7 +18606,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,
 --*/
        prescription = N'Retain ' + type_short_desc
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE (   (    obj_type  = N'U'
@@ -18639,7 +18639,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt,
                                         ,NCHAR(10) + N' Include Partition'
                                         ,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE type                           = N'1'
@@ -18655,7 +18655,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt,
        prescription    = N'Drop Xtra Keys'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.obj_type_short_label NOT IN (N'HST',N'IT')   -- Not a system maintained history or internal table
@@ -18676,11 +18676,11 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
       ,prescription = N'Enable Opt Seq Key'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE (SELECT ProductMajorVersion = TRY_CAST(run_value AS INT)
-          FROM tempdb.dbo.SQLXL_IDX_sys_instance
+          FROM tempdb.dbo.SQLXL_Index_sys_instance
          WHERE source = N'SERVERPROPERTY'
            AND name   = N'ProductMajorVersion'
        ) >= 15 -- 2019+
@@ -18713,7 +18713,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
                         ,N' NOT UNIQ'
                         ,IIF(i.is_primary_key = 1 OR i.is_unique_constraint = 1,N'',N' BAD STATS'))
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.obj_type_short_label   NOT IN (N'HST',N'IT')   -- Not a system maintained history or internal table
@@ -18740,11 +18740,11 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Refactor',@srt
       ,prescription          = N'Use Tbl Part'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                 AS p
     ON i.database_id      = p.database_id
@@ -18765,7 +18765,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
       ,prescription = N'FillFactor 100%'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE obj_type_short_label   NOT IN (N'HST',N'IT')   -- Not a system maintained history or internal table
@@ -18785,7 +18785,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
       ,prescription = N'FillFactor <100%'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE obj_type_short_label NOT IN (N'HST',N'IT')         -- Not a system maintained history or internal table
@@ -18804,7 +18804,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
       ,prescription = N'IGNORE_DUP_KEY [ON]'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.obj_type_short_label NOT IN (N'HST',N'IT')       -- Not a system maintained history or internal table
@@ -18828,7 +18828,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
                            ,1,1,N'')
                      +N' Locks'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.obj_type_short_label   NOT IN (N'HST',N'IT')       -- Not a system maintained history or internal table
@@ -18854,7 +18854,7 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Refactor',@srt
       ,prescription              = N'Chk Key Selectivity'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.obj_type_short_label   NOT IN (N'HST',N'IT')       -- Not a system maintained history or internal table
@@ -18872,15 +18872,15 @@ SELECT DISTINCT
        i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Refactor',@srt
       ,prescription              = N'Check Collation'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
     ON i.database_id                        = ic.database_id
    AND i.object_id                          = ic.object_id
    AND i.index_id                           = ic.index_id
    AND i.type                               = ic.type
-  JOIN tempdb.dbo.SQLXL_IDX_sys_columns       AS c
+  JOIN tempdb.dbo.SQLXL_Index_sys_columns       AS c
     ON ic.database_id                       = c.database_id
    AND ic.object_id                         = c.object_id
    AND ic.column_id                         = c.column_id
@@ -18900,7 +18900,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
       ,prescription = N'Check Incl Len'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.obj_type_short_label   NOT IN (N'HST',N'IT')       -- Not a system maintained history or internal table
@@ -18918,7 +18918,7 @@ DECLARE @srt INT = 0;
 --*/
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Refactor',@srt
       ,prescription = N'Add IDX Keys'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  WHERE i.rec_type = N'I'
    AND i.type    IN (N'6')
    AND CHARINDEX(N'<IDXKEY>',i.included_column_info) > 0
@@ -18933,7 +18933,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
       ,prescription =  N'Enable Auto Lock Esc'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        ) AS p
  WHERE obj_type_short_label NOT IN (N'HST',N'IT')   -- Not a system maintained history or internal table
@@ -18954,7 +18954,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
       ,prescription =  N'Enable Auto Lock Esc'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        ) AS p
  WHERE obj_type_short_label       NOT IN (N'HST',N'IT')   -- Not a system maintained history or internal table
@@ -18975,7 +18975,7 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Refactor',@srt
       ,prescription = N'TVF Unique IDX'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.par_object_type           = N'TF'
@@ -19005,7 +19005,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                                 FOR XML PATH(N''),TYPE
                             ).value('(./text())[1]','NVARCHAR(4000)')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (SELECT DISTINCT
@@ -19050,16 +19050,16 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Review',
         SELECT database_id
               ,object_id
               ,column_id
-          FROM tempdb.dbo.SQLXL_IDX_column
+          FROM tempdb.dbo.SQLXL_Index_column
          WHERE computed_column_definition IS NOT NULL
            AND is_persisted                = 0
        ) AS cp
-  JOIN tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
+  JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
     ON cp.database_id                          = ic.database_id
    AND cp.object_id                            = ic.object_id
    AND cp.column_id                            = ic.column_id
   JOIN (SELECT * 
-          FROM tempdb.dbo.SQLXL_IDX_Compilation 
+          FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'I'
        ) AS i
     ON ic.database_id                          = i.database_id
@@ -19094,7 +19094,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Review',
       +IIF(i.auto_created               = 1,NCHAR(10) + N' Auto created'                                                 ,N'')
       ,1,2,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE TRY_CAST(i.type AS INT)      > 0
@@ -19118,8 +19118,8 @@ DECLARE @srt INT = 0;
 --*/
 SELECT i.database_id,i.object_id,i.object_id,i.index_id,i.type,N'Review',@srt
       ,prescription = N'Resumable operation'
-  FROM tempdb.dbo.SQLXL_IDX_sys_index_resumable_operations AS r
-  JOIN tempdb.dbo.SQLXL_IDX_sys_indexes                    AS i
+  FROM tempdb.dbo.SQLXL_Index_sys_index_resumable_operations AS r
+  JOIN tempdb.dbo.SQLXL_Index_sys_indexes                    AS i
     ON r.database_id                                        = i.database_id
    AND r.object_id                                          = i.object_id
    AND r.index_id                                           = i.index_id
@@ -19135,7 +19135,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription = N'Covering index?'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.type = N'F'
@@ -19152,7 +19152,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription  = N'Make CX Uniq'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE type                           = N'1'                -- clustered index
@@ -19169,7 +19169,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription  = N'Add index?'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.obj_type               = N'V' -- View
@@ -19197,7 +19197,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
                          ,NCHAR(10) + N' Has statistics'
                          ,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE 1 = 1
@@ -19230,14 +19230,14 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription = N'Similar NCX'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE type                          = N'M'                 -- Missing index
    ------------------------------------------
    AND prescription LIKE N'Request' + NCHAR(10) + N' MIX Hi Gain%' -- Keep ACTION in synch
    AND EXISTS (SELECT NULL
-                 FROM tempdb.dbo.SQLXL_IDX_Synergies AS o
+                 FROM tempdb.dbo.SQLXL_Index_Synergies AS o
                 WHERE database_id                     = o.database_id
                   AND parent_object_id                = o.parent_object_id
                   AND index_ID                        = o.l_index_id
@@ -19255,7 +19255,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription = N'Lead big ' +Lead_Element_Data_Type
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.type                     IN (N'1',N'2')
@@ -19278,17 +19278,17 @@ DECLARE @srt INT = 0;
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Review',@srt
       ,prescription = N'Idx has big keys'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  CROSS
  APPLY (SELECT COUNT(1)
-          FROM tempdb.dbo.SQLXL_IDX_sys_index_columns AS ic
-          JOIN tempdb.dbo.SQLXL_IDX_sys_columns       AS c
+          FROM tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
+          JOIN tempdb.dbo.SQLXL_Index_sys_columns       AS c
             ON ic.database_id                          = c.database_id
            AND ic.object_id                            = c.object_id
            AND ic.column_id                            = c.column_id
-          JOIN tempdb.dbo.SQLXL_IDX_sys_types         AS t
+          JOIN tempdb.dbo.SQLXL_Index_sys_types         AS t
             ON c.database_id                           = t.database_id
            AND c.user_type_id                          = t.user_type_id
          WHERE i.database_id                           = ic.database_id
@@ -19316,7 +19316,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription  = N'Filtered IDX'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE (   ISNULL(prescription,N'') LIKE N'Remove%'
@@ -19334,7 +19334,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription = N'Chk PageCompress'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE ios_page_compression_fail_PCT > 40
@@ -19360,10 +19360,10 @@ SELECT DISTINCT
               ,object_id
               ,index_id
               ,type
-          FROM TempDB.dbo.SQLXL_IDX_Diagnostics
+          FROM TempDB.dbo.SQLXL_Index_Diagnostics
          WHERE diagnostic = N'[POTENTIAL TEMPORARY OBJECT]'
        ) f
-  JOIN TempDB.dbo.SQLXL_IDX_Compilation AS i
+  JOIN TempDB.dbo.SQLXL_Index_Compilation AS i
     ON f.database_id                     = i.database_id
    AND f.parent_object_id                = i.parent_object_id
    AND f.object_id                       = i.object_id
@@ -19391,10 +19391,10 @@ SELECT DISTINCT
               ,object_id
               ,index_id
               ,type
-          FROM TempDB.dbo.SQLXL_IDX_Diagnostics
+          FROM TempDB.dbo.SQLXL_Index_Diagnostics
          WHERE diagnostic LIKE N'%add filter?%'
        ) f
-  JOIN TempDB.dbo.SQLXL_IDX_Compilation AS i
+  JOIN TempDB.dbo.SQLXL_Index_Compilation AS i
     ON f.database_id                     = i.database_id
    AND f.parent_object_id                = i.parent_object_id
    AND f.object_id                       = i.object_id
@@ -19419,7 +19419,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Review',
             +IIF(s.con_CNT > 0,NCHAR(10) + N' Synergy: Contained',N'')
             ,1,2,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (
@@ -19430,7 +19430,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Review',
               ,seq_CNT = SUM(IIF(matching_sequence_CNT > 0,1,0))
               ,ovl_CNT = SUM(IIF(matching_overlap_CNT  > 0,1,0))
               ,con_CNT = SUM(IIF(matching_contained_CNT> 0,1,0))
-          FROM tempdb.dbo.SQLXL_IDX_Synergies
+          FROM tempdb.dbo.SQLXL_Index_Synergies
          WHERE l_type <> N'F' -- foreign key previously reported
            AND r_type <> N'F' -- foreign key previously reported
          GROUP BY
@@ -19466,7 +19466,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription = N'Auto Created'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE auto_created    = 1
@@ -19482,7 +19482,7 @@ DECLARE @srt INT = 0;
 --*/
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
       ,prescription = N'Check ORDER BY'
-  FROM tempdb.dbo.SQLXL_IDX_Compilation
+  FROM tempdb.dbo.SQLXL_Index_Compilation
  WHERE rec_type  = N'I'
    AND type      = N'0'
    AND obj_type IN (N'FT',N'IF')
@@ -19510,7 +19510,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                           FOR XML PATH(N''),TYPE
                       ).value('(./text())[1]','NVARCHAR(4000)')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N'I',N'P')
        ) AS i
   JOIN (SELECT DISTINCT
@@ -19550,7 +19550,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Rebuild'
                                       +IIF(cs.open_rows_CNT    > 2048,NCHAR(10)+IIF(i.type = N'5',N'CCS',N'NCS') + N' Open rows' ,N'')
                                       ,1,1,N'')
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
   JOIN (
@@ -19561,7 +19561,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Rebuild'
               ,open_rows_CNT        = SUM(CASE WHEN state_desc   = N'OPEN' THEN total_rows ELSE 0 END)
               ,deleted_rowgroup_CNT = SUM(CASE WHEN deleted_rows > 0       THEN 1 ELSE 0 END)
               ,deleted_rows_CNT     = SUM(deleted_rows)
-          FROM tempdb.dbo.SQLXL_IDX_sys_dm_db_column_store_row_group_physical_stats
+          FROM tempdb.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats
          GROUP BY
                database_id
               ,object_id
@@ -19584,7 +19584,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Rebuild',@srt
       ,prescription = N'Old Stats'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE 1 = 1
@@ -19604,7 +19604,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Rebuild',@srt
       ,prescription = N'Stats Row Delta'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE TRY_CAST(i.type AS INT)        >  0
@@ -19625,7 +19625,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Rebuild',@srt
       ,prescription = N'Stats Row Delta'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE TRY_CAST(i.type AS INT)        >  0
@@ -19646,7 +19646,7 @@ DECLARE @srt INT = 0;
 SELECT database_id,parent_object_id,object_id,index_id,type,N'Rebuild',@srt
       ,prescription = N'No Stats'
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE TRY_CAST(type AS INT)    BETWEEN 1 AND 4             -- no HEAPS, Clustered ColStore, NonClus ColStore, FulltText
@@ -19680,7 +19680,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                               rex.srt
                           FOR XML PATH(N''),TYPE
                       ).value('(./text())[1]','NVARCHAR(4000)')
-  FROM TempDB.dbo.SQLXL_IDX_Compilation AS i -- NOTE: parents can be REFACTORED too
+  FROM TempDB.dbo.SQLXL_Index_Compilation AS i -- NOTE: parents can be REFACTORED too
   JOIN (SELECT DISTINCT
                database_id,parent_object_id,object_id,index_id,TYPE
           FROM #prescription
@@ -19710,7 +19710,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
 --*/
        prescription = N'TBD ' + obj_type_hdr + NCHAR(10) + type_short_desc
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
  WHERE TRY_CAST(type AS INT) >= 0
@@ -19722,7 +19722,7 @@ SET ANSI_WARNINGS OFF;
 -- Delete all empty Diagnostics
 --------------------------------------------------------------------------------------------------------------------------------------------
 DELETE
-  FROM TempDB.dbo.SQLXL_IDX_Diagnostics
+  FROM TempDB.dbo.SQLXL_Index_Diagnostics
  WHERE diagnostic IS NULL;
 
 /******************************************************************************************************************************************/
@@ -19795,12 +19795,12 @@ SELECT database_id,parent_object_id,object_id,
 -- Flagged to create new NCS -------------------------------
 +IIF(CHARINDEX(N'Replace new NCS',p.prescription) > 0,5.0,0)  -- NOTE: keep in synch with above ACTION codes
   FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        ) AS p
  CROSS
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'A'
        ) AS a;
 
@@ -19810,10 +19810,10 @@ SELECT database_id,parent_object_id,object_id,
 ----------------------------------------------------------------------------------------------------
 -- Parent - Priorities = 9
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 9
       ,diagnostic = i.diagnostic
-  FROM tempdb.dbo.SQLXL_IDX_Diagnostics AS i
+  FROM tempdb.dbo.SQLXL_Index_Diagnostics AS i
  WHERE rec_type IN (N'P',N'S')
    AND (   
 -- Diagnostic - Table - High Wait ms
@@ -19872,13 +19872,13 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
 /******************************************************************************************************************************************/
 -- Diagnostic - Parent Priority - Hi buffer cache usage (> 4MB reserved size, > 20% in buffer cache)
 -- Diagnostic - Index - Hi buffer cache usage (> 2MB reserved size, > 20% in buffer cache)
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 9
       ,diagnostic =
  N'BUF Cache: ' + tempdb.dbo.SQLXL_3SD(i.buffer_Total_KB_CNT,N'KB')
                    + N' (' + tempdb.dbo.SQLXL_3SD(1.0 * i.buffer_Total_KB_CNT / (i.reserved_page_CNT * 8.0),N'%') + N')'
 +N' Reserve: '     + tempdb.dbo.SQLXL_3SD(i.reserved_page_CNT,N'P')
-   FROM tempdb.dbo.SQLXL_IDX_Compilation AS i
+   FROM tempdb.dbo.SQLXL_Index_Compilation AS i
   WHERE i.rec_type           NOT IN (N'A',N'D')
     AND i.par_is_memory_optimized = 0
     AND (   (i.rec_type = N'I' AND i.reserved_page_CNT > 256) -- 2MB
@@ -19894,10 +19894,10 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
 ----------------------------------------------------------------------------------------------------
 -- Index - Priorities = 9
 ----------------------------------------------------------------------------------------------------
-INSERT INTO TempDB.dbo.SQLXL_IDX_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 9
       ,diagnostic = i.diagnostic
-  FROM tempdb.dbo.SQLXL_IDX_Diagnostics AS i
+  FROM tempdb.dbo.SQLXL_Index_Diagnostics AS i
  WHERE rec_type IN (N'I')
    AND (   
 -- Diagnostic - Index - High Wait ms
@@ -19951,7 +19951,7 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
        )
 
 /**************************************************************************************************/
--- UPDATE TempDB.dbo.SQLXL_IDX_Compilation table with Diagnostics & Metrics
+-- UPDATE TempDB.dbo.SQLXL_Index_Compilation table with Diagnostics & Metrics
 /**************************************************************************************************/
 SET ANSI_WARNINGS ON;
 
@@ -19962,7 +19962,7 @@ SET ANSI_WARNINGS ON;
 SELECT
 --*/
        Diagnostics         = STUFF((SELECT NCHAR(10) + f.diagnostic
-                                         FROM TempDB.dbo.SQLXL_IDX_Diagnostics AS f WITH (READUNCOMMITTED)
+                                         FROM TempDB.dbo.SQLXL_Index_Diagnostics AS f WITH (READUNCOMMITTED)
                                         WHERE tgt.database_id      = f.database_id
                                           AND tgt.parent_object_id = f.parent_object_id
                                           AND tgt.object_id        = f.object_id
@@ -19978,7 +19978,7 @@ SELECT
                                       ,1,1,N''
                                      )
       ,Diagnostics_metrics = STUFF((SELECT NCHAR(10) + f.diagnostic
-                                      FROM TempDB.dbo.SQLXL_IDX_Diagnostics AS f WITH (READUNCOMMITTED)
+                                      FROM TempDB.dbo.SQLXL_Index_Diagnostics AS f WITH (READUNCOMMITTED)
                                      WHERE tgt.database_id      = f.database_id
                                        AND tgt.parent_object_id = f.parent_object_id
                                        AND tgt.object_id        = f.object_id
@@ -19993,7 +19993,7 @@ SELECT
                                    ).value('(./text())[1]', 'NVARCHAR(MAX)')
                                    ,1,1,N''
                                   )
-  FROM tempdb.dbo.SQLXL_IDX_Compilation AS tgt;
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt;
 
 GO -- end of stored procedure/function/T-SQL script/CREATE VIEW/CREATE VIEW - SQLXL_Index
 
@@ -20602,115 +20602,115 @@ SELECT
 --Table ------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------
 ,[Table OPS Wait TM!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ios_Total_wait_MS_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_Total_wait_MS_CNT > 0
                              ,100.0 * i.ios_Total_wait_MS_CNT / a.ios_Total_wait_MS_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Wait CNT!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ios_Total_wait_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_Total_wait_CNT > 0
                              ,100.0 * i.ios_Total_wait_CNT / a.ios_Total_wait_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Locks CNT!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ios_Total_Lock_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_Total_Lock_CNT > 0
                              ,100.0 * i.ios_Total_Lock_CNT / a.ios_Total_Lock_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Lock Promo!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ios_lock_promotion_attempt_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_lock_promotion_attempt_CNT > 0
                              ,100.0 * i.ios_lock_promotion_attempt_CNT / a.ios_lock_promotion_attempt_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Promo Fail!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ios_lock_promotion_attempt_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_lock_promotion_attempt_CNT > 0
                              ,100.0 * (i.ios_lock_promotion_attempt_CNT - i.ios_lock_promotion_CNT)
                                     / A.ios_lock_promotion_attempt_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table OPS Page Split!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ops_Total_page_split_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_page_split_CNT > 0
                              ,100.0 * i.ops_Total_page_split_CNT / a.ops_Total_page_split_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Splits to Write PCT!H\B|N2] 
-                        = IIF(i.rec_type = N'P' AND i.page_splits_to_write_PCT > 0.0
+                        = IIF(i.rec_type IN (N'P',N'S') AND i.page_splits_to_write_PCT > 0.0
                              ,i.page_splits_to_write_PCT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS OPS Page Merge!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ops_Total_page_merge_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_page_merge_CNT > 0
                              ,100.0 * i.ops_Total_page_merge_CNT / a.ops_Total_page_merge_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Page Merge to Write PCT!H\B|N2] 
-                        = IIF(i.rec_type = N'P' AND i.page_Merge_to_write_PCT > 0.0
+                        = IIF(i.rec_type IN (N'P',N'S') AND i.page_Merge_to_write_PCT > 0.0
                              ,i.page_Merge_to_write_PCT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table MIX Advantage Weighted!H\G|N2]
-                        = IIF(i.rec_type = N'P' AND a.mix_Advantage_weighted_AMT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.mix_Advantage_weighted_AMT > 0
                              ,100.0 * i.mix_Advantage_weighted_AMT / a.mix_Advantage_weighted_AMT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table MIX Advantage!H\G|N2]
-                        = IIF(i.rec_type = N'P' AND a.mix_Advantage_AMT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.mix_Advantage_AMT > 0
                              ,100.0 * i.mix_Advantage_AMT / a.mix_Advantage_AMT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Writes!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ops_Total_write_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_write_CNT > 0
                              ,100.0 * i.ops_Total_write_CNT / a.ops_Total_write_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table USG Writes!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ius_user_updates_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ius_user_updates_CNT > 0
                              ,100.0 * i.ius_user_updates_CNT / a.ius_user_updates_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table BUF Percent in Buffer!H\B|N2]
-                        = IIF(i.rec_type = N'P'
+                        = IIF(i.rec_type IN (N'P',N'S')
                              ,CASE WHEN i.par_is_memory_optimized = 1 AND i.buffer_Total_KB_CNT > 0.0
                                    THEN 100
                                    WHEN i.reserved_page_CNT > 0
                                    THEN 100.0 * i.buffer_Total_KB_CNT / (i.reserved_page_CNT * 8.0)
                                    ELSE NULL
                               END
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table OPS R/W Ratio!H\G|N2]
-                        = IIF(    i.rec_type = N'P'
+                        = IIF(    i.rec_type IN (N'P',N'S')
                               AND i.ops_Total_read_CNT  > 0
                               AND i.ops_Total_write_CNT > 0
                              ,1.0 * i.ops_Total_read_CNT / i.ops_Total_write_CNT
                              ,NULL) -- show NULL if no reads found
 ,[Table USG R/W Ratio!H\G|N2]
-                        = IIF(    i.rec_type = N'P'
+                        = IIF(    i.rec_type IN (N'P',N'S')
                               AND i.ius_User_read_CNT    > 0
                               AND i.ius_user_updates_CNT > 0
                              ,1.0 * i.ius_User_read_CNT / i.ius_user_updates_CNT
                              ,NULL) -- show NULL if no reads found
 ----------------------------------------------
 ,[Table OPS Reads PCT!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ops_Total_read_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_read_CNT > 0
                              ,100.0 * i.ops_Total_read_CNT / a.ops_Total_read_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Scans PCT!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ios_range_scan_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_range_scan_CNT > 0
                              ,100.0 * i.ios_range_scan_CNT / a.ios_range_scan_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Lookups PCT!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ios_singleton_lookup_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_singleton_lookup_CNT > 0
                              ,100.0 * i.ios_singleton_lookup_CNT / a.ios_singleton_lookup_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Forwarded Fetch!H\G|N2]
-                        = IIF(i.rec_type = N'P' AND a.ios_forwarded_fetch_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_forwarded_fetch_CNT > 0
                              ,100.0 * i.ios_forwarded_fetch_CNT / a.ios_forwarded_fetch_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table USG Reads PCT!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ius_user_read_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ius_user_read_CNT > 0
                              ,100.0 * i.ius_User_read_CNT / a.ius_user_read_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table USG Scans PCT!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ius_user_scans_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ius_user_scans_CNT > 0
                              ,100.0 * i.ius_user_scans_CNT / a.ius_user_scans_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table USG Lookups PCT!H\B|N2]
-                        = IIF(i.rec_type = N'P' AND a.ius_user_lookups_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ius_user_lookups_CNT > 0
                              ,100.0 * i.ius_user_lookups_CNT / a.ius_user_lookups_CNT
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table OPS LOB Contacts PCT!H\B|N2]
-                        = IIF(    i.rec_type = N'P' 
+                        = IIF(    i.rec_type IN (N'P',N'S') 
                               AND     ( a.ios_lob_fetch_pages_CNT            
                                       + a.ios_lob_orphan_create_CNT
                                       + a.ios_lob_orphan_insert_CNT
@@ -20732,7 +20732,7 @@ SELECT
                                       + a.ios_column_value_pull_in_row_CNT   
                                       + a.ios_column_value_push_off_row_CNT
                                       )
-                             ,IIF(i.rec_type <> N'P',NULL,0))
+                             ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 
 --------------------------------------------------------------------------------------
 --Index ------------------------------------------------------------------------------
@@ -20908,7 +20908,7 @@ SELECT
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 ---------------------------------------------------------------------------------------
 ,[Table Busyness!H\B|N2]
-                        = IIF(    i.rec_type = N'P'
+                        = IIF(    i.rec_type IN (N'P',N'S')
                               AND  ( (CAST(ISNULL(a.buffer_Total_KB_CNT           ,0.0) AS FLOAT) *  2.0)
                                     +(CAST(ISNULL(a.ius_user_updates_CNT          ,0.0) AS FLOAT) *  6.0)
                                     +(CAST(ISNULL(a.ius_User_read_CNT             ,0.0) AS FLOAT) *  1.0)
@@ -20952,15 +20952,15 @@ SELECT
                                                                ,(i.ius_last_user_lookup_DTTM)) AS value(dt))
                                   ,sp.collection_DTTM
                                   )
---,[Table Stats_Prop_mod!H\B|N0] = IIF(i.rec_type = N'P'
+--,[Table Stats_Prop_mod!H\B|N0] = IIF(i.rec_type IN (N'P',N'S')
 --                                     ,i.Stats_Prop_modification_CNT * i.stathdr_Average_Key_Length
 --                                     ,0)
 --,[Index Stats_Prop_mod!H\B|N0]  = i.Stats_Prop_modification_CNT * i.stathdr_Average_Key_Length
--- ,[Table ios_writes!H\B|N0]     = IIF(i.rec_type = N'P'
+-- ,[Table ios_writes!H\B|N0]     = IIF(i.rec_type IN (N'P',N'S')
 --                                      ,i.ops_Total_write_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
 --                                      ,0)
 -- ,[Index ios_writes!H\B|N0]      = i.ops_Total_write_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
--- ,[Table ius_writes!H\B|N0]     = IIF(i.rec_type = N'P'
+-- ,[Table ius_writes!H\B|N0]     = IIF(i.rec_type IN (N'P',N'S')
 --                                      ,i.ius_user_updates_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
 --                                      ,0)
 -- ,[Index ius_writes!H\B|N0]      = i.ius_user_updates_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
@@ -21344,34 +21344,34 @@ DECLARE @show_fulltext_internals TINYINT = 0
 SELECT COUNT(1)
 --*/
  FROM (SELECT *
-         FROM TempDB.dbo.SQLXL_IDX_Compilation
+         FROM TempDB.dbo.SQLXL_Index_Compilation
       ) AS i
  CROSS
-  JOIN tempdb.dbo.SQLXL_IDX_sys_Startup_Parameters AS sp
+  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS sp
  CROSS
   JOIN (-- Instance level
         SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'A'
        )                                    AS a
   LEFT OUTER                                                       -- outer needed for ALL row
   JOIN (-- Database level
         SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'D'
        )                                    AS d
     ON i.database_id                         = d.database_id
   LEFT OUTER                                                       -- outer needed for ALL row
   JOIN (-- Object level
         SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
        )                                    AS p
     ON i.database_id                         = p.database_id
    AND i.parent_object_id                    = p.parent_object_id
   LEFT OUTER
   JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_IDX_Compilation
+          FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE type IN (N'0',N'1',N'5')
        )                                    AS raw
     ON i.database_id                         = raw.database_id
