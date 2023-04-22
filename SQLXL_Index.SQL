@@ -1,4 +1,4 @@
--- VERSION 2023.04.06-05
+-- VERSION 2023.04.22-01
 
 /*** LOCAL TESTING ***
 USE wideworldimporters
@@ -30,6 +30,20 @@ https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/blob/dev/Documen
 
 /******************************************************************************************************************************************\
 Future Efforts May Include:
+Collection:
+Research column xtp_object_id, found in dm_db_xtp_nonclustered_index_stats,dm_db_xtp_index_stats,dm_db_xtp_object_stats,
+                               dm_db_xtp_memory_consumers, dm_db_xtp_hash_index_stats,memory_optimized_tables_internal_attributes
+
+Organize:
+Research link between buffer cache and Fulltext index
+
+Investigate:
+an UPD is a WRT - OPS Wrt W/O Rds 86.1% (1) USG UPD W/O Rds 0.15% (3)
+Rollup "Parent - Non-Default = 6" to "Parent is not a Plain Old Rowstore"
+
+Present:
+
+Figureout what/how to present object types FT & IF
 \******************************************************************************************************************************************/
 
 RAISERROR ('Creating procedure TempDB.dbo.SQLXL_Index ...',0,0) WITH NOWAIT;
@@ -4868,6 +4882,8 @@ DECLARE @sql       NVARCHAR(MAX)
 IF @ssms = 1 RAISERROR('',0,0) WITH NOWAIT;
 IF @ssms = 1 RAISERROR('Indexing previously collected TEMPDB SQLXL_IDX tables',0,0) WITH NOWAIT;
 /******************************************************************************************************************************************
+Notes on Indexing temp tables:
+
 -- Clustered Index created at data collection time for: (in order of appearance)
 -----------------------------------------------------------------------
 TempDB.dbo.SQLXL_Index_sys_databases
@@ -6658,7 +6674,7 @@ SELECT rec_type                          = N'I'
       ,ft_stoplist_id                    = i.stoplist_id
       ,ft_property_list_id               = i.property_list_id
       ----------------------------------------------------------------------------------------------------
-      -- sys.dm_os_buffer_descriptors NOTE: <BS> Not sure how buffer cache links to Fulltext index
+      -- sys.dm_os_buffer_descriptors - no links between buffer cache and FUllText indexes found as of yet
       ----------------------------------------------------------------------------------------------------
       ,buffer_Total_KB_CNT               = 0 -- bd.buffer_Total_KB_CNT
       ,buffer_free_KB_CNT                = 0 -- bd.buffer_free_KB_CNT
@@ -9424,7 +9440,6 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       -------------------------------------------------------------------------------------------------------------------------------------
       -- sys.dm_db_xtp_index_stats
       -------------------------------------------------------------------------------------------------------------------------------------
---    ,xtp_object_id                        = xis.xtp_object_id <BS> Figure out how to integrate this column
       ,xtp_scans_started_CNT                = ISNULL(xis.scans_started,0)
       ,xtp_scans_retries_CNT                = ISNULL(xis.scans_retries,0)
       ,xtp_rows_returned_CNT                = ISNULL(xis.rows_returned,0)
@@ -10439,7 +10454,6 @@ IF @ssms = 1 RAISERROR('... Create table of Synergies between indexes, foreign k
 -- Compare indexes within a table for synergies, run through candidates looking for match type.
 -- match indexes on the "Left" side with indexes in the same table on the "right" side
 -- Look for the least "key" columns in both compared records - limits the iterations through SEQUENCE and OVERLAP matches below
---<BS> expand L & R
 /******************************************************************************************************************************************/
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Synergies') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_Synergies;
 
@@ -12851,11 +12865,6 @@ SET TEXTSIZE             2147483647;  -- Max length of Excel cell contents is 32
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 --*/
 
-/******************************************************************************************************************************************\
-Future Endeavors
-- an UPD is a WRT - OPS Wrt W/O Rds 86.1% (1) USG UPD W/O Rds 0.15% (3
-\******************************************************************************************************************************************/
-
 /*########################################################################################################################################*/
 IF @ssms = 1 RAISERROR('',0,0) WITH NOWAIT;
 IF @ssms = 1 RAISERROR('Starting SQLXL Index Diagnosis ...',0,0) WITH NOWAIT;
@@ -14296,7 +14305,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
    AND p.object_id                           = raw.object_id
 
 ----------------------------------------------------------------------------------------------------
--- Parent - Non-Default = 6 <BS> roll up to "Parent is not a Plain Old Rowstore"
+-- Parent - Non-Default = 6
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 6,diagnostic = STUFF(
@@ -20014,7 +20023,6 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 /******************************************************************************************************************************************\
 Future Endeavors
-Columns to Add: xtp_object_id,
 \******************************************************************************************************************************************/
 
 USE TEMPDB;
@@ -21259,7 +21267,7 @@ SELECT
 ,[cs_input_groupby_row_CNT\B|N0]                  = IIF(i.type IN (N'5',N'6'),i.cs_input_groupby_row_CNT     ,NULL)
 
 /******************************************************************************************************************************************/
-/* Queries to supplement the presentation
+/* FUTURE Queries to supplement the presentation
 /**************************************************************************************************************************************************************************************/
 ,[QRY *TABLE PROFILE >>>]       = CASE WHEN i.par_object_type IN (N'U',N'V',N'M')
                                        THEN ISNULL(N'['+i.Database_name+N'].','')+ ISNULL(N'['+i.Schema_Name+N'].','')+ ISNULL(N'['+i.par_object_Name+N']','')
@@ -21386,9 +21394,9 @@ SELECT COUNT(1)
                 )
            )
        )
---<BS>
+-- Omitting for now
    AND i.par_object_type NOT IN (N'FT',N'IF')
---<BS>
+-- 
  ORDER BY
        IIF(i.rec_type = N'P',i.par_priority_metric,NULL) DESC
       ,2;
