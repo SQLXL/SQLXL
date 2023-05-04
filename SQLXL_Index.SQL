@@ -1,50 +1,30 @@
--- VERSION 2023.04.22-05
-
-/*** LOCAL TESTING ***
-USE wideworldimporters
-DECLARE @database_name SYSNAME = DB_NAME()
-EXEC tempdb.dbo.SQLXL_Index @database_name = @database_name
-
-USE wideworldimporters
-USE wideworldimportersDW
-
-EXEC tempdb.dbo.SQLXL_Index_Organize_Investigate;
-EXEC TempDB.dbo.SQLXL_Index_Present @show_fulltext_internals = 0 -- tinyint
---*/
+-- VERSION 2023.05.05
 
 /******************************************************************************************************************************************\
 Copyright (C) 2023 Practice Computing Mangement Inc.
 All rights reserved. 
 
-You may alter this code for your own *non-commercial* purposes.
+MIT License, http://www.opensource.org/licenses/mit-license.php
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
+(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
 
-You may republish altered code as long as you include this copyright and give due credit.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, 
-INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR 
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Credit to Brent Ozar Unlimited for the BI### Check IDs included in the Diagnostics. Source for these is found at
 https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/blob/dev/Documentation/sp_BlitzIndex_Checks_by_Priority.md
 
 \******************************************************************************************************************************************/
 
-/******************************************************************************************************************************************\
-Future Efforts May Include:
-Collection:
-Research column xtp_object_id, found in dm_db_xtp_nonclustered_index_stats,dm_db_xtp_index_stats,dm_db_xtp_object_stats,
-                               dm_db_xtp_memory_consumers, dm_db_xtp_hash_index_stats,memory_optimized_tables_internal_attributes
-
-Organize:
-Research link between buffer cache and Fulltext index
-
-Investigate:
-an UPD is a WRT - OPS Wrt W/O Rds 86.1% (1) USG UPD W/O Rds 0.15% (3)
-Rollup "Parent - Non-Default = 6" to "Parent is not a Plain Old Rowstore"
-
-Present:
-
-Figureout what/how to present object types FT & IF
-\******************************************************************************************************************************************/
+/*** LOCAL TESTING ***
+EXEC tempdb.dbo.SQLXL_Index @database_name = N'WideWorldImporters'
+--*/
 
 RAISERROR ('Creating procedure TempDB.dbo.SQLXL_Index ...',0,0) WITH NOWAIT;
 
@@ -67,8 +47,7 @@ Change to TEMPDB
 USE TEMPDB;
 
 /******************************************************************************************************************************************/
--- Eliminate all previous SOURCE (SYS) objects, truncate & rebuild to blow out any missing index recommendations
--- Future - interrogate the version number & decide to DROP or TRUNCATE
+-- Eliminate all previous tempdb surce data stores (_SYS_, _CDC_) objects in case of structure change with new version
 /******************************************************************************************************************************************/
 DECLARE @sql       NVARCHAR(MAX)
        ,@run_value NVARCHAR(4000)
@@ -79,7 +58,7 @@ BEGIN
           @run_value = QUOTENAME(s.name)+'.'+QUOTENAME(t.name)
          ,@sql = N'TRUNCATE TABLE [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name)+N';'
                 +NCHAR(13)+NCHAR(10)
-                -- Drops MISSING index recommendations
+                -- Drops MISSING index recommendations if previously made
                 +N'ALTER index ALL ON [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name) +N' REBUILD;'
                 +NCHAR(13)+NCHAR(10)
                 +N'DROP TABLE [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name)+N';'
@@ -116,6 +95,9 @@ ALTER  PROCEDURE dbo.SQLXL_Index
       )
 /*******************************************************************************************************************************************
 Parameters:
+@database_name:
+NULL = (DEFAULT) All user databases
+<Database Name> = just the single database
 @cover_foreign_keys:
  0 = no need to continue to cover Foreign Key Constraints, do not create new indexes based on MISSING index recommendations
  1 = continue to cover keys that are TRUSTED, ENABLED, and REPLICATED & are DELETE or UPDATE referential action enabled
@@ -125,14 +107,14 @@ Parameters:
  3 = continue to cover all Foreign Key Constraints regardless of status
      Includes creating new indexes based on MISSING index recommendations
 @create_Nonclustered_columnstores:
- 0 = do not create nonclusteed columnstores to replace existing and MISSING indexes
+ 0 = do not create nonclustered columnstores to replace existing and MISSING indexes
  1 = create Nonclustered columnstores on tables with a combination of
        - several indexes with low READ usage (< 2% of all reads) or low read to write ratio (< 4 - for writes to lock, memory, storage, log)
        - several missing indexes with low READ usage (< 2% of all existing table reads)
      and drop existing low READ usage/non-FKC covering indexes
 
 DEVELOPER NOTE: Procedure scripts can't reference views that haven't been created yet,
-                so no views created on TempDB.dbo.SQLXL_Index_Compilation for code simplification
+                so no views will be created on TempDB.dbo.SQLXL_Index_Compilation for code simplification
 *******************************************************************************************************************************************/
 AS
 
@@ -193,7 +175,6 @@ IF @ssms = 1 RAISERROR ('',0,0) WITH NOWAIT;
 
 /******************************************************************************************************************************************/
 -- Eliminate all previous SOURCE (SYS) objects, truncate & rebuild to blow out any missing index recommendations
--- Future - interrogate the version number & decide to DROP or TRUNCATE
 /******************************************************************************************************************************************/
 
 /*** LOCAL TESTING ***
@@ -622,8 +603,7 @@ IF @ssms = 1 RAISERROR ('... sys.databases, sys.change_tracking_databases',0,0) 
 
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_databases
---DECLARE @database_name NVARCHAR(128) = (SELECT database_name from TempDB.dbo.SQLXL_Index_sys_Startup_Parameters)
-DECLARE @database_name NVARCHAR(128) = N'MOGOBILL'
+DECLARE @database_name NVARCHAR(128) = N'WideWorldImporters'
 --*/
 
 ;WITH newcol AS (-- these are columns added after SQL 2005
@@ -825,7 +805,7 @@ BEGIN
 END
 
 /*** LOCAL TESTING ***
-DELETE FROM TempDB.dbo.SQLXL_Index_sys_databases WHERE name = N'DW_MASTER';
+DELETE FROM TempDB.dbo.SQLXL_Index_sys_databases WHERE name = N'WideWorldImporters';
 --*/
 
 /******************************************************************************************************************************************/
@@ -1306,7 +1286,7 @@ SELECT ios.database_id
 IF @ssms = 1 RAISERROR ('... sys.dm_os_buffer_descriptors',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
-DROP TABLE IF EXISTS TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
+DROP TABLE TempDB.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
 --*/
 
 SELECT bd.database_id
@@ -1397,8 +1377,10 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOU
 ;WITH newcol AS (
 SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
 )'
-+IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations'+NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
-           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'+NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations') + N'
++IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations'
+           +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           ,NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
+           +NCHAR(13)+NCHAR(10)+N'  INTO TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations') + N'
   FROM newcol
  CROSS APPLY (
 SELECT database_id         = db_id()
@@ -4884,7 +4866,7 @@ IF @ssms = 1 RAISERROR('Indexing previously collected TEMPDB SQLXL_IDX tables',0
 /******************************************************************************************************************************************
 Notes on Indexing temp tables:
 
--- Clustered Index created at data collection time for: (in order of appearance)
+-- Clustered Index created at previous data collection time for: (in order of appearance)
 -----------------------------------------------------------------------
 TempDB.dbo.SQLXL_Index_sys_databases
 TempDB.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
@@ -4895,7 +4877,7 @@ TempDB.dbo.SQLXL_Index_sys_objects
 TempDB.dbo.SQLXL_Index_sys_indexes
 TempDB.dbo.SQLXL_Index_sys_index_columns
 
--- SMALL tables NOT INDEXED
+-- SMALLish tables NOT INDEXED
 -----------------------------------------------------------------------
 -- TempDB.dbo.SQLXL_Index_sys_availability_replicas
 -- TempDB.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states
@@ -4988,8 +4970,9 @@ CREATE CLUSTERED
       (group_handle)
   WITH (DATA_COMPRESSION = PAGE);
 
---------------------------------------------------------------------------------------------------------------------------------------------
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_database_scoped_configurations')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) 
+                WHERE name = N'ixuc_SQLXL_Index_sys_database_scoped_configurations'
+              )
 CREATE UNIQUE CLUSTERED
  INDEX ixuc_SQLXL_Index_sys_database_scoped_configurations
     ON TempDB.dbo.SQLXL_Index_sys_database_scoped_configurations
@@ -5009,7 +4992,9 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE);
 
-IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED) WHERE name = N'ixuc_SQLXL_Index_sys_database_query_store_options')
+IF NOT EXISTS (SELECT NULL FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
+                WHERE name = N'ixuc_SQLXL_Index_sys_database_query_store_options'
+              )
 CREATE UNIQUE CLUSTERED
  INDEX ixuc_SQLXL_Index_sys_database_query_store_options
     ON TempDB.dbo.SQLXL_Index_sys_database_query_store_options
@@ -5391,29 +5376,27 @@ IF OBJECT_ID(N'TempDB.dbo.SQLXL_Index_Compilation') IS NOT NULL DROP TABLE TempD
 
 CREATE TABLE TempDB.dbo.SQLXL_Index_Compilation
 (
--- FUTURE KEY from task start time
- collection_DTTM                            DATETIME                                    NULL
+ collection_DTTM                            DATETIME                                    NULL -- FUTURE KEY from task start time
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- MASTER KEYS
+-- rec_type is level in the collected data
+-- 'A' = All or instance level, 'D' is database, 'P' is for parent, 'S' for History or System Internal Table, 'I' for "Index"
+-- Object_ID is same as parent except for Foreign Key Constraints, History (CDC, SVN, LDG) tables, and System Internal Tables
+-- Sub_Type sourced from sys.xml_indexes xml_index_type, sys.spatial_indexes spatial_index_type
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,rec_type                                   NCHAR(1)       COLLATE DATABASE_DEFAULT NOT NULL
--- KEY from sys.databases
-,database_ID                                SMALLINT                                NOT NULL
--- KEY from sys.objects - Parent level
-,parent_object_ID                           BIGINT                                  NOT NULL
--- KEY from sys.objects - Object level (same as Parent except Foreign Key Constraints)
-,object_ID                                  BIGINT                                  NOT NULL
--- KEY from sys.indexes
-,index_ID                                   BIGINT                                  NOT NULL
+,database_ID                                SMALLINT                                    NULL -- KEY from sys.databases 
+,parent_object_ID                           BIGINT                                  NOT NULL -- KEY from sys.objects - Parent level
+,object_ID                                  BIGINT                                  NOT NULL -- KEY from sys.objects - Object level
+,index_ID                                   BIGINT                                  NOT NULL -- KEY from sys.indexes etc.
 ,type                                       NVARCHAR(2)    COLLATE DATABASE_DEFAULT NOT NULL
 ,sub_type                                   TINYINT                                 NOT NULL
-                                            -- Sources: sys.xml_indexes xml_index_type, sys.spatial_indexes spatial_index_type
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- End of MASTER KEYS
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Element Names & Descriptions
 ------------------------------------------------------------------------------------------------
-,Database_Name                              SYSNAME        COLLATE DATABASE_DEFAULT NOT NULL
+,Database_Name                              SYSNAME        COLLATE DATABASE_DEFAULT     NULL
 
 -----------------------------------------------------------
 -- COMPUTED Actions to TAKE
@@ -5443,8 +5426,8 @@ CREATE TABLE TempDB.dbo.SQLXL_Index_Compilation
 -----------------------------------------------------------
 -- sys.schemas - KEYS
 -----------------------------------------------------------
-,schema_ID                                  BIGINT                                  NOT NULL DEFAULT(0)
-,schema_name                                SYSNAME        COLLATE DATABASE_DEFAULT     NULL
+,SCHEMA_ID                                  BIGINT                                  NOT NULL DEFAULT(0)
+,SCHEMA_NAME                                SYSNAME        COLLATE DATABASE_DEFAULT     NULL
 
 -----------------------------------------------------------
 -- Miscellaneous Key Properties
@@ -5552,7 +5535,7 @@ CREATE TABLE TempDB.dbo.SQLXL_Index_Compilation
                                             -- Sources: sys.xml_indexes xml_index_type_description
                                             --          sys.spatial_indexes spatial_index_type_desc
 ,is_unique                                  BIT                                     NOT NULL DEFAULT(0)  -- 1 = unique
-,ignore_dup_key                             BIT                                     NOT NULL DEFAULT(0)  -- 1 = ON
+,IGNORE_DUP_KEY                             BIT                                     NOT NULL DEFAULT(0)  -- 1 = ON
 ,suppress_dup_key_messages                  BIT                                     NOT NULL DEFAULT(0)  -- 1 = ON
 ,is_primary_key                             BIT                                     NOT NULL DEFAULT(0)  -- 1 = PRIMARY KEY
 ,is_unique_constraint                       BIT                                     NOT NULL DEFAULT(0)  -- 1 = UNIQUE constraint
@@ -5560,18 +5543,18 @@ CREATE TABLE TempDB.dbo.SQLXL_Index_Compilation
 ,is_padded                                  BIT                                     NOT NULL DEFAULT(0)  -- 1 = ON
 ,is_hypothetical                            BIT                                     NOT NULL DEFAULT(0)  -- 1 = is hypothetical
 ,is_ignored_in_optimization                 BIT                                     NOT NULL DEFAULT(0)  -- NOTE: not found in BOL
-,allow_row_locks                            BIT                                         NULL             -- 1 = allows row locks
-,allow_page_locks                           BIT                                         NULL             -- 1 = allows page locks
+,ALLOW_ROW_LOCKS                            BIT                                         NULL             -- 1 = allows row locks
+,ALLOW_PAGE_LOCKS                           BIT                                         NULL             -- 1 = allows page locks
 ,has_filter                                 BIT                                     NOT NULL DEFAULT(0)  -- 1 = has a filter
 ,compression_delay_mm                       BIGINT                                      NULL             -- NOTE: not found in BOL
 ,auto_created                               BIT                                     NOT NULL DEFAULT(0)  -- 1 = created by auto tuning
-,optimize_for_sequential_key                BIT                                     NOT NULL DEFAULT(0)  -- 1 = last-page insert opt enabled
+,OPTIMIZE_FOR_SEQUENTIAL_KEY                BIT                                     NOT NULL DEFAULT(0)  -- 1 = last-page insert opt enabled
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Shared elements index & parent
 -- parent_id INT excluded because same as sys.objects.parent_object_id - Sources: sys.internal_tables, sys.triggers
 --------------------------------------------------------------------------------------------------------------------------------------------
-,name                                       SYSNAME        COLLATE DATABASE_DEFAULT     NULL
+,NAME                                       SYSNAME        COLLATE DATABASE_DEFAULT     NULL
 ,type_short_desc                            SYSNAME        COLLATE DATABASE_DEFAULT     NULL
                                             -- Sources: sys.indexes
                                             --          sys.xml_indexes xml_index_type_description
@@ -6261,7 +6244,7 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       ,Foreign_Key_CNT
 )
 SELECT rec_type                          = N'I'
-      ,database_id                       = d.database_id
+      ,database_id                       = o.database_id
       ,database_name                     = d.name
       ,collation_name                    = d.collation_name
       ---------------------
@@ -12844,8 +12827,8 @@ ORDER BY 1
 */
 
 /*** LOCAL TESTING ***
-UPDATE tempdb.dbo.SQLXL_Index_Compilation SET Diagnostics = NULL
---TRUNCATE TABLE tempdb.dbo.SQLXL_Index_Diagnostics
+UPDATE tempdb.dbo.SQLXL_Index_Compilation SET Diagnostics = NULL;
+DELETE FROM tempdb.dbo.SQLXL_Index_Diagnostics WHERE diagnostic_type_id < 10;
 
 USE tempdb
 DECLARE @cover_foreign_keys               TINYINT = 2
@@ -12992,35 +12975,38 @@ SELECT COALESCE((SELECT N'CPU ' + QUOTENAME(run_value)
                )
 
 UNION ALL
-SELECT COALESCE((SELECT N'Sockets ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_Index_sys_instance
-                  WHERE source = N'dm_os_sys_info'
-                    AND name   = N'socket_count'
-                )
-               ,N'<dm_os_sys_info socket_count not found>'
-               )
-      +COALESCE((SELECT N' Cores/Socket ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_Index_sys_instance
-                  WHERE source = N'dm_os_sys_info'
-                    AND name   = N'cores_per_socket'
-                )
-               ,N'<dm_os_sys_info cores_per_socket not found>'
-               )
-      +COALESCE((SELECT N' Hypthr Ratio ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_Index_sys_instance
-                  WHERE source = N'dm_os_sys_info'
-                    AND name   = N'hyperthread_ratio'
-                )
-               ,N'<dm_os_sys_info hyperthread_ratio not found>'
-               )
-      +COALESCE((SELECT N' SoftNUMA ' + QUOTENAME(run_value)
-                   FROM tempdb.dbo.SQLXL_Index_sys_instance
-                  WHERE source = N'dm_os_sys_info'
-                    AND name   = N'softnuma_configuration_desc'
-                )
-               ,N'<dm_os_sys_info softnuma_configuration_desc not found>'
-               )
-
+SELECT IIF(version_major < 13 --2016
+          ,N'CPU Info not captured for SQL version'
+          ,COALESCE((SELECT N'Sockets ' + QUOTENAME(run_value)
+                       FROM tempdb.dbo.SQLXL_Index_sys_instance
+                      WHERE source = N'dm_os_sys_info'
+                        AND name   = N'socket_count'
+                    )
+                   ,N'<dm_os_sys_info socket_count not found>'
+                   )
+          +COALESCE((SELECT N' Cores/Socket ' + QUOTENAME(run_value)
+                       FROM tempdb.dbo.SQLXL_Index_sys_instance
+                      WHERE source = N'dm_os_sys_info'
+                        AND name   = N'cores_per_socket'
+                    )
+                   ,N'<dm_os_sys_info cores_per_socket not found>'
+                   )
+          +COALESCE((SELECT N' Hypthr Ratio ' + QUOTENAME(run_value)
+                       FROM tempdb.dbo.SQLXL_Index_sys_instance
+                      WHERE source = N'dm_os_sys_info'
+                        AND name   = N'hyperthread_ratio'
+                    )
+                   ,N'<dm_os_sys_info hyperthread_ratio not found>'
+                   )
+          +COALESCE((SELECT N' SoftNUMA ' + QUOTENAME(run_value)
+                       FROM tempdb.dbo.SQLXL_Index_sys_instance
+                      WHERE source = N'dm_os_sys_info'
+                        AND name   = N'softnuma_configuration_desc'
+                    )
+                   ,N'<dm_os_sys_info softnuma_configuration_desc not found>'
+                   )
+          )
+ FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters
 ) src(diagnostic);
 
 ----------------------------------------------------------------------------------------------------
@@ -13089,7 +13075,7 @@ SELECT IIF(i.run_value IS NULL
           ,N'Index ' + i.name + N' = ' + i.run_value
           ,NULL)
       )
-  FROM (SELECT r = NULL) AS r
+  FROM (SELECT r = NULL) AS r -- needed for IIF to work
  OUTER
  APPLY (SELECT run_value,name
           FROM tempdb.dbo.SQLXL_Index_sys_instance
@@ -13100,7 +13086,7 @@ SELECT IIF(i.run_value IS NULL
 -- Diagnostic - Instance - non-default - Minimum memory per query <> 1024
 UNION ALL
 SELECT IIF(i.run_value IS NULL
-      ,N'<sp_configure fill factor (%) not found>'
+      ,N'<sp_configure Minimum memory per query (KB) (%) not found>'
       ,IIF(i.run_value <> N'1024'
           ,N'Minimum memory per query (KB) = ' + i.run_value + N', default 1024'
           ,NULL)
@@ -13115,8 +13101,8 @@ SELECT IIF(i.run_value IS NULL
 
 -- Diagnostic - Instance - non-default - remote data archive enabled (stretch-enabled)
 UNION ALL
-SELECT IIF(i.run_value IS NULL
-      ,N'<sp_configure fill factor (%) not found>'
+SELECT IIF(i.run_value IS NULL AND (SELECT version_major FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters) >= 13 --2016+
+      ,N'<Server is_rda_server not found>'
       ,IIF(i.run_value = N'1'
           ,N'Remote data archive enabled (stretch-enabled)'
           ,NULL)
@@ -14084,8 +14070,8 @@ SELECT i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
     +IIF(p.par_durability = 1,N' - XTP data NOT PERSISTED',N'')
     ,N'')
 ---------------------------------------------------------------------------------------------------
-+IIF(p.par_is_remote_data_archive_enabled = 1,NCHAR(10) + QUOTENAME(N'REMOTE DATA ARCHIVE ENABLED'),N'')
 +IIF(p.par_is_heap = 1                       ,NCHAR(10) + QUOTENAME(N'HEAP'),N'')
++IIF(p.par_is_remote_data_archive_enabled = 1,NCHAR(10) + QUOTENAME(N'REMOTE DATA ARCHIVE ENABLED'),N'')
 +IIF(p.par_is_clustered_columnstore = 1      ,NCHAR(10) + QUOTENAME(N'CLUSTERED_COLUMNSTORE') + N' (BI61)',N'')
 +IIF(p.par_is_node = 1                       ,NCHAR(10) + QUOTENAME(N'GRAPH NODE'),N'')
 +IIF(p.par_is_edge = 1                       ,NCHAR(10) + QUOTENAME(N'GRAPH EDGE'),N'')
@@ -14135,8 +14121,8 @@ SELECT i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
 +IIF(i.par_is_sync_tran_subscribed = 1,NCHAR(10) + QUOTENAME(N'SUBSCRIBED SYNCHRONOUS'),N'')
 ---------------------------------------------------------------------------------------------------
 +IIF(p.par_lock_on_bulk_load > 0        ,NCHAR(10) + QUOTENAME(N'Table locked for BULK LOAD'),N'') -- Locked for BULK LOAD
-+IIF(    p.par_object_type = N'U' 
-     AND p.par_is_empty = 1           
++IIF(    p.par_object_type      = N'U' 
+     AND p.par_is_empty         = 1           
      AND i.obj_type_short_label = N'TBL',NCHAR(10) + QUOTENAME(N'TABLE EMPTY'),N'')
 ---------------------------------------------------------------------------------------------------
 ,1,1,N'')
@@ -14349,7 +14335,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 -- Diagnostic - Table - Days since Last Write
 -- Diagnostic - Table - Not used since last usage table reset
  IIF(p.obj_type NOT IN (N'F',N'FT',N'IF',N'TF')
-    ,IIF(p.ius_User_Total_CNT > 0
+    ,IIF(p.ius_User_Total_CNT > 0 OR p.ops_Total_contacts_CNT > 0 OR p.Stats_Prop_modification_CNT > 0
         ,NCHAR(10) + N'Last Used'
                    + N' Read: ' + IIF(p.ius_last_read_days_ago IS NOT NULL
                                      ,tempdb.dbo.SQLXL_3SD(p.ius_last_read_days_ago,N'I') + N' days'
@@ -14883,7 +14869,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.parent_object_id,p.pare
 INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',p.database_id,p.object_id,p.object_id,p.object_id,N'U',diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - has triggers and count by trigger type
-N'*DML Triggers*'
+N'DML Triggers'
 +IIF(p.par_CLR_trigger_CNT           > 0,N' CLR: '        + CAST(p.par_CLR_trigger_CNT           AS NVARCHAR(10)),N'')
 +IIF(p.par_SQL_trigger_CNT           > 0,N' SQL: '        + CAST(p.par_SQL_trigger_CNT           AS NVARCHAR(10)),N'')
 +IIF(p.par_is_instead_of_trigger_CNT > 0,N' Instead Of: ' + CAST(p.par_is_instead_of_trigger_CNT AS NVARCHAR(10)),N'')
@@ -14965,8 +14951,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------------------------------------------------------------------
 -- Index All Types
 ----------------------------------------------------------------------------------------------------
--- Diagnostic - Index - Table empty
-+IIF(i.par_object_type = N'U' AND i.par_is_empty = 1,NCHAR(10) + N'*TABLE EMPTY*',N'') -- HEAPS flagged later on
+-- HEAPS flagged later on
 
 +IIF(   i.is_disabled                > 0
      OR i.is_not_trusted             > 0
@@ -15073,6 +15058,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - Rowstore indexes - No statistics found
 +IIF(    i.type            IN (N'1',N'2')
      AND i.stathdr_Updated IS NULL
+     AND i.par_row_cnt      > 0
     ,NCHAR(10) + N'No Statistics found'
     ,N'')
 
@@ -15254,9 +15240,9 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - rowstore clustered writes greater than 10% of rows, consider enabling STATISTCS NORECOMPUTE
 -- Diagnostic - Index - rowstore nonclustered writes greater than 10% of rows, consider enabling STATISTCS NORECOMPUTE
                 +IIF(     i.type IN (N'1',N'2')
-                     AND (   IIF(i.stathdr_Rows_CNT > 0,1.0 * i.Stats_Prop_modification_CNT / i.stathdr_Rows_CNT,0) > 0.10 -- 10%
-                          OR IIF(i.row_CNT          > 0,1.0 * i.ius_user_updates_CNT        / i.row_CNT     ,0)     > 0.10 -- 10%
-                          OR IIF(i.row_CNT          > 0,1.0 * i.ops_Total_write_CNT         / i.row_CNT     ,0)     > 0.10 -- 10%
+                     AND (   IIF(i.stathdr_Rows_CNT > 100,1.0 * i.Stats_Prop_modification_CNT / i.stathdr_Rows_CNT,0) > 0.10 -- 10%
+                          OR IIF(i.row_CNT          > 100,1.0 * i.ius_user_updates_CNT        / i.row_CNT     ,0)     > 0.10 -- 10%
+                          OR IIF(i.row_CNT          > 100,1.0 * i.ops_Total_write_CNT         / i.row_CNT     ,0)     > 0.10 -- 10%
                          )
                     ,NCHAR(10) + N'> ' + IIF(i.stats_no_recompute = 1
                                             ,N'STATISTICS NORECOMPUTE enabled (BI92)'
@@ -15290,7 +15276,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - Usage Last Read Days
 -- Diagnostic - Index - Usage Last Write days
 +CASE WHEN i.obj_type NOT IN (N'F',N'FT',N'IF',N'TF')
-       AND (i.ius_User_Total_CNT > 0 OR i.ops_Total_contacts_CNT > 0)
+       AND (i.ius_User_Total_CNT > 0 OR i.ops_Total_contacts_CNT > 0 OR i.Stats_Prop_modification_CNT > 0)
        AND i.type               <> N'0' -- Heap values reported below with Index Heap findings
       THEN NCHAR(10)
           +N'R/W OPS ' + CASE WHEN ISNULL(i.ops_Total_read_CNT ,0) = 0
@@ -15625,7 +15611,9 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
                    ,CAST(i.stathdr_Average_Key_Length      AS NVARCHAR(10)) + N' StatHdr bytes'
                    ,CAST(i.key_Total_datatype_length_bytes AS NVARCHAR(10)) + N' col bytes'
                    ) + N' (BI24)'
-              + N' In ' + CAST(i.Key_Columns_CNT AS NVARCHAR(10)) + N' cols (BI23)'
+              + N' In ' + CAST(i.Key_Columns_CNT AS NVARCHAR(10)) + N' cols'
+              + IIF(i.type <> N'1',N' excl CX',N'')
+              + N' (BI23)'
     ,N'')
 -----------------------------------------------------
 -- Diagnostic - Index - Candidate Clustering key for HEAP
@@ -15803,16 +15791,31 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
                   + NCHAR(10)
                   + N' > Possible UNIQUEID, type is ' + UPPER(cx.user_type_name)
                   + N'(' + IIF(cx.max_length = -1,N'MAX',CAST(cx.max_length AS NVARCHAR(4))) + N')'
-  FROM tempdb.dbo.SQLXL_Index_sys_columns       AS cx
+  FROM (SELECT *
+          FROM tempdb.dbo.SQLXL_Index_Compilation
+         WHERE rec_type             = N'I'
+           AND obj_type_short_label = N'TBL'
+           AND par_row_cnt          > 0
+           AND NOT (    Key_Columns_CNT = 1 
+                    AND (   is_primary_key = 1
+                         OR is_unique      = 1
+                        )
+                   )
+       )  AS i
   JOIN tempdb.dbo.SQLXL_Index_sys_index_columns AS ic
-    ON cx.database_id                          = ic.database_id
-   AND cx.object_id                            = ic.object_id
-   AND cx.column_id                            = ic.column_id
+    ON i.database_id                             = ic.database_id
+   AND i.object_id                               = ic.object_id
+   AND i.index_id                                = ic.index_id
+   AND i.type                                    = ic.type
+  JOIN tempdb.dbo.SQLXL_Index_sys_columns       AS cx
+    ON ic.database_id                          = cx.database_id
+   AND ic.object_id                            = cx.object_id
+   AND ic.column_id                            = cx.column_id
  WHERE cx.system_type_id NOT IN (36,104) -- N'uniqueidentifier',N'BIT'
    AND cx.user_type_name NOT LIKE N'%INT%'
    AND (   cx.name LIKE N'%IDENTIFIER%'
-        OR cx.name LIKE N'%GUID%'      -- globally unique identifier
-        OR cx.name LIKE N'%UUID%'      -- universally unique identifier
+        OR cx.name LIKE N'%GUID%'        -- globally unique identifier
+        OR cx.name LIKE N'%UUID%'        -- universally unique identifier
         OR (    cx.name LIKE N'%ID%'
             AND cx.user_type_name LIKE N'%CHAR'
             AND cx.max_length IN (16 -- ASCII256 encoded
@@ -16283,6 +16286,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
           OR i.Lead_Element_Data_Type LIKE N'%TEXT%'
          )
      AND i.stathdr_String_index IS NULL
+     AND i.par_row_cnt           > 0
     ,NCHAR(10) + N'Lead key ' + UPPER(i.Lead_Element_Data_Type) + N', String Summary statistics are '
     +IIF(i.stathdr_String_index = N'YES',N'',N'*NOT* ') + N'computed'
     ,N'')
@@ -16342,7 +16346,11 @@ SELECT TOP 100 PERCENT
 +IIF(typ.name IN (N'binary',N'image',N'ntext',N'real',N'sql_variant',N'varbinary')
     ,NCHAR(10) + N'Key ' +  QUOTENAME(ic.key_column_sequence) + N' is type ' + UPPER(typ.name)
     ,N'')
-+IIF(typ.name LIKE N'%CHAR%' OR c.max_length = -1
++IIF(   (typ.name = N'VARCHAR'  AND c.max_length > 8)
+     OR (typ.name = N'NVARCHAR' AND c.max_length > 4)
+     OR (typ.name = N'CHAR'     AND c.max_length > 8)
+     OR (typ.name = N'NCHAR'    AND c.max_length > 8)
+     OR c.max_length = -1
     ,NCHAR(10) + N'Index Key ' + QUOTENAME(ic.key_column_sequence)
                + N' is ' + UPPER(typ.name)
                + N'(' + IIF(c.max_length = -1,N'MAX',CAST(c.max_length AS NVARCHAR(10)))  + N') (BI27)'
@@ -16427,13 +16435,15 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
    AND i.par_is_memory_optimized   = 1
 ) AS i WHERE i.diagnostic > N''
 
-UNION ALL
+UNION ALL -- HEAPS WITH ACTIVITY
 SELECT * FROM (
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 2,diagnostic =
- IIF(   ip.is_primary_key       = 1
+ N'Heap '
++STUFF(
++IIF(   ip.is_primary_key       = 1
      OR ip.is_unique_constraint = 1
      OR ip.is_unique            = 1
-    ,N' - With '
+    ,NCHAR(10)+N'- With '
     +STUFF(
 -- Diagnostic - Index - Heap - with PRIMARY KEY (BI47)
             IIF(ip.is_primary_key = 1
@@ -16499,6 +16509,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
     +N' (BI43)'
 -- NOTE: Heaps with Waits covered later
     ,N'')
+,1,1,N'')
 ------------------------------------------------------------
 /*** LOCAL TESTING ***
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,p.type,i.type,i.type
@@ -16631,7 +16642,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ) AS i WHERE i.diagnostic > N''
 
 ----------------------------------------------------------------------------------------------------
--- Information = 8
+-- Index Information = 8
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT * FROM ( -- pairs with "WHERE i.diagnostic IS NOT NULL" below
@@ -16713,6 +16724,74 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -----------------------------------------------------------------------------
 ) i
  WHERE i.diagnostic > N''
+
+/******************************************************************************************************************************************\
+-- Index Cmpression, Type_ID = 8
+\******************************************************************************************************************************************/
+INSERT INTO TempDB.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+SELECT i.* FROM (
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic = 
+  N'Compression:'
++ CASE WHEN i.rec_type = N'I'
+        AND (   i.Partition_none_compress_CNT                > 1
+             OR (   i.Partition_row_compress_CNT                 > 0
+                 OR i.Partition_page_compress_CNT                > 0
+                 OR i.Partition_columnstore_compress_CNT         > 0
+                 OR i.Partition_columnstore_archive_compress_CNT > 0
+                )
+            )
+       THEN  IIF(i.Partition_none_compress_CNT > 0
+                ,N' NON('+tempdb.dbo.SQLXL_3SD(i.Partition_none_compress_CNT,'I')+N')'
+                ,N'')
+            +IIF(i.Partition_row_compress_CNT > 0
+                ,N' ROW('+tempdb.dbo.SQLXL_3SD(i.Partition_row_compress_CNT,'I')+N')'
+                ,N'')
+            +IIF(i.Partition_page_compress_CNT > 0
+                ,N' PG(' +tempdb.dbo.SQLXL_3SD(i.Partition_page_compress_CNT,'I')+N')'
+                ,N'')
+            +IIF(i.Partition_columnstore_compress_CNT > 0
+                ,N' CS('+tempdb.dbo.SQLXL_3SD(i.Partition_columnstore_compress_CNT,'I')+N')'
+                ,N'')
+            +IIF(i.Partition_columnstore_archive_compress_CNT > 0
+                ,N' ARC('+tempdb.dbo.SQLXL_3SD(i.Partition_columnstore_archive_compress_CNT,'I')+N')'
+                ,N'')
+       WHEN i.rec_type IN (N'P',N'S')
+        AND (   raw.partition_none_compress_CNT                > 1
+             OR (   raw.partition_row_compress_CNT                 > 0
+                 OR raw.partition_page_compress_CNT                > 0
+                 OR raw.partition_columnstore_compress_CNT         > 0
+                 OR raw.partition_columnstore_archive_compress_CNT > 0
+                )
+            )
+       THEN  IIF(raw.partition_none_compress_CNT > 0
+                ,N' NON('+tempdb.dbo.SQLXL_3SD(raw.partition_none_compress_CNT,'I')+N')'
+                ,N'')
+            +IIF(raw.partition_row_compress_CNT > 0
+                ,N' ROW('+tempdb.dbo.SQLXL_3SD(raw.partition_row_compress_CNT,'I')+N')'
+                ,N'')
+            +IIF(raw.partition_page_compress_CNT > 0
+                ,N' PG(' +tempdb.dbo.SQLXL_3SD(raw.partition_page_compress_CNT,'I')+N')'
+                ,N'')
+            +IIF(raw.partition_columnstore_compress_CNT > 0
+                ,N' CS('+tempdb.dbo.SQLXL_3SD(raw.partition_columnstore_compress_CNT,'I')+N')'
+                ,N'')
+            +IIF(raw.partition_columnstore_archive_compress_CNT > 0
+                ,N' ARC('+tempdb.dbo.SQLXL_3SD(raw.partition_columnstore_archive_compress_CNT,'I')+N')'
+                ,N'')
+  END
+  FROM (SELECT *
+          FROM tempdb.dbo.SQLXL_Index_Compilation
+         WHERE rec_type NOT IN (N'A',N'D')
+       ) AS i
+  JOIN (SELECT *
+          FROM tempdb.dbo.SQLXL_Index_Compilation
+         WHERE type IN (N'0',N'1',N'5')
+       )                                    AS raw
+    ON i.database_id                         = raw.database_id
+   AND i.parent_object_id                    = raw.object_id
+   AND i.object_id                           = raw.object_id
+) i
+ WHERE diagnostic IS NOT NULL;
 
 /******************************************************************************************************************************************\
 ** FOREIGN KEY CONSTRAINTS FOREIGN KEY CONSTRAINTS FOREIGN KEY CONSTRAINTS FOREIGN KEY CONSTRAINTS FOREIGN KEY CONSTRAINTS FOREIGN KEY CON**
@@ -17023,7 +17102,10 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
                   + IIF(a.mix_Advantage_AMT > 0
                        ,N' Advantage: ' + tempdb.dbo.SQLXL_3SD(1.0 * p.mix_Advantage_AMT / a.mix_Advantage_AMT,N'%')
                        ,N'')
-                  + NCHAR(10) + N'> Consider Nonclustered Columnstore?'
+                  + IIF(    (SELECT version_major FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters) >= 13 -- SQL 2016+
+                        AND p.mix_Advantage_AMT / a.mix_Advantage_AMT > 0.02
+                       ,NCHAR(10) + N'> Consider Nonclustered Columnstore?'
+                       ,N'')
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
@@ -19770,7 +19852,10 @@ SELECT database_id,parent_object_id,object_id,
 +IIF(    p.par_is_memory_optimized = 0
      AND p.buffer_Total_KB_CNT     > 0
      AND p.reserved_page_CNT       > 0
-    ,1.0 * p.buffer_Total_KB_CNT / (p.reserved_page_CNT * 8.0)
+    ,IIF(1.0 * p.buffer_Total_KB_CNT / (p.reserved_page_CNT * 8.0) <= 1.0
+        ,1.0 * p.buffer_Total_KB_CNT / (p.reserved_page_CNT * 8.0)
+        ,1.0
+        )
     ,0)                                                                                                                      * 100.0
 -- Scans and Lookup ----------------------------------------                                                                   
 +IIF(      (ISNULL(a.ius_user_scans_CNT,0)+ISNULL(a.ios_range_scan_CNT,0))> 0                                                  
@@ -20049,7 +20134,7 @@ NOTES & PARAMETERS:
 *******************************************************************************************************************************************/
 
 ALTER PROCEDURE dbo.SQLXL_Index_Present
-      (@show_fulltext_internals TINYINT = 0
+      (@show_fulltext_internals TINYINT = 1
       )
 AS
 /*** LOCAL TESTING
@@ -20255,7 +20340,7 @@ SELECT
 /******************************************************************************************************************************************/
 --
 /******************************************************************************************************************************************/
-,[Index~RSZ Rsrvd size (%Tbl)~BSZ Buffer size (%Phys)~Tbl ROW Rows COL cols~FCT Factor & Pad~Idx KEY Cnt & Len~CMP Compression]
+,[Index~RSZ Rsrvd size (%Tbl)~BSZ Buffer size (%Rsrv)~Tbl ROW Rows COL cols~LEN Wor Length~FCT Factor & Pad~Idx KEY Cnt & Len]
 =CASE WHEN i.obj_type IN (N'FT',N'IF',N'TF') THEN N'TVF No data'  -- table functions w/o indexes have no stats other than PLAN CACHE
 
       WHEN i.obj_type  = N'U' AND TRY_CAST(i.TYPE AS INT) >= 0 AND i.is_disabled = 1
@@ -20301,8 +20386,7 @@ SELECT
           +CASE WHEN i.obj_type = N'V' AND i.TYPE IN (N'0',N'V')
                 THEN N'n/a COL '+tempdb.dbo.SQLXL_3SD(p.par_column_CNT,'I') -- HEAPS on VIEWS, VIEW parents
                 WHEN i.rec_type IN (N'P',N'S')
-                THEN tempdb.dbo.SQLXL_3SD(p.row_CNT,'I')+N' COL '
-                    +tempdb.dbo.SQLXL_3SD(p.par_column_CNT,'I')
+                THEN tempdb.dbo.SQLXL_3SD(p.par_row_CNT,'I')+N' COL '+tempdb.dbo.SQLXL_3SD(p.par_column_CNT,'I')
                 WHEN i.TYPE = N'M' THEN N'N/A'
                 WHEN i.TYPE = N'F' THEN N'N/A'
                 WHEN i.rec_type = N'I'
@@ -20311,7 +20395,9 @@ SELECT
                     +N' COL '+tempdb.dbo.SQLXL_3SD(p.par_column_CNT,'I')
                 ELSE N'N/A'
            END
-          --------------------------------------------------------------------------------------------------------------
+           --------------------------------------------------------------------------------------------------------------
+          +NCHAR(10) +N'LEN '
+           --------------------------------------------------------------------------------------------------------------
           +NCHAR(10) +N'FCT '
           +CASE WHEN i.TYPE = N'0' THEN N'HEAP'
                 WHEN i.TYPE = N'M' THEN N'N/A'
@@ -20333,54 +20419,6 @@ SELECT
                                                ,N'N/A')
                 ELSE N'N/A'
            END
-           --------------------------------------------------------------------------------------------------------------
-          +NCHAR(10) + N'CMP'
-                     + CASE WHEN i.rec_type = N'I'
-                             AND (   i.Partition_none_compress_CNT                > 0
-                                  OR i.Partition_row_compress_CNT                 > 0
-                                  OR i.Partition_page_compress_CNT                > 0
-                                  OR i.Partition_columnstore_compress_CNT         > 0
-                                  OR i.Partition_columnstore_archive_compress_CNT > 0
-                                 )
-                            THEN  IIF(i.Partition_none_compress_CNT > 0
-                                     ,N' NON('+tempdb.dbo.SQLXL_3SD(i.Partition_none_compress_CNT,'I')+N')'
-                                     ,N'')
-                                 +IIF(i.Partition_row_compress_CNT > 0
-                                     ,N' ROW('+tempdb.dbo.SQLXL_3SD(i.Partition_row_compress_CNT,'I')+N')'
-                                     ,N'')
-                                 +IIF(i.Partition_page_compress_CNT > 0
-                                     ,N' PG(' +tempdb.dbo.SQLXL_3SD(i.Partition_page_compress_CNT,'I')+N')'
-                                     ,N'')
-                                 +IIF(i.Partition_columnstore_compress_CNT > 0
-                                     ,N' CS('+tempdb.dbo.SQLXL_3SD(i.Partition_columnstore_compress_CNT,'I')+N')'
-                                     ,N'')
-                                 +IIF(i.Partition_columnstore_archive_compress_CNT > 0
-                                     ,N' ARC('+tempdb.dbo.SQLXL_3SD(i.Partition_columnstore_archive_compress_CNT,'I')+N')'
-                                     ,N'')
-                            WHEN i.rec_type IN (N'P',N'S')
-                             AND (   raw.partition_none_compress_CNT                > 0
-                                  OR raw.partition_row_compress_CNT                 > 0
-                                  OR raw.partition_page_compress_CNT                > 0
-                                  OR raw.partition_columnstore_compress_CNT         > 0
-                                  OR raw.partition_columnstore_archive_compress_CNT > 0
-                                 )
-                            THEN  IIF(raw.partition_none_compress_CNT > 0
-                                     ,N' NON('+tempdb.dbo.SQLXL_3SD(raw.partition_none_compress_CNT,'I')+N')'
-                                     ,N'')
-                                 +IIF(raw.partition_row_compress_CNT > 0
-                                     ,N' ROW('+tempdb.dbo.SQLXL_3SD(raw.partition_row_compress_CNT,'I')+N')'
-                                     ,N'')
-                                 +IIF(raw.partition_page_compress_CNT > 0
-                                     ,N' PG(' +tempdb.dbo.SQLXL_3SD(raw.partition_page_compress_CNT,'I')+N')'
-                                     ,N'')
-                                 +IIF(raw.partition_columnstore_compress_CNT > 0
-                                     ,N' CS('+tempdb.dbo.SQLXL_3SD(raw.partition_columnstore_compress_CNT,'I')+N')'
-                                     ,N'')
-                                 +IIF(raw.partition_columnstore_archive_compress_CNT > 0
-                                     ,N' ARC('+tempdb.dbo.SQLXL_3SD(raw.partition_columnstore_archive_compress_CNT,'I')+N')'
-                                     ,N'')
-                            ELSE N' N/A'
-                       END
 
 /* +CASE WHEN i.ios_page_compression_attempt_CNT > 0
          THEN N' '+tempdb.dbo.SQLXL_3SD(1.0 * i.ios_page_compression_success_CNT / i.ios_page_compression_attempt_CNT,'%')
@@ -21267,87 +21305,9 @@ SELECT
 ,[cs_input_groupby_row_CNT\B|N0]                  = IIF(i.type IN (N'5',N'6'),i.cs_input_groupby_row_CNT     ,NULL)
 
 /******************************************************************************************************************************************/
-/* FUTURE Queries to supplement the presentation
-/**************************************************************************************************************************************************************************************/
-,[QRY *TABLE PROFILE >>>]       = CASE WHEN i.par_object_type IN (N'U',N'V',N'M')
-                                       THEN ISNULL(N'['+i.Database_name+N'].','')+ ISNULL(N'['+i.Schema_Name+N'].','')+ ISNULL(N'['+i.par_object_Name+N']','')
-                                       ELSE N''''
-                                  END
-,[QRY Data Compression Savings|NW] = CASE WHEN CASE WHEN TRY_CAST(i.type AS INT) >= 0
-                                                    THEN CAST(i.type AS TINYINT)
-                                               END < 3
-                                          THEN CASE WHEN (i.Partition_page_compress_CNT+i.Partition_row_compress_CNT) > 0
-                                                    THEN N'-- Currently N'+STUFF( CASE WHEN i.Partition_page_compress_CNT > 0 THEN N' PAGE('+CAST(i.Partition_page_compress_CNT AS NVARCHAR(10))+N')' ELSE N'' END
-                                                                               +CASE WHEN i.Partition_row_compress_CNT  > 0 THEN N' ROW('+CAST(i.Partition_row_compress_CNT  AS NVARCHAR(10))+N')' ELSE N'' END
-                                                                                 ,1,1,'')
-                                                                        +N' compressed'+NCHAR(10)
-                                                    ELSE N''
-                                               END
-                                              +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET STATISTICS IO OFF;SET STATISTICS TIME OFF;SET STATISTICS XML OFF;SET STATISTICS PROFILE OFF;SET ANSI_WARNINGS ON'
-                                              +N' '+N'GO'
-                                              +CASE WHEN i.Database_Name > N'' THEN NCHAR(10) +N'USE ['+i.Database_Name+N']'+N' '+N'GO;' ELSE N'' END
-                                              +N' '+N'SELECT N''NONE'';'
-                                              +N' '+N'EXEC sys.sp_estimate_data_compression_savings @schema_name = N'''+i.schema_name+N''',@object_name = N'''+i.object_name+N''',@Index_id = N'+CAST(i.Index_id AS NVARCHAR(10))+N',@partition_number = NULL,@data_compression = N''NONE'''
-                                              +N' '+N'SELECT N''ROW'';'
-                                              +N' '+N'EXEC sys.sp_estimate_data_compression_savings @schema_name = N'''+i.schema_name+N''',@object_name = N'''+i.object_name+N''',@Index_id = N'+CAST(i.Index_id AS NVARCHAR(10))+N',@partition_number = NULL,@data_compression = N''ROW'''
-                                              +N' '+N'SELECT N''PAGE'';'
-                                              +N' '+N'EXEC sys.sp_estimate_data_compression_savings @schema_name = N'''+i.schema_name+N''',@object_name = N'''+i.object_name+N''',@Index_id = N'+CAST(i.Index_id AS NVARCHAR(10))+N',@partition_number = NULL,@data_compression = N''PAGE'''
-                                              +N' '+N'SELECT N''COLUMNSTORE'';'
-                                              +N' '+N'EXEC sys.sp_estimate_data_compression_savings @schema_name = N'''+i.schema_name+N''',@object_name = N'''+i.object_name+N''',@Index_id = N'+CAST(i.Index_id AS NVARCHAR(10))+N',@partition_number = NULL,@data_compression = N''COLUMNSTORE'''
-                                              +N' '+N'SELECT N''COLUMNSTORE_ARCHIVE'';'
-                                              +N' '+N'EXEC sys.sp_estimate_data_compression_savings @schema_name = N'''+i.schema_name+N''',@object_name = N'''+i.object_name+N''',@Index_id = N'+CAST(i.Index_id AS NVARCHAR(10))+N',@partition_number = NULL,@data_compression = N''COLUMNSTORE_ARCHIVE'''
-                                          ELSE N''''
-                                     END
-,[QRY Blitz & Stats|NW] = CASE WHEN CASE WHEN TRY_CAST(i.type AS INT) >= 0 THEN CAST(i.type AS TINYINT) END < 3
-                               THEN CAST(N'**** TURN OFF #INCLUDE ACTUAL EXECUTION PLAN# ****'
-                                        +N' '+N'EXEC tempdb.dbo.sp_BlitzIndex @DatabaseName = N'''+i.Database_Name+N''',@SchemaName = N'''+i.Schema_Name+N''',@TableName = N'''+i.Object_Name+N''''
-                                        +N' '+N'USE ['+i.Database_Name+N']'+N' '+N'GO'+N' '+N'DBCC SHOW_STATISTICS('''+i.Schema_Name+N'.'+i.Object_Name+N''','''+i.name+N''')'
-                                        AS NVARCHAR(4000))
-                                   +CASE WHEN i.type = N'F'
-                                         THEN NCHAR(10) +N'--CREATE Nonclustered Index ix_'+i.Object_Name+N'_FKREF__'+i.key_column_info+N' ON N'+i.name+N'.'+i.Object_Name+N' ('+i.key_column_info+N') WITH (ONLINE=ON,MAXDOP=4,SORT_IN_TEMPDB=ON,FILLFACTOR=90,PAD_Index=ON);'
-                                         ELSE N''''
-                                    END
-                               ELSE N''''
-                          END
-,[QRY Profile Idx|NW]   = CASE WHEN i.obj_type IN (N'U',N'V')
-                               THEN CASE WHEN i.Type_Desc = N'HEAP' THEN CAST(N'SELECT*FROM ['+i.Database_Name+N'].['+i.Schema_Name+N'].['+i.Object_Name+N']' AS NVARCHAR(4000))
-                                         WHEN i.Type_Desc LIKE N'%COLUMNSTORE%' THEN CAST(N'SELECT included_columns'+N' FROM ['+i.Schema_Name+N'].['+i.Object_Name+N']' AS NVARCHAR(4000))
-                                         WHEN i.type = N'F' THEN CAST(N'SELECT N'+i.key_column_info+N' FROM ['+i.Schema_Name+N'].['+i.Object_Name+N']' AS NVARCHAR(4000))
-                                         ELSE CAST( N'SELECT N'
-                                                +REPLACE(REPLACE(N'['+REPLACE(i.key_column_info,N',',N'],[')+N']',N'[[',N'['),N']]',N']')
-                                                +N' FROM ['+i.Schema_Name+N'].['+i.Object_Name+N']'
-                                                  AS NVARCHAR(4000)
-                                                  )
-                                    END
-                               ELSE N''''
-                          END
---########################################################################################################################################
-,[QRY Find IDX in Plan Cache|NW] = N'SELECT querystats.plan_handle
-      ,querystats.query_hash
-      ,sqltext   = SUBSTRING(sqltext.text,(querystats.statement_start_offset/2)+1 ,(CASE querystats.statement_end_offset WHEN -1 THEN DATALENGTH(sqltext.text) ELSE querystats.statement_end_offset END - querystats.statement_start_offset)/2+1)
-      ,querystats.execution_count
-      ,querystats.total_logical_reads
-      ,querystats.total_logical_writes
-      ,querystats.creation_time
-      ,querystats.last_execution_time
-      ,plan_xml  = CAST(query_plan AS XML)
-  FROM sys.dm_exec_query_stats AS querystats
- CROSS APPLY sys.dm_exec_text_query_plan(querystats.plan_handle, querystats.statement_start_offset, querystats.statement_end_offset) AS textplan
- CROSS APPLY sys.dm_exec_sql_text(querystats.sql_handle)                                                                             AS sqltext
- WHERE CHARINDEX(CAST(N'''+i.name+N''' AS NVARCHAR(128)),textplan.query_plan) > 0
-OPTION (FAST 1,MAXDOP 1);'
-      ,[QRY Update Index Statistics|NW] = CASE WHEN CASE WHEN TRY_CAST(i.type AS INT) >= 0
-                                                         THEN CAST(i.type AS TINYINT)
-                                                    END BETWEEN 1 AND 3
-                                                AND p.row_CNT > 0
-                                               THEN N'UPDATE STATISTICS '+QUOTENAME(i.Database_Name)+N'.'+QUOTENAME (i.schema_name)+N'.'+QUOTENAME(i.par_object_name)+N' '+QUOTENAME(i.name)+N' WITH FULLSCAN,MAXDOP = 4;'
-                                          END
-*/
-
-/******************************************************************************************************************************************/
 -- FROM
 /******************************************************************************************************************************************/
-/*
+/*** LOCAL TESTING ***
 DECLARE @show_fulltext_internals TINYINT = 0
 SELECT COUNT(1)
 --*/
@@ -21394,17 +21354,18 @@ SELECT COUNT(1)
                 )
            )
        )
--- Omitting for now
+-- Omitting non SQL Table Values Functions for now
    AND i.par_object_type NOT IN (N'FT',N'IF')
--- 
+
  ORDER BY
        IIF(i.rec_type = N'P',i.par_priority_metric,NULL) DESC
       ,2;
 
 GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
 
---EXEC TempDB.dbo.SQLXL_Index_Present @show_fulltext_internals = 0 -- tinyint
-
+/*** LOCAL TESTING ***
+EXEC TempDB.dbo.SQLXL_Index_Present @show_fulltext_internals = 0 -- tinyint
+--*/
 USE TEMPDB
 GO
 
