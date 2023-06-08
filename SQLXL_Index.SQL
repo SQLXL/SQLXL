@@ -1,4 +1,4 @@
--- VERSION 2023.05.05
+-- VERSION 2023.06.08
 
 /******************************************************************************************************************************************\
 Copyright (C) 2023 Practice Computing Mangement Inc.
@@ -4870,7 +4870,6 @@ END -- database cursor
 /****************************************/
 CLOSE db_crsr;
 DEALLOCATE db_crsr;
-
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
@@ -20875,68 +20874,68 @@ SELECT
 --Table ------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------
 ,[Table OPS Wait TM!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ios_Total_wait_MS_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_Total_wait_MS_CNT > 0
                              ,100.0 * i.ios_Total_wait_MS_CNT / a.ios_Total_wait_MS_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Wait CNT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ios_Total_wait_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_Total_wait_CNT > 0
                              ,100.0 * i.ios_Total_wait_CNT / a.ios_Total_wait_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Locks CNT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ios_Total_Lock_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_Total_Lock_CNT > 0
                              ,100.0 * i.ios_Total_Lock_CNT / a.ios_Total_Lock_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Lock Promo!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ios_lock_promotion_attempt_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_lock_promotion_attempt_CNT > 0
                              ,100.0 * i.ios_lock_promotion_attempt_CNT / a.ios_lock_promotion_attempt_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Promo Fail!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ios_lock_promotion_attempt_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_lock_promotion_attempt_CNT > 0
                              ,100.0 * (i.ios_lock_promotion_attempt_CNT - i.ios_lock_promotion_CNT)
                                     / A.ios_lock_promotion_attempt_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table OPS Page Split!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ops_Total_page_split_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_page_split_CNT > 0
                              ,100.0 * i.ops_Total_page_split_CNT / a.ops_Total_page_split_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Splits to Write PCT!H\B|N0] 
-                        = IIF(i.rec_type IN (N'P') AND i.page_splits_to_write_PCT > 0.0
+                        = IIF(i.rec_type IN (N'P',N'S') AND i.page_splits_to_write_PCT > 0.0
                              ,i.page_splits_to_write_PCT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS OPS Page Merge!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ops_Total_page_merge_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_page_merge_CNT > 0
                              ,100.0 * i.ops_Total_page_merge_CNT / a.ops_Total_page_merge_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Page Merge to Write PCT!H\B|N0] 
-                        = IIF(i.rec_type IN (N'P') AND i.page_Merge_to_write_PCT > 0.0
+                        = IIF(i.rec_type IN (N'P',N'S') AND i.page_Merge_to_write_PCT > 0.0
                              ,i.page_Merge_to_write_PCT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table MIX Advantage Weighted!H\G|N0]
-                        = IIF(    i.rec_type IN (N'P') 
+                        = IIF(    i.rec_type IN (N'P',N'S') 
                               AND i.mix_Advantage_weighted_AMT > 0 
                               AND a.mix_Advantage_weighted_AMT > 0
                              ,100.0 * i.mix_Advantage_weighted_AMT / a.mix_Advantage_weighted_AMT
                              ,NULL)
 ,[Table MIX Advantage!H\G|N0]
-                        = IIF(    i.rec_type IN (N'P') 
+                        = IIF(    i.rec_type IN (N'P',N'S') 
                               AND i.mix_Advantage_AMT > 0
                               AND a.mix_Advantage_AMT > 0
                              ,100.0 * i.mix_Advantage_AMT / a.mix_Advantage_AMT
                              ,NULL)
 ----------------------------------------------
 ,[Table OPS Writes!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ops_Total_write_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_write_CNT > 0
                              ,100.0 * i.ops_Total_write_CNT / a.ops_Total_write_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table USG Writes!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ius_user_updates_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ius_user_updates_CNT > 0
                              ,100.0 * i.ius_user_updates_CNT / a.ius_user_updates_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table BUF Percent in Buffer!H\B|N0]
-                        = IIF(i.rec_type IN (N'P')
+                        = IIF(i.rec_type IN (N'P',N'S')
                              ,CASE WHEN i.par_is_memory_optimized = 1 AND i.buffer_Total_KB_CNT > 0.0
                                    THEN 100
                                    WHEN i.reserved_page_CNT > 0
@@ -20946,14 +20945,14 @@ SELECT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table OPS R/W Ratio!H\G|N0]
-                        = IIF(    i.rec_type IN (N'P')
+                        = IIF(    i.rec_type IN (N'P',N'S')
                               AND i.ops_Total_write_CNT > 0
                              ,IIF(i.ops_Total_read_CNT / i.ops_Total_write_CNT < 100
                                  ,1.0 * i.ops_Total_read_CNT / i.ops_Total_write_CNT
                                  ,99)
                              ,NULL) -- show NULL if no writes found
 ,[Table USG R/W Ratio!H\G|N0]
-                        = IIF(    i.rec_type IN (N'P')
+                        = IIF(    i.rec_type IN (N'P',N'S')
                               AND i.ius_user_updates_CNT > 0
                              ,IIF(i.ius_User_read_CNT / i.ius_user_updates_CNT < 100
                                  ,1.0 * i.ius_User_read_CNT / i.ius_user_updates_CNT
@@ -20961,37 +20960,37 @@ SELECT
                              ,NULL) -- show NULL if no writes found
 ----------------------------------------------
 ,[Table OPS Reads PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ops_Total_read_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_read_CNT > 0
                              ,100.0 * i.ops_Total_read_CNT / a.ops_Total_read_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Scans PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ops_Total_scan_cnt > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ops_Total_scan_cnt > 0
                              ,100.0 * i.ops_Total_scan_cnt / a.ops_Total_scan_cnt     
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Lookups PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ios_singleton_lookup_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_singleton_lookup_CNT > 0
                              ,100.0 * i.ios_singleton_lookup_CNT / a.ios_singleton_lookup_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table OPS Forwarded Fetch!H\G|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ios_forwarded_fetch_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ios_forwarded_fetch_CNT > 0
                              ,100.0 * i.ios_forwarded_fetch_CNT / a.ios_forwarded_fetch_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table USG Reads PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ius_user_read_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ius_user_read_CNT > 0
                              ,100.0 * i.ius_User_read_CNT / a.ius_user_read_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table USG Scans PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ius_user_scans_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ius_user_scans_CNT > 0
                              ,100.0 * i.ius_user_scans_CNT / a.ius_user_scans_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ,[Table USG Lookups PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P') AND a.ius_user_lookups_CNT > 0
+                        = IIF(i.rec_type IN (N'P',N'S') AND a.ius_user_lookups_CNT > 0
                              ,100.0 * i.ius_user_lookups_CNT / a.ius_user_lookups_CNT
                              ,IIF(i.rec_type NOT IN (N'P',N'S'),NULL,0))
 ----------------------------------------------
 ,[Table OPS LOB Contacts PCT!H\B|N0]
-                        = IIF(    i.rec_type IN (N'P') 
+                        = IIF(    i.rec_type IN (N'P',N'S') 
                               AND     ( a.ios_lob_fetch_pages_CNT            
                                       + a.ios_lob_orphan_create_CNT
                                       + a.ios_lob_orphan_insert_CNT
@@ -21193,7 +21192,7 @@ SELECT
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 ---------------------------------------------------------------------------------------
 ,[Table Busyness!H\B|N0]
-                        = IIF(    i.rec_type IN (N'P')
+                        = IIF(    i.rec_type IN (N'P',N'S')
                               AND  ( (CAST(ISNULL(a.buffer_Total_KB_CNT           ,0.0) AS FLOAT) *  2.0)
                                     +(CAST(ISNULL(a.ius_user_updates_CNT          ,0.0) AS FLOAT) *  6.0)
                                     +(CAST(ISNULL(a.ius_User_read_CNT             ,0.0) AS FLOAT) *  1.0)
