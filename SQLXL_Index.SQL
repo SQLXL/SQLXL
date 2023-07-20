@@ -9739,16 +9739,17 @@ SELECT dv1.database_id
   INTO tempdb.dbo.SQLXL_Index_additional_key_selectivity
   FROM tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS dv1
   JOIN tempdb.dbo.SQLXL_Index_sys_index_columns                AS ic
-    ON dv1.database_id                                     = ic.database_id
-   AND dv1.object_id                                       = ic.object_id
-   AND dv1.index_ID                                        = ic.index_ID
-   AND dv1.Row_ID                                          = ic.key_column_sequence
-   AND 0                                                   = ic.is_included_column  -- only KEY index elements are to be compared
+    ON dv1.database_id  = ic.database_id
+   AND dv1.object_id    = ic.object_id
+   AND dv1.index_ID     = ic.index_ID
+   AND dv1.Row_ID       = ic.key_column_sequence
+   AND 0                = ic.is_included_column  -- only KEY index elements are to be compared
   JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector AS dv0
-    ON dv1.database_id                                     = dv0.database_id
-   AND dv1.object_id                                       = dv0.object_id
-   AND dv1.index_ID                                        = dv0.index_ID
-   AND (dv1.Row_ID - 1)                                    = dv0.row_id
+    ON dv1.database_id  = dv0.database_id
+   AND dv1.object_id    = dv0.object_id
+   AND dv1.index_ID     = dv0.index_ID
+   AND (dv1.Row_ID - 1) = dv0.row_id
+   AND 0.0              < dv0.All_Density
  WHERE 1 = 1
    AND dv1.All_Density/dv0.All_Density > 1.0/3.0
 OPTION (MAXDOP 1)
@@ -11057,6 +11058,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.mix_Advantage_AMT
          GROUP BY
                database_id
               ,parent_object_id
+        HAVING SUM(ius_user_read_CNT) > 0
        ) usg
     ON tgt.database_id      = usg.database_id
    AND tgt.parent_object_ID = usg.parent_object_ID;
@@ -11125,31 +11127,31 @@ SELECT r.database_id,r.object_id,r.index_id,r.type,
               ,ius_last_system_scan_DTTM     = MAX(mx.ius_last_system_scan_DTTM)
           FROM (
                 SELECT database_id
-                      ,fkc_object_id       = r_object_id
-                      ,mix_object_id       = l_object_id
-                      ,mix_id              = l_index_id
+                      ,fkc_object_id = r_object_id
+                      ,mix_object_id = l_object_id
+                      ,mix_id        = l_index_id
                   FROM tempdb.dbo.SQLXL_Index_Synergies
-                 WHERE l_type              = N'M'
-                   AND r_type              = N'F'
+                 WHERE l_type        = N'M'
+                   AND r_type        = N'F'
                 UNION
                 SELECT database_id
-                      ,fkc_object_id        = l_object_id
-                      ,mix_object_id       = r_object_id
-                      ,mix_id              = r_index_id
+                      ,fkc_object_id = l_object_id
+                      ,mix_object_id = r_object_id
+                      ,mix_id        = r_index_id
                   FROM tempdb.dbo.SQLXL_Index_Synergies
-                 WHERE l_type                = N'F'
-                   AND r_type                = N'M'
-               )                           AS o
+                 WHERE l_type        = N'F'
+                   AND r_type        = N'M'
+               ) AS o
           JOIN (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS fk
-            ON o.database_id                = fk.database_id
-           AND o.fkc_object_id               = fk.object_id
-           AND o.fkc_object_id               = fk.index_id
-           AND N'F'                         = fk.type
+            ON o.database_id         = fk.database_id
+           AND o.fkc_object_id       = fk.object_id
+           AND o.fkc_object_id       = fk.index_id
+           AND N'F'                  = fk.type
           JOIN (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'I') AS mx
-            ON o.database_id                = mx.database_id
-           AND o.mix_object_id              = mx.object_id
-           AND o.mix_id                     = mx.index_ID
-           AND N'M'                         = mx.type
+            ON o.database_id         = mx.database_id
+           AND o.mix_object_id       = mx.object_id
+           AND o.mix_id              = mx.index_ID
+           AND N'M'                  = mx.type
          GROUP BY
                fk.database_id
               ,fk.object_id
@@ -21898,7 +21900,7 @@ END'')
 GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
 
 /******************************************************************************************************************************************/
--- function tempdb.dbo.SQLXL_DHMSM - return a date/time value
+-- function tempdb.dbo.SQLXL_DHMSM - return an absolute date/time value
 /******************************************************************************************************************************************/
 RAISERROR ('... tempdb.dbo.SQLXL_DTTM_HMSM',0,0) WITH NOWAIT;
 
@@ -21912,17 +21914,16 @@ EXEC(N''
 ALTER FUNCTION dbo.SQLXL_DTTM_HMSM
       (@dt DATETIME
       )
-/* Returns date & time value as DD.HH:MM:SS:mmm */
+/* Returns absolute date & time value as #.## Day -or- HH:MM:SS:mmm */
 RETURNS NVARCHAR(15)
 AS
 BEGIN
    IF @dt IS NULL RETURN N''''''''
    IF @dt  = 0    RETURN N''''00:00:00:000''''
 
-   RETURN CASE WHEN DATEDIFF(DAY,0,@dt) > 0
-               THEN tempdb.dbo.SQLXL_3SD(DATEDIFF(DAY,0,@dt)+DATEDIFF(MINUTE,0,@dt - DATEDIFF(DAY,0,@dt))/(24.0*60.0),N''''N'''')+N'''' Days''''
-               ELSE -- RIGHT(N''''0''''+CAST(DATEDIFF(DAY,0,@dt) AS NVARCHAR(2)),2)+N''''.''''
-                    CONVERT(NVARCHAR(12),@dt,114)
+   RETURN CASE WHEN CAST(@dt AS FLOAT) >= 1.0
+               THEN tempdb.dbo.SQLXL_3SD(CAST(@dt AS FLOAT),N''''N'''')+N'''' Day''''
+               ELSE CONVERT(NVARCHAR(12),@dt,114)
           END COLLATE DATABASE_DEFAULT
 END'')
 ');
