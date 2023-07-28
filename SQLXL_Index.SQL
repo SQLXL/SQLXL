@@ -1,4 +1,4 @@
--- VERSION 2023.07.23
+-- VERSION 2023.07.28
 
 /******************************************************************************************************************************************\
 Copyright (C) 2023 Practice Computing Mangement Inc.
@@ -7851,8 +7851,8 @@ SELECT database_id                    = ic.database_id
                     ,ISNULL(CAST(ic.max_length AS NVARCHAR(MAX)),N'<??>'))
        END
       --------------------------------------------------------------------------------------------------------------------------------------
-      +IIF(ic.is_identity    = 1                     ,N' IDN(' +CAST(ISNULL(ic.increment_value,1) AS NVARCHAR(10))+N')',N'')
-      +IIF(ic.seq_object_id IS NOT NULL              ,N' SEQ(' +CAST(ISNULL(ic.seq_increment  ,1) AS NVARCHAR(10))+N')',N'')
+      +IIF(ic.is_identity    = 1                     ,N' IDN(' +CAST(ISNULL(ic.increment_value,1) AS NVARCHAR(20))+N')',N'')
+      +IIF(ic.seq_object_id IS NOT NULL              ,N' SEQ(' +CAST(ISNULL(ic.seq_increment  ,1) AS NVARCHAR(20))+N')',N'')
       +IIF(dc.definition    = N'(newsequentialid())',N' SUID',N'')
       +IIF(dc.definition    = N'(newid())'          ,N' NUID',N'')
       +IIF(ic.is_nullable    = 1                     ,N' NULL',N'')
@@ -7896,7 +7896,7 @@ SELECT database_id                    = ic.database_id
             ELSE N' (N/A)'
        END
       +IIF(ISNULL(col_stats.Steps,iles.steps) BETWEEN 1 AND 19
-          ,N' STP('+CAST(ISNULL(col_stats.Steps,iles.steps) AS NVARCHAR(10))+N')'
+          ,N' STP('+CAST(ISNULL(col_stats.Steps,iles.steps) AS NVARCHAR(20))+N')'
           ,N'')
       -----------------------------------------------------------------------
       +IIF(    dc.definition   IS NOT NULL
@@ -8293,7 +8293,7 @@ SELECT icol.database_id
               -------------------------------------
               ,col_prefix = CASE WHEN icol.type IN (N'2')
                                   AND icol.srt = 2
-                                 THEN N'CX('+CAST(cix.key_column_sequence AS NVARCHAR(10))+N')>' -- CLUSTERED index elements added to index
+                                 THEN N'CX('+CAST(cix.key_column_sequence AS NVARCHAR(20))+N')>' -- CLUSTERED index elements added to index
                                                                                                  -- for unique reference to table
                                  ELSE N''
                             END
@@ -8308,11 +8308,11 @@ SELECT icol.database_id
                            +IIF(ic.column_usage       = N'INEQUALITY',N' {' + NCHAR(60) + NCHAR(62) + N'}',N'')
                            +IIF(    icol.srt = 1 AND icol.type IN (N'2',N'M')
                                 AND (ic.in_clustered_index > 0 OR cix.column_id > 0)
-                               ,N' =CX('+CAST(cix.key_column_sequence AS NVARCHAR(10))+N')' -- Index elements that are keys in
+                               ,N' =CX('+CAST(cix.key_column_sequence AS NVARCHAR(20))+N')' -- Index elements that are keys in
                                                                                             -- the CLUSTERED index
                                ,N'')
                            +IIF(icol.srt = 2 AND icol.type = N'M'
-                               ,N' <CX('+CAST(cix.key_column_sequence AS NVARCHAR(10))+N')' -- CLUSTERED index elements added to index
+                               ,N' <CX('+CAST(cix.key_column_sequence AS NVARCHAR(20))+N')' -- CLUSTERED index elements added to index
                                                                                             -- for unique reference to table)
                                ,N'')
               ,col_uniqueness = IIF(-- Candidates for Clustered indexes
@@ -8725,7 +8725,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                    ORDER BY
                                          icol.rn
                                  )
-      ,key_element_length      = STUFF((SELECT NCHAR(10) + CAST(ssdv.Average_Length AS NVARCHAR(10))
+      ,key_element_length      = STUFF((SELECT NCHAR(10) + CAST(ssdv.Average_Length AS NVARCHAR(20))
                                           FROM tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector ssdv
                                          WHERE tgt.database_id                          = ssdv.database_id
                                            AND tgt.object_id                            = ssdv.object_id
@@ -9728,8 +9728,8 @@ SET ANSI_WARNINGS ON;
 SELECT dv1.database_id
       ,dv1.object_id
       ,dv1.index_ID
-      ,dlt    = CAST(dv1.Row_ID AS NVARCHAR(10))+N'('
-               +CAST(CAST(100.0 * dv1.All_Density / dv0.All_Density AS TINYINT) AS NVARCHAR(10))
+      ,dlt    = CAST(dv1.Row_ID AS NVARCHAR(20))+N'('
+               +CAST(CAST(100.0 * dv1.All_Density / dv0.All_Density AS TINYINT) AS NVARCHAR(20))
                +N'%)'
       ,row_id = ROW_NUMBER() OVER (PARTITION BY dv1.database_id
                                             ,dv1.object_id
@@ -12364,7 +12364,7 @@ IF @ssms = 1 RAISERROR('... Rank percent of parent within instance & index withi
 -- Update column rankings - PARENT within TOTAL
 --------------------------------------------------------------------------------------------------------------------------------------------
 UPDATE tgt
-   SET diagnostic       = N'(' + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'% #' + CAST(c.diagnostic_rank AS NVARCHAR(10)) + N')'
+   SET diagnostic       = N'(' + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'% #' + CAST(c.diagnostic_rank AS NVARCHAR(20)) + N')'
       ,diagnostic_rank  = c.diagnostic_rank
       ,previous_sum_PCT = ISNULL(c.previous_sum_PCT,0.0)
   FROM tempdb.dbo.SQLXL_Index_Metrics AS tgt
@@ -12415,7 +12415,7 @@ OPTION (MAXDOP 1);
 -- Update column rankings - INDEX within PARENT
 --------------------------------------------------------------------------------------------------------------------------------------------
 UPDATE tgt
-   SET diagnostic       = N'(' + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'% #' + CAST(c.diagnostic_rank AS NVARCHAR(10)) + N')'
+   SET diagnostic       = N'(' + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'% #' + CAST(c.diagnostic_rank AS NVARCHAR(20)) + N')'
       ,diagnostic_rank  = c.diagnostic_rank
       ,previous_sum_PCT = ISNULL(c.previous_sum_PCT,0.0)
   FROM tempdb.dbo.SQLXL_Index_Metrics AS tgt
@@ -12949,7 +12949,7 @@ SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,ty
       ------------------------------------------------------
                    + NCHAR(10) + N'SQL Startup ' 
                                + COALESCE(s.run_value,N'<SQL Start Time not found>')
-                               + N' (' + COALESCE(CAST(DATEDIFF(DAY,s.run_value,sp.collection_DTTM) AS NVARCHAR(10))
+                               + N' (' + COALESCE(CAST(DATEDIFF(DAY,s.run_value,sp.collection_DTTM) AS NVARCHAR(20))
                                                  ,N'<SQL Start or collection time not found>'
                                                  )
                                + N' Days)'
@@ -13649,14 +13649,14 @@ SELECT database_id=d.database_id,parent_object_id=d.database_id,object_id=d.data
                            ,N', Execution Time: ' + tempdb.dbo.SQLXL_3SD(qso.capture_policy_Total_execution_cpu_time_ms,N'M')
                            ,N'')
                        +IIF(qso.capture_policy_stale_threshold_hours       >= 0
-                           ,N', Stale: '   + CAST(qso.capture_policy_stale_threshold_hours AS NVARCHAR(10)) + N'hrs'
+                           ,N', Stale: '   + CAST(qso.capture_policy_stale_threshold_hours AS NVARCHAR(20)) + N'hrs'
                            ,N'')
                        ,N'')
         -----------------------------------------------------
-        +NCHAR(10) + N'> Flush interval ' + CAST(qso.flush_interval_seconds  AS NVARCHAR(10)) + N'sec'
-                   + N', Max Plans '      + CAST(qso.max_plans_per_query     AS NVARCHAR(10))
+        +NCHAR(10) + N'> Flush interval ' + CAST(qso.flush_interval_seconds  AS NVARCHAR(20)) + N'sec'
+                   + N', Max Plans '      + CAST(qso.max_plans_per_query     AS NVARCHAR(20))
         -----------------------------------------------------
-        +NCHAR(10) + N'> Aggregation interval ' + CAST(qso.interval_length_minutes AS NVARCHAR(10)) + N'min'
+        +NCHAR(10) + N'> Aggregation interval ' + CAST(qso.interval_length_minutes AS NVARCHAR(20)) + N'min'
     ---------------------------------------------------------
     -- Automatic Tuning
     ---------------------------------------------------------
@@ -13935,7 +13935,7 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
       ,diagnostic=
 -- Diagnostic - DB - > 5% of indexes with writes and no reads (BI21 & 22)
   N'Nonclustered rowstore indexes with writes & no reads - '
-+ CAST(i.unused_idx_CNT AS NVARCHAR(10)) + N'/' + CAST(i.idx_CNT AS NVARCHAR(10))
++ CAST(i.unused_idx_CNT AS NVARCHAR(20)) + N'/' + CAST(i.idx_CNT AS NVARCHAR(20))
 + IIF(i.idx_CNT > 0,N'(' + tempdb.dbo.SQLXL_3SD(1.0 * I.unused_idx_CNT / i.idx_CNT,N'%') + N')',N'')
 + N' (BI21&22)'
 
@@ -13974,9 +13974,9 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_obje
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
       ,diagnostic_type_id = 4
       ,diagnostic=N'Included Columns: <10% Indexes - '
-              + CAST(i.included_index_CNT AS NVARCHAR(10))
+              + CAST(i.included_index_CNT AS NVARCHAR(20))
               + N'/'
-              + CAST(i.index_CNT AS NVARCHAR(10))
+              + CAST(i.index_CNT AS NVARCHAR(20))
               + N' (' + tempdb.dbo.SQLXL_3SD(1.0 * i.included_index_CNT / i.index_CNT,N'%') + N')'
               + N' (BI30&31)'
   FROM (SELECT database_id
@@ -13999,12 +13999,12 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_obje
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
       ,diagnostic_type_id=4
       ,diagnostic = N'Index on Views: <5% Views - CX: '
-              + CAST(i.clustered_index_CNT AS NVARCHAR(10))
+              + CAST(i.clustered_index_CNT AS NVARCHAR(20))
               + N'/'
-              + CAST(i.view_CNT AS NVARCHAR(10))
+              + CAST(i.view_CNT AS NVARCHAR(20))
               + N' (' + tempdb.dbo.SQLXL_3SD(1.0 * i.clustered_index_CNT / i.view_CNT,N'%') + N')'
               + N' NCX: '
-              + CAST(i.Nonclustered_index_CNT AS NVARCHAR(10))
+              + CAST(i.Nonclustered_index_CNT AS NVARCHAR(20))
               + N' (BI32)'
   FROM (SELECT database_id
               ,clustered_index_CNT    = SUM(IIF(type = N'1',1,0))
@@ -14025,9 +14025,9 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_obje
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
       ,diagnostic_type_id=4
       ,diagnostic=N'Filtered Indexes: <5% Indexes - '
-              + CAST(i.filtered_index_CNT AS NVARCHAR(10))
+              + CAST(i.filtered_index_CNT AS NVARCHAR(20))
               + N'/'
-              + CAST(i.index_CNT AS NVARCHAR(10))
+              + CAST(i.index_CNT AS NVARCHAR(20))
               + N' (' + tempdb.dbo.SQLXL_3SD(1.0 * i.filtered_index_CNT / i.index_CNT,N'%') + N')'
               + N' (BI32)'
   FROM (SELECT database_id
@@ -14051,7 +14051,7 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_obje
 -- Diagnostic - DB - non-default - Change Tracking Properties
 SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 8,diagnostic =
   N'Change Tracking - Auto Cleanup = ' + IIF(is_auto_cleanup_on = 1,N'[ON]',N'[OFF]')
-+ N' Retention = [' + CAST(retention_period AS NVARCHAR(10)) + N' ' + retention_period_units_desc + N']'
++ N' Retention = [' + CAST(retention_period AS NVARCHAR(20)) + N' ' + retention_period_units_desc + N']'
   FROM tempdb.dbo.SQLXL_Index_sys_databases d
  WHERE d.is_auto_cleanup_on IS NOT NULL;
 
@@ -14095,7 +14095,7 @@ SELECT i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
     ,NCHAR(10) + QUOTENAME(N'SYSTEM_VERSIONED_TEMPORAL_TABLE') + N' (BI110)'
     +NCHAR(10) + N'> Retention ' + IIF(tbl.history_retention_period_unit_desc = N'INFINITE'
                                       ,N'INFINITE'
-                                      ,CAST(tbl.history_retention_period AS NVARCHAR(10))+tbl.history_retention_period_unit_desc
+                                      ,CAST(tbl.history_retention_period AS NVARCHAR(20))+tbl.history_retention_period_unit_desc
                                       )
     +NCHAR(10) + N'> Versions: ' + ISNULL(QUOTENAME(i.tbl_history_table_schema) + N'.' + QUOTENAME(i.tbl_history_table_name)
                                        ,N'<Missing History table>'
@@ -14156,7 +14156,7 @@ SELECT i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
 ---------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - INTERNAL TABLE & Internal Type Description
 +IIF(i.obj_type = N'IT'
-    ,NCHAR(10) + QUOTENAME(tbl.type_desc + N': ' + ISNULL(i.internal_type_DESC,N'INTERNAL TYPE ' + CAST(i.internal_type AS NVARCHAR(10))))
+    ,NCHAR(10) + QUOTENAME(tbl.type_desc + N': ' + ISNULL(i.internal_type_DESC,N'INTERNAL TYPE ' + CAST(i.internal_type AS NVARCHAR(20))))
     ,N'')
 ---------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - Is empty
@@ -14220,7 +14220,7 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
       ELSE N'Sequence'
  END + N' Column'
 +NCHAR(10) + N'> ' + QUOTENAME(c.name)
-+NCHAR(10) + N'> at ' + CONVERT(NVARCHAR(10)
++NCHAR(10) + N'> at ' + CONVERT(NVARCHAR(20)
                               ,CAST(100.*COALESCE(CAST(c.Last_Value AS BIGINT)
                                                  ,CAST(c.seq_current_value AS BIGINT)
                                                  ,0)
@@ -14274,7 +14274,7 @@ UNION ALL
 SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 4,diagnostic = STUFF(
 -- Diagnostic - Table - text stored in row - limit
  IIF(tbl.text_in_row_limit > 0
-    ,NCHAR(10) + N'text stored in row - limit ' + CAST(tbl.text_in_row_limit AS NVARCHAR(10)) + N' bytes'
+    ,NCHAR(10) + N'text stored in row - limit ' + CAST(tbl.text_in_row_limit AS NVARCHAR(20)) + N' bytes'
     ,N'')
 
 -- Diagnostic - Table - Large types out of row - adds 16 byte pointer
@@ -14289,7 +14289,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 +IIF(   raw.partition_CNT         > 1
      OR raw.partition_Column_Name > N''
     ,NCHAR(10) + N'Partitioned on ' + QUOTENAME(raw.partition_column_name) + N' - '
-               + CAST(raw.partition_CNT AS NVARCHAR(10)) + N' partitions (BI64)'
+               + CAST(raw.partition_CNT AS NVARCHAR(20)) + N' partitions (BI64)'
     ,N'')
 
 -- Diagnostic - Table - Lock Escalation TABLE with Partitions
@@ -14355,7 +14355,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 -- Diagnostic - Object - Created Date - last 90 days (BI67)
 -- Diagnostic - Object - Modify Date - last 90 days (BI66)
 +IIF(DATEDIFF(DAY,p.obj_modify_date,sp.Collection_DTTM) <= 90
-    ,NCHAR(10) + N'Object Modified ' + CAST(DATEDIFF(DAY,p.obj_modify_date,sp.Collection_DTTM) AS NVARCHAR(10)) + N' days (BI66)'
+    ,NCHAR(10) + N'Object Modified ' + CAST(DATEDIFF(DAY,p.obj_modify_date,sp.Collection_DTTM) AS NVARCHAR(20)) + N' days (BI66)'
     +IIF(DATEDIFF(DAY,p.obj_create_date,p.obj_modify_date) > 0,N', Created ' +CONVERT(NVARCHAR(10),p.obj_create_date,2) + N' (BI67)',N'')
     ,N'')
 
@@ -14364,7 +14364,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - Many Nonclustered indexes on table (BI20)
 +IIF(p.tbl_is_clustered_columnstore <> 1 AND p.Nonclustered_index_CNT >= 4
-    ,NCHAR(10) + N'Nonclustered indexes: ' + CAST(p.Nonclustered_index_CNT AS NVARCHAR(10))
+    ,NCHAR(10) + N'Nonclustered indexes: ' + CAST(p.Nonclustered_index_CNT AS NVARCHAR(20))
     +IIF(    sp.version_major >= 13 
          AND (SELECT run_value
                 FROM tempdb.dbo.SQLXL_Index_sys_instance
@@ -14405,7 +14405,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 
 -- Diagnostic - Code Object - Executes AS PRINCIPAL ID
 +IIF(p.obj_execute_as_principal_id >  0
-    ,NCHAR(10) + N'Executes AS PRINCIPAL ID ' + CAST(p.obj_execute_as_principal_id AS NVARCHAR(10))
+    ,NCHAR(10) + N'Executes AS PRINCIPAL ID ' + CAST(p.obj_execute_as_principal_id AS NVARCHAR(20))
     ,N'')
 
 -- Diagnostic - Code Object - Is natively compiled
@@ -14632,7 +14632,7 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_obje
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - has 35 or more columns (BI26)
 -- Diagnostic - Table - has a non-LOB width greater than 2000 bytes (BI26)
-N'Wide table - ' + CAST(c.column_lng AS NVARCHAR(10)) + N' bytes in ' + CAST(c.column_CNT AS NVARCHAR(10)) + N' non-LOB columns (BI26)'
+N'Wide table - ' + CAST(c.column_lng AS NVARCHAR(20)) + N' bytes in ' + CAST(c.column_CNT AS NVARCHAR(20)) + N' non-LOB columns (BI26)'
   FROM (
         SELECT c.database_id
               ,c.object_id
@@ -14655,7 +14655,7 @@ N'Wide table - ' + CAST(c.column_lng AS NVARCHAR(10)) + N' bytes in ' + CAST(c.c
 INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8
 -- Diagnostic - Table - has columns with Collation not matching database collation (BI69)
-      ,diagnostic = N'String collation not match DB: ' + CAST(COUNT(1) AS NVARCHAR(10)) + N' columns (BI69)'
+      ,diagnostic = N'String collation not match DB: ' + CAST(COUNT(1) AS NVARCHAR(20)) + N' columns (BI69)'
   FROM tempdb.dbo.SQLXL_Index_sys_columns   AS c
   JOIN tempdb.dbo.SQLXL_Index_sys_databases AS d
     ON c.database_id                    = d.database_id
@@ -14755,7 +14755,7 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
  N'Computed Column not persisted (BI100)' + NCHAR(10) + N'> ' + QUOTENAME(c.name) + N' '
 +ISNULL( NCHAR(10)
         +N'> In Index(s): '
-        +STUFF((SELECT N', ' + CAST(index_id AS NVARCHAR(10))
+        +STUFF((SELECT N', ' + CAST(index_id AS NVARCHAR(20))
                      + N' ('
                      + IIF(ic.is_included_column = 0,N'Key',N'Inc')
                      + N')'
@@ -14780,7 +14780,7 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
 -- Diagnostic - Table - has replicated columns & count (not change data capture) (BI70)
       ,diagnostic = N'Replicated columns: '
       +IIF(c.replicated_columns <> c.all_columns
-          ,CAST(c.replicated_columns AS NVARCHAR(10)) + N' of ' + CAST(c.all_columns AS NVARCHAR(10))
+          ,CAST(c.replicated_columns AS NVARCHAR(20)) + N' of ' + CAST(c.all_columns AS NVARCHAR(20))
           ,N'All'
           ) + N' (BI70)'
 /*** LOCAL TESTING ***
@@ -14808,7 +14808,7 @@ SELECT c.*
 INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',s.database_id,s.object_id,s.object_id,s.object_id,N'U',diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - has non-indexed statistics - may indicate more indexes needed
-N'Table has ' + CAST(SUM(IIF(s.has_filter = 1,1,0)) AS NVARCHAR(10)) + N' non-index filtered statistics'
+N'Table has ' + CAST(SUM(IIF(s.has_filter = 1,1,0)) AS NVARCHAR(20)) + N' non-index filtered statistics'
   FROM tempdb.dbo.SQLXL_Index_sys_stats   AS s
   LEFT OUTER
   JOIN tempdb.dbo.SQLXL_Index_sys_indexes AS i
@@ -14877,9 +14877,9 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_obje
 SELECT rec_type = 'P',p.database_id,p.object_id,p.object_id,p.object_id,N'U',diagnostic_type_id = 8,diagnostic =
 -- Diagnostic - Table - has triggers and count by trigger type
 N'DML Triggers'
-+IIF(p.tbl_CLR_trigger_CNT           > 0,N' CLR: '        + CAST(p.tbl_CLR_trigger_CNT           AS NVARCHAR(10)),N'')
-+IIF(p.tbl_SQL_trigger_CNT           > 0,N' SQL: '        + CAST(p.tbl_SQL_trigger_CNT           AS NVARCHAR(10)),N'')
-+IIF(p.tbl_is_instead_of_trigger_CNT > 0,N' Instead Of: ' + CAST(p.tbl_is_instead_of_trigger_CNT AS NVARCHAR(10)),N'')
++IIF(p.tbl_CLR_trigger_CNT           > 0,N' CLR: '        + CAST(p.tbl_CLR_trigger_CNT           AS NVARCHAR(20)),N'')
++IIF(p.tbl_SQL_trigger_CNT           > 0,N' SQL: '        + CAST(p.tbl_SQL_trigger_CNT           AS NVARCHAR(20)),N'')
++IIF(p.tbl_is_instead_of_trigger_CNT > 0,N' Instead Of: ' + CAST(p.tbl_is_instead_of_trigger_CNT AS NVARCHAR(20)),N'')
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
@@ -14894,8 +14894,8 @@ N'DML Triggers'
 INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
   N'IDN Col ' + QUOTENAME(c.name)
-+ IIF(c.increment_value <> 1,N' increment ' + CAST(c.increment_value AS NVARCHAR(10)),N'')
-+ IIF(c.seed_value      <  0,N' seed '      + CAST(c.seed_value      AS NVARCHAR(10)),N'')
++ IIF(c.increment_value <> 1,N' increment ' + CAST(c.increment_value AS NVARCHAR(20)),N'')
++ IIF(c.seed_value      <  0,N' seed '      + CAST(c.seed_value      AS NVARCHAR(20)),N'')
 + N' (BI74)'
   FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
   JOIN tempdb.dbo.SQLXL_Index_sys_types   AS t
@@ -14910,8 +14910,8 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
 INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
   N'Sequence Column ' + QUOTENAME(c.name)
-+ IIF(c.seq_increment   <> 1,N' has increment value of ' + CAST(c.seq_increment   AS NVARCHAR(10)),N'')
-+ IIF(c.seq_start_value <  0,N' has seed value of '      + CAST(c.seq_start_value AS NVARCHAR(10)),N'')
++ IIF(c.seq_increment   <> 1,N' has increment value of ' + CAST(c.seq_increment   AS NVARCHAR(20)),N'')
++ IIF(c.seq_start_value <  0,N' has seed value of '      + CAST(c.seq_start_value AS NVARCHAR(20)),N'')
 + N' (BI74)'
   FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
   JOIN tempdb.dbo.SQLXL_Index_sys_types   AS t
@@ -14942,7 +14942,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
     +IIF(i.xml_secondary_type_desc IS NOT NULL,NCHAR(10) + N'XML Secondary Type desc: ' + i.xml_secondary_type_desc,N'')
 
 -- Diagnostic - Index - XML index - PATH ID
-    +IIF(i.xml_path_id > 0,NCHAR(10) + N'XML Path ID: ' + CAST(i.xml_path_id AS NVARCHAR(10)),N''),N'')
+    +IIF(i.xml_path_id > 0,NCHAR(10) + N'XML Path ID: ' + CAST(i.xml_path_id AS NVARCHAR(20)),N''),N'')
 
 -- Diagnostic - Index - is Spatial (BI62)
 +IIF(i.type = N'4',NCHAR(10)+ QUOTENAME(i.type_desc) + N' - ' + i.sub_type_desc + N' (BI62)',N'') -- Spatial
@@ -15050,7 +15050,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
               OR (100.0 * (i.row_CNT - i.stathdr_Rows_CNT) / i.row_CNT) > 1.0
              )
         ,ISNULL(NCHAR(10) 
-               +N'Statistics ' + CAST(i.stathdr_Statistics_age_days AS NVARCHAR(10)) + N' days old (BI90) on '
+               +N'Statistics ' + CAST(i.stathdr_Statistics_age_days AS NVARCHAR(20)) + N' days old (BI90) on '
                +tempdb.dbo.SQLXL_3SD(1.0 * i.stathdr_Rows_sampled_CNT / i.stathdr_Rows_CNT,N'%') 
                +N' rows (BI91)'
                ,N''
@@ -15309,8 +15309,8 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
                AND i.type NOT IN (N'0')     -- HEAPS handled separately
                AND i.ius_User_Total_CNT > 0 -- got activity
               THEN NCHAR(10)
-                  +N'Last Used - RDS: ' + ISNULL(CAST(i.ius_last_read_days_ago  AS NVARCHAR(10)) + N' days ago',N'NONE')
-                  +N' WRT: '            + ISNULL(CAST(i.ius_last_write_days_ago AS NVARCHAR(10)) + N' days ago',N'NONE')
+                  +N'Last Used - RDS: ' + ISNULL(CAST(i.ius_last_read_days_ago  AS NVARCHAR(20)) + N' days ago',N'NONE')
+                  +N' WRT: '            + ISNULL(CAST(i.ius_last_write_days_ago AS NVARCHAR(20)) + N' days ago',N'NONE')
               ELSE N''   -- No usage metrics for SPATIAL
          END
 
@@ -15483,7 +15483,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - Columnstore compression delay > 0
 +IIF(i.compression_delay_mm > 0
     ,NCHAR(10) + N'Columnstore compression delay '
-               + CAST(i.compression_delay_mm AS NVARCHAR(10)) + N' minutes'
+               + CAST(i.compression_delay_mm AS NVARCHAR(20)) + N' minutes'
     ,N'')
 
 -- Diagnostic - Index - Created by Auto Tuning
@@ -15524,7 +15524,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 
 -- Diagnostic - Index - Persisted Sample Percent < 100%
            +IIF(i.stathdr_Persisted_Sample_Percent BETWEEN 1 AND 99
-               ,NCHAR(10) + N', persisted sample ' + CAST(i.stathdr_Persisted_Sample_Percent AS NVARCHAR(10)) + N'%'
+               ,NCHAR(10) + N', persisted sample ' + CAST(i.stathdr_Persisted_Sample_Percent AS NVARCHAR(20)) + N'%'
                ,N'')
 
 -- Diagnostic - Index - Statistics generated by method
@@ -15576,7 +15576,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - is partitioned & partitioning column (BI64)
 +IIF(i.ios_partition_CNT > 1 OR i.partition_column_ID > 0
     ,NCHAR(10) + N'Partitioned on ' + QUOTENAME(COALESCE(i.partition_column_name,N'PART COL NOT FOUND')) + N' - '
-               + COALESCE(CAST(i.partition_CNT AS NVARCHAR(10)),N'PART CNT NOT FOUND') 
+               + COALESCE(CAST(i.partition_CNT AS NVARCHAR(20)),N'PART CNT NOT FOUND') 
                + N' partitions (BI64)'
     ,N'')
 
@@ -15602,10 +15602,10 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
          )
    ,NCHAR(10) + N'Big key: '
               + IIF(i.stathdr_Average_Key_Length > 0
-                   ,CAST(i.stathdr_Average_Key_Length      AS NVARCHAR(10)) + N' StatHdr bytes'
-                   ,CAST(i.key_Total_datatype_length_bytes AS NVARCHAR(10)) + N' col bytes'
+                   ,CAST(i.stathdr_Average_Key_Length      AS NVARCHAR(20)) + N' StatHdr bytes'
+                   ,CAST(i.key_Total_datatype_length_bytes AS NVARCHAR(20)) + N' col bytes'
                    ) + N' (BI24)'
-              + N' In ' + CAST(i.Key_Columns_CNT AS NVARCHAR(10)) + N' cols'
+              + N' In ' + CAST(i.Key_Columns_CNT AS NVARCHAR(20)) + N' cols'
               + IIF(i.type <> N'1',N' excl CX',N'')
               + N' (BI23)'
     ,N'')
@@ -15731,7 +15731,7 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
  N'Parameter sniffing candidate - Range ' 
 +tempdb.dbo.SQLXL_3SD(ssh.param_sniff,N'N')  
 +N'x for Key ' 
-+CAST(ic.key_column_sequence AS NVARCHAR(10))   
++CAST(ic.key_column_sequence AS NVARCHAR(20))   
   FROM tempdb.dbo.SQLXL_Index_sys_index_columns                    AS ic
   JOIN tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary AS ssh
     ON ic.database_id                                             = ssh.database_id
@@ -15838,17 +15838,17 @@ SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,di
 
 -- Diagnostic - index has filter on non-lead key column
 +IIF(ed.non_lead_key > 0
-    ,IIF(ed.lead_key > 0,N', ',N' ') + CAST(ed.non_lead_key AS NVARCHAR(10)) + N' non-Lead Key(s)'
+    ,IIF(ed.lead_key > 0,N', ',N' ') + CAST(ed.non_lead_key AS NVARCHAR(20)) + N' non-Lead Key(s)'
     ,N'')
 
 -- Diagnostic - index has filter on included column
 +IIF(ed.non_key > 0
-    ,IIF(ed.lead_key > 0 OR ed.non_lead_key > 0,N', ',N' ') + CAST(ed.non_key AS NVARCHAR(10)) + N' Included column(s)'
+    ,IIF(ed.lead_key > 0 OR ed.non_lead_key > 0,N', ',N' ') + CAST(ed.non_key AS NVARCHAR(20)) + N' Included column(s)'
     ,N'')
 
 -- Diagnostic - index filtered on a column not in the index (BI34) - with column name(s)
 +IIF(ed.non_index > 0
-    ,N', ' + CAST(ed.non_index    AS NVARCHAR(10)) + N' non-key column(s) (BI34) '
+    ,N', ' + CAST(ed.non_index    AS NVARCHAR(20)) + N' non-key column(s) (BI34) '
           +ISNULL((SELECT NCHAR(10) + N'> ' + QUOTENAME(c.name)
                      FROM tempdb.dbo.SQLXL_Index_sys_sql_expression_dependencies AS edc
                      LEFT OUTER
@@ -15976,7 +15976,7 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_obje
 SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic =
  N'Column Filtered Statistics (BI93)'
           +ISNULL((SELECT N' Key '
-                         +CAST(cfs.key_column_sequence AS NVARCHAR(10))
+                         +CAST(cfs.key_column_sequence AS NVARCHAR(20))
                          +N': '+tempdb.dbo.SQLXL_3SD(cfs.cnt,N'I')
                      FROM #key_column_filtered_statistics AS cfs
                     WHERE i.database_id      = cfs.database_id
@@ -16012,7 +16012,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8,diagnostic =
- N'Key ' + CAST(ic.key_column_sequence AS NVARCHAR(10)) + N':'
+ N'Key ' + CAST(ic.key_column_sequence AS NVARCHAR(20)) + N':'
 +CASE WHEN c.data_type = N'BIT'
       THEN N' BIT, '
       WHEN c.is_sparse = 1
@@ -16198,7 +16198,7 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 0
       ,diagnostic = N'[RESUMABLE OPERATION - ' + r.state_desc + N']'
-                  +NCHAR(10) + N'> Started: ' + CAST(DATEDIFF(DAY,r.start_time,GETDATE()) AS NVARCHAR(10)) + N' days ago)'
+                  +NCHAR(10) + N'> Started: ' + CAST(DATEDIFF(DAY,r.start_time,GETDATE()) AS NVARCHAR(20)) + N' days ago)'
                   +NCHAR(10) + N'> Paused:'  + CONVERT(NVARCHAR(10),r.last_pause_time,11) + N'@' +CONVERT(NVARCHAR(8),r.last_pause_time,114)
                              + N' Complete: ' + CAST(r.percent_complete_MAX AS NVARCHAR(2)) + N'%'
   FROM tempdb.dbo.SQLXL_Index_sys_index_resumable_operations AS r
@@ -16265,8 +16265,8 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
          )
      AND i.Key_Columns_CNT > (1 + IIF(i.partition_function_ID > 0,1,0)) -- if partitioned must have partitioned column
     ,NCHAR(10)+IIF(i.type = N'1'
-                  ,N'> has ' +CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(10)) + N' unneeded col(s)'
-                  ,N'> move ' + CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(10)) + N' unneeded columns to Include')
+                  ,N'> has ' +CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(20)) + N' unneeded col(s)'
+                  ,N'> move ' + CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(20)) + N' unneeded columns to Include')
     ,N'')
 -- Diagnostic - Index - Lead Key - another column may be a better clustering lead key
 +IIF(    i.type                          IN (N'1')
@@ -16347,7 +16347,7 @@ SELECT TOP 100 PERCENT
      OR c.max_length = -1
     ,NCHAR(10) + N'Index Key ' + QUOTENAME(ic.key_column_sequence)
                + N' is ' + UPPER(typ.name)
-               + N'(' + IIF(c.max_length = -1,N'MAX',CAST(c.max_length AS NVARCHAR(10)))  + N') (BI27)'
+               + N'(' + IIF(c.max_length = -1,N'MAX',CAST(c.max_length AS NVARCHAR(20)))  + N') (BI27)'
     ,N'')
 +IIF(c.collation_name <> d.collation_name
     ,NCHAR(10) + N'Index Key ' + QUOTENAME(ic.key_column_sequence)
@@ -16678,7 +16678,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
     +N' Grid3:' +COALESCE(i.si_level_3_grid_desc,N'AUTO')
     +N' Grid4:' +COALESCE(i.si_level_4_grid_desc,N'AUTO')
     +NCHAR(10)
-    +N' Cells per object: ' + CAST(i.si_cells_per_object AS NVARCHAR(10))
+    +N' Cells per object: ' + CAST(i.si_cells_per_object AS NVARCHAR(20))
     ,N'')
 
 +IIF(i.tbl_is_memory_optimized = 1
@@ -16947,7 +16947,7 @@ SELECT rec_type= N'I',i.database_id,i.parent_object_id,i.object_id,index_id=i.ob
  N'No covering IDX (BI72)'
 +IIF(i.fkc_Missing_index_CNT > 0 -- candidate missing indexes found
 -- Diagnostic - Foreign Key Constraint - elements found in Missing indexes
-    ,NCHAR(10) + N'> In ' + CAST(i.fkc_Missing_index_CNT AS NVARCHAR(10)) + N' MIX '
+    ,NCHAR(10) + N'> In ' + CAST(i.fkc_Missing_index_CNT AS NVARCHAR(20)) + N' MIX '
                +N' Adv: '   + IIF(a.mix_Advantage_AMT > 0
                                  ,tempdb.dbo.SQLXL_3SD(1.0 * ISNULL(i.mix_Advantage_AMT,0) / a.mix_Advantage_AMT,N'%')
                                  ,N'')
@@ -17004,7 +17004,7 @@ SELECT COUNT(1)
 -- Diagnostic - Foreign Key Constraint - count of referring FKC to this reference
 UNION ALL
 SELECT rec_type   = N'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id= 8
-      ,diagnostic = N'FKC References - ' + QUOTENAME(CAST(i.rk_referencing_fkc_CNT AS NVARCHAR(10)))
+      ,diagnostic = N'FKC References - ' + QUOTENAME(CAST(i.rk_referencing_fkc_CNT AS NVARCHAR(20)))
   FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  WHERE i.rec_type               = N'I'
    AND i.rk_referencing_fkc_CNT > 0
@@ -17040,7 +17040,7 @@ SELECT -- Index level
                                   ,N'<NONE>'
                                   )
       +N' Compiles: '     + ISNULL(tempdb.dbo.SQLXL_3SD(i.mix_unique_compiles_CNT,N'I'),N'<NONE>')
-      +ISNULL(N' Last '   + TRY_CAST(i.ius_last_read_days_ago AS NVARCHAR(10)) + N' days ago',N'<NEVER>')
+      +ISNULL(N' Last '   + TRY_CAST(i.ius_last_read_days_ago AS NVARCHAR(20)) + N' days ago',N'<NEVER>')
 
 -- Diagnostic - Missing index - candidate to cover foreign key constraint
       +IIF(mix.fkc_id IS NOT NULL
@@ -17871,7 +17871,7 @@ SET @srt += 1;INSERT INTO #prescription
 DECLARE @srt INT = 0;
 --*/
 SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request',@srt
-      ,prescription = N'CX from NCX ' + CAST(i.tbl_smallest_uniq_Nonclustered_idx AS NVARCHAR(10))
+      ,prescription = N'CX from NCX ' + CAST(i.tbl_smallest_uniq_Nonclustered_idx AS NVARCHAR(20))
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
@@ -19190,7 +19190,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Review',
       +IIF(i.is_disabled                = 1,NCHAR(10) + N' Disabled'                                                     ,N'')
       +IIF(i.ignore_dup_key             = 1,NCHAR(10) + N' Dupl keys ignored'                                            ,N'')
       +IIF(i.suppress_dup_key_messages  = 1,NCHAR(10) + N' Dupl key msg suppressed'                                      ,N'')
-      +IIF(i.compression_delay_mm       > 0,NCHAR(10) + N' Compression delay ' + CAST(i.compression_delay_mm AS NVARCHAR(10)),N'')
+      +IIF(i.compression_delay_mm       > 0,NCHAR(10) + N' Compression delay ' + CAST(i.compression_delay_mm AS NVARCHAR(20)),N'')
       +IIF(i.auto_created               = 1,NCHAR(10) + N' Auto created'                                                 ,N'')
       ,1,2,N'')
   FROM (SELECT *
@@ -20232,7 +20232,7 @@ SELECT
                                  WHEN i.rec_type  = N'H' THEN N'O'
                                  ELSE N'T'
                             END
-                           +CAST(i.database_id AS NVARCHAR(10)) + N'.'
+                           +CAST(i.database_id AS NVARCHAR(20)) + N'.'
 
                            -- Parent Object. "pipe" added to delimit drill down term in Excel filter
                            +IIF(i.rec_type NOT IN (N'A',N'D')
@@ -20252,7 +20252,7 @@ SELECT
                                    ,N'')
                                 -- "Index Level"
                                +IIF(i.rec_type = N'I'
-                                   ,+N'*'+RIGHT(N'000000000'+CAST(i.index_id AS NVARCHAR(10)),10)
+                                   ,+N'*'+RIGHT(N'000000000'+CAST(i.index_id AS NVARCHAR(20)),10)
                                    ,N'')
                                ,N'')
 
@@ -20685,9 +20685,9 @@ SELECT
                                      ,N'N/A')
 
           +NCHAR(10) + N'LEN ' + IIF(i.stathdr_Average_Key_Length > 0
-                                    ,CAST(i.stathdr_Average_Key_Length AS NVARCHAR(10))
+                                    ,CAST(i.stathdr_Average_Key_Length AS NVARCHAR(20))
                                     ,IIF(i.key_Total_datatype_length_bytes > 0
-                                         ,CAST(i.key_Total_datatype_length_bytes    AS NVARCHAR(10))
+                                         ,CAST(i.key_Total_datatype_length_bytes    AS NVARCHAR(20))
                                          ,N'<??>'))
                      + N' NUL ' + IIF(CAST(i.type AS INT) IS NOT NULL
                                      ,tempdb.dbo.SQLXL_3SD(i.stathist_null_rows,N'I')
@@ -20740,7 +20740,7 @@ SELECT
       THEN STUFF(--
                  CASE WHEN p.data_space_id         > 0
                       THEN NCHAR(10) +N'Data Space'+N' '+QUOTENAME(i.data_space_name)
-                          +N' '+N'('+CAST(i.data_space_id AS NVARCHAR(10))+N')'
+                          +N' '+N'('+CAST(i.data_space_id AS NVARCHAR(20))+N')'
                       ELSE N''
                  END --COLLATE DATABASE_DEFAULT
                  --
@@ -20756,7 +20756,7 @@ SELECT
                  --
                 +CASE WHEN p.partition_Column_ID   > 0
                       THEN NCHAR(10) +N'Partition COLUMN' +N' '+QUOTENAME(p.partition_Column_Name)
-                          + N' '+N'('+CAST(p.partition_Column_ID AS NVARCHAR(10))+N')'
+                          + N' '+N'('+CAST(p.partition_Column_ID AS NVARCHAR(20))+N')'
                       ELSE N''
                  END --COLLATE DATABASE_DEFAULT
                  --
@@ -20767,7 +20767,7 @@ SELECT
                  --
                 +CASE WHEN p.partition_function_id > 0
                       THEN NCHAR(10) +N'Partition function' + N' '+QUOTENAME(p.partition_function_name)
-                          +N' '+N'('+CAST(p.partition_function_id  AS NVARCHAR(10))+N')'
+                          +N' '+N'('+CAST(p.partition_function_id  AS NVARCHAR(20))+N')'
                       ELSE N''
                  END --COLLATE DATABASE_DEFAULT
                 ,1,1,N'')
