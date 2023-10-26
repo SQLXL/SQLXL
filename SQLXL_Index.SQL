@@ -6844,8 +6844,8 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 ,constraints                                NVARCHAR(4000) COLLATE DATABASE_DEFAULT     NULL
 ,extended_properties                        NVARCHAR(4000) COLLATE DATABASE_DEFAULT     NULL
 -----------------------------------------------------------
-,Diagnostics                                NVARCHAR(4000) COLLATE DATABASE_DEFAULT     NULL
-,Diagnostics_Metrics                        NVARCHAR(4000) COLLATE DATABASE_DEFAULT     NULL
+,Diagnostics                                NVARCHAR(MAX)  COLLATE DATABASE_DEFAULT     NULL
+,Diagnostics_Metrics                        NVARCHAR(MAX)  COLLATE DATABASE_DEFAULT     NULL
 ) WITH (DATA_COMPRESSION = PAGE);
 
 /******************************************************************************************************************************************/
