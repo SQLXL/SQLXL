@@ -1,4 +1,4 @@
--- VERSION 2023.08.31
+-- VERSION 2023.10.31
 
 /******************************************************************************************************************************************\
 Copyright (C) 2023 Practice Computing Mangement Inc.
@@ -47,7 +47,7 @@ Change to tempdb NOTE: tempdb must be lower case if server installed with CASE S
 USE tempdb;
 
 /******************************************************************************************************************************************/
--- Eliminate all previous tempdb source data stores (_SYS_, _CDC_) objects in case of structure change with new version
+-- Eliminate all previous tempdb source data stores (_SYS_, _CDC_) objects in case of structure change with latest version
 /******************************************************************************************************************************************/
 DECLARE @sql       NVARCHAR(MAX)
        ,@run_value NVARCHAR(4000)
@@ -55,13 +55,13 @@ DECLARE @sql       NVARCHAR(MAX)
 WHILE 1 = 1
 BEGIN
    SELECT TOP (1)
-          @run_value = QUOTENAME(s.name)+'.'+QUOTENAME(t.name)
-         ,@sql = N'TRUNCATE TABLE [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name)+N';'
+          @run_value = QUOTENAME(s.name)+N'.'+QUOTENAME(t.name)
+         ,@sql = N'TRUNCATE TABLE [tempdb].'+QUOTENAME(s.name)+N'.'+QUOTENAME(t.name)+N';'
                 +NCHAR(13)+NCHAR(10)
                 -- Drops MISSING index recommendations if previously made
-                +N'ALTER index ALL ON [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name) +N' REBUILD;'
+                +N'ALTER index ALL ON [tempdb].'+QUOTENAME(s.name)+N'.'+QUOTENAME(t.name) +N' REBUILD;'
                 +NCHAR(13)+NCHAR(10)
-                +N'DROP TABLE [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name)+N';'
+                +N'DROP TABLE [tempdb].'+QUOTENAME(s.name)+N'.'+QUOTENAME(t.name)+N';'
      FROM tempdb.sys.tables  AS t
      JOIN tempdb.sys.objects AS o
        ON t.object_id  = o.object_id
@@ -90,8 +90,9 @@ GO
 
  ALTER PROCEDURE dbo.SQLXL_Index
       (@database_name                    SYSNAME = NULL
-      ,@cover_foreign_keys               TINYINT = 2
-      ,@create_Nonclustered_columnstores TINYINT = 1
+      ,@cover_foreign_keys               TINYINT = 2 -- continue to cover all Foreign Key Constraints TRUSTED, ENABLED, and REPLICATED
+                                                     -- Includes creating new indexes based on MISSING index recommendations
+      ,@create_Nonclustered_columnstores TINYINT = 1 -- create Nonclustered columnstores on tables as below
       -----------------------------------
       ,@Prio_wait_time                   SMALLINT = 100
       ,@Prio_wait_count                  SMALLINT =  50
@@ -187,10 +188,20 @@ DECLARE @collation        SYSNAME  = (SELECT collation_name FROM sys.databases W
                                               ) LIKE N'Microsoft SQL Server Management Studio%'
                                          THEN 1
                                          ELSE 0
-                                    END;
+                                    END
+       ,@debug            VARCHAR(1000)
+       ,@debug_DTTM       DATETIME      = GETDATE()
 
-IF @ssms = 1 RAISERROR ('Starting "SQLXL Index Source Data Collection"',0,0) WITH NOWAIT;
-IF @ssms = 1 RAISERROR ('',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = N'MM:SS:hhh Step'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug = N'--------- -----------------------------------------------------------------------------------------------------------------'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Starting SQLXL Index Source Data Collection'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
 
 /******************************************************************************************************************************************/
 -- Eliminate all previous SOURCE (SYS) objects, truncate & rebuild to blow out any missing index recommendations
@@ -202,18 +213,16 @@ DECLARE @sql       NVARCHAR(MAX)
        ,@ssms BIT = 1
 --*/
 
-IF @ssms = 1 RAISERROR ('Dropping existing tempdb SQLXL_IDX data collection tables if found',0,0) WITH NOWAIT;
-
 WHILE 1 = 1
 BEGIN
    SELECT TOP (1)
-          @run_value = QUOTENAME(s.name)+'.'+QUOTENAME(t.name)
-         ,@sql = N'TRUNCATE TABLE [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name)+N';'
+          @run_value = QUOTENAME(s.name)+N'.'+QUOTENAME(t.name)
+         ,@sql = N'TRUNCATE TABLE [tempdb].'+QUOTENAME(s.name)+N'.'+QUOTENAME(t.name)+N';'
                 +NCHAR(13)+NCHAR(10)
                 -- Drops MISSING index recommendations
-                +N'ALTER index ALL ON [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name) +N' REBUILD;'
+                +N'ALTER index ALL ON [tempdb].'+QUOTENAME(s.name)+N'.'+QUOTENAME(t.name) +N' REBUILD;'
                 +NCHAR(13)+NCHAR(10)
-                +N'DROP TABLE [tempdb].'+QUOTENAME(s.name)+'.'+QUOTENAME(t.name)+N';'
+                +N'DROP TABLE [tempdb].'+QUOTENAME(s.name)+N'.'+QUOTENAME(t.name)+N';'
      FROM tempdb.sys.tables  AS t
      JOIN tempdb.sys.objects AS o
        ON t.object_id  = o.object_id
@@ -234,11 +243,11 @@ BEGIN
    END
 END
 
-IF @ssms = 1
-BEGIN
-   RAISERROR ('Creating SQLXL Index data collection tables in tempdb',0,0) WITH NOWAIT;
-   RAISERROR ('... @Functions,sys.instance,TRACESTATUS,SERVERPROPERTY,@@Functions,SystemFunctions(),sys.dm_os_sys_info,sys.servers(=0)',0,0)
-             WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Dropped existing tempdb SQLXL_IDX data collection tables if found '
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
 END
 
 /******************************************************************************************************************************************/
@@ -257,10 +266,6 @@ SELECT collation        = @collation
 /******************************************************************************************************************************************/
 -- Create table to hold Instance/Server configuration info from sys.sp_configure and SERVERPROPERTY
 /******************************************************************************************************************************************/
-IF @ssms = 1
-   RAISERROR ('... sys.instance, SERVERPROPERTY(All), @@Functions, SystemFunctions(), sys.dm_os_sys_info, sys.servers',0,0)
-   WITH NOWAIT;
-
 SELECT TOP (0)
        source           = CAST(NULL AS SYSNAME)        COLLATE DATABASE_DEFAULT
       ,name             = CAST(NULL AS SYSNAME)        COLLATE DATABASE_DEFAULT
@@ -624,13 +629,18 @@ SELECT N'servers',N'is_remote_proc_transaction_promotion_enabled'
          ,run_value
          );
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.sp_configure,DBCC TRACESTATUS,SERVERPROPERTY,@@Functions,SystemFunctions(),sys.dm_os_sys_info,sys.servers'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /******************************************************************************************************************************************/
 -- Collect sys.Databases info - use collation from tempdb to avoid collation issues later
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.databases, sys.change_tracking_databases',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @database_name NVARCHAR(128) = N'WideWorldImporters'
 DELETE FROM tempdb.dbo.SQLXL_Index_sys_databases WHERE name = N'WideWorldImporters';
@@ -806,14 +816,27 @@ SELECT name                                        = name                       
 
 IF @@RowCount = 1
 BEGIN
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N' Captured sys.databases, sys.change_tracking_databases - 1 database found'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
    SELECT TOP (1)
-          @database_id = database_id
+          @database_id = database_id           -- used to reduce footprint of querying sys.dm_db_index_operational_stats below
      FROM tempdb.dbo.SQLXL_Index_sys_databases
     ORDER BY
           database_id;
 END
 ELSE
 BEGIN
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N' Captured sys.databases, sys.change_tracking_databases'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
+
    IF NOT EXISTS (SELECT NULL
                     FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
                    WHERE name = N'ixuc_SQLXL_Index_sys_databases'
@@ -824,15 +847,21 @@ BEGIN
          (database_id
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N' Created index on tempdb.dbo.SQLXL_Index_sys_databases'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
 END
+
 
 /******************************************************************************************************************************************/
 -- Collect sys.availability_replicas
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.availability_replicas',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_availability_replicas') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_availability_replicas
 DECLARE @database_name NVARCHAR(128) = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
@@ -872,13 +901,18 @@ SELECT replica_id                                  = replica_id
   FROM sys.availability_replicas
 ) AS qry;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.availability_replicas'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /******************************************************************************************************************************************/
 -- Collect sys.dm_hadr_availability_replica_states
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.dm_hadr_availability_replica_states',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
@@ -914,11 +948,16 @@ SELECT replica_id                                  = replica_id
   FROM sys.dm_hadr_availability_replica_states
 ) AS qry;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.dm_hadr_availability_replica_states'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /******************************************************************************************************************************************/
 -- Missing index details - includes sys.dm_db_missing_index_details, dm_db_missing_index_groups, dm_db_missing_index_group_stats
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.dm_db_missing_index: detail, groups, group_stats',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_details
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
@@ -975,11 +1014,16 @@ SELECT --------------------------------------------------------------
   JOIN sys.dm_db_missing_index_group_stats AS migs
     ON mig.index_group_handle               = migs.group_handle;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.dm_db_missing_index: detail, groups, group_stats'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /******************************************************************************************************************************************/
 -- Missing index columns - sys.dm_db_missing_index_columns
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.dm_db_missing_index_columns',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
@@ -1003,19 +1047,35 @@ SELECT --------------------------------------------------------------
  CROSS
  APPLY sys.dm_db_missing_index_columns(mid.index_handle) mic;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.dm_db_missing_index_columns'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 -- Add index to speed up subsequent queries
 IF NOT EXISTS (SELECT NULL
                  FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
                 WHERE name = N'ixuc_SQLXL_Index_sys_dm_db_missing_index_columns')
-CREATE UNIQUE CLUSTERED
- index ixuc_SQLXL_Index_sys_dm_db_missing_index_columns
-    ON tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
-      (database_id
-      ,object_id
-      ,index_handle
-      ,column_id
-      )
-  WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+BEGIN 
+   CREATE UNIQUE CLUSTERED
+    index ixuc_SQLXL_Index_sys_dm_db_missing_index_columns
+       ON tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
+         (database_id
+         ,object_id
+         ,index_handle
+         ,column_id
+         )
+     WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+   
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N' Created index on tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_columns'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
+END
 
 /******************************************************************************************************************************************/
 -- Missing index Group Stats Query & query text - SQL 2019+ & Azure SQL Database
@@ -1026,8 +1086,6 @@ CREATE UNIQUE CLUSTERED
 --  If it's got more, they could see performance slowdowns from flushing out buffer and query cache due to over large memory grant"
 --  https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/issues/3085
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.dm_db_missing_index_group_stats: query, query_text (most reads) SQL 2019+',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
@@ -1131,11 +1189,16 @@ ELSE
          ,query_text                  = CAST(NULL AS VARCHAR(MAX)) COLLATE DATABASE_DEFAULT
      INTO tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.dm_db_missing_index_group_stats: query, query_text (most reads) SQL 2019+N'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /******************************************************************************************************************************************/
 -- Collect sys.dm_db_index_usage_stats for one or all user databases
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.dm_db_index_usage_stats',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_db_index_usage_stats
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
@@ -1171,13 +1234,18 @@ SELECT ius.database_id
     ON d.database_id                       = ius.database_id
 ) AS qry;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.dm_db_index_usage_stats'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /******************************************************************************************************************************************/
 -- Collect sys.dm_db_index_operational_stats
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.dm_db_index_operational_stats',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_index_operational_stats') IS NOT NULL
    DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_db_index_operational_stats
@@ -1316,12 +1384,23 @@ SELECT ios.database_id
       ,ios.index_id
 ) AS qry;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.dm_db_index_operational_stats'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /******************************************************************************************************************************************/
 -- Aggregate sys.dm_os_buffer_descriptors
 -- NOTE: column [op_history] not found in BOL
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('... sys.dm_os_buffer_descriptors',0,0) WITH NOWAIT;
-
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Start capture sys.dm_os_buffer_descriptors'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
 /*** LOCAL TESTING ***
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors') IS NOT NULL
    DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
@@ -1341,16 +1420,32 @@ SELECT bd.database_id
        bd.database_id
       ,bd.allocation_unit_id;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Captured sys.dm_os_buffer_descriptors'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 IF NOT EXISTS (SELECT NULL
                  FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
                 WHERE name = N'ixuc_SQLXL_Index_sys_dm_os_buffer_descriptors')
-CREATE UNIQUE CLUSTERED
- index ixuc_SQLXL_Index_sys_dm_os_buffer_descriptors
-    ON tempdb.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
-      (database_id
-      ,allocation_unit_id
-      )
-  WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+BEGIN
+   CREATE UNIQUE CLUSTERED
+    INDEX ixuc_SQLXL_Index_sys_dm_os_buffer_descriptors
+       ON tempdb.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors
+         (database_id
+         ,allocation_unit_id
+         )
+     WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N' Created index on tempdb.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
+END
 
 /*########################################################################################################################################*/
 -- Loop through requested databases - Collect database-specific information for one or all user databases
@@ -1360,8 +1455,6 @@ CREATE UNIQUE CLUSTERED
 -- sys.dm_db_xtp_hash_index_stats   BOL "useful for understanding and tuning the bucket counts. It can also be used to detect cases
 --                                       where the index key has many duplicates. Note - SCANS THE ENTIRE TABLE!"
 /*########################################################################################################################################*/
-IF @ssms = 1 RAISERROR ('Starting Loop through Databases',0,0) WITH NOWAIT;
-
 /******************************************************************************************************************************************/
 -- Create local variables & Cursor
 -- List of databases to run through was previously filtered when creating tempdb.dbo.SQLXL_Index_sys_databases
@@ -1385,6 +1478,13 @@ SELECT d.database_id
 
 OPEN db_crsr;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Opened Database cursor'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 WHILE @i > 0 -- On the first database displays the dynamic sql and recreates target tables
 
 /******************************************************************************************************************************************/
@@ -1398,16 +1498,18 @@ BEGIN
 
    IF @@Fetch_Status < 0 BREAK;
 
-   SET @sql = N'   Begin Database ' + CAST(@database_name AS NVARCHAR(MAX));
-   IF @ssms = 1 RAISERROR (@sql,0,0) WITH NOWAIT;
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N' -- Database: ' + CAST(@database_name AS NVARCHAR(MAX))
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.database_scoped_configurations - Introduced in SQL 2016
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.database_scoped_configurations - SQL 2016+',0,0) WITH NOWAIT;
-
 IF TRY_CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 13 -- SQL 2016+
 OR CONVERT(SYSNAME,SERVERPROPERTY(N'Edition')) = N'SQL Azure'   -- SQL Azure
 BEGIN -- SQL 2016+, AZURE
@@ -1421,6 +1523,7 @@ DECLARE @sql           NVARCHAR(MAX)
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_database_scoped_configurations') IS NOT NULL
    DROP TABLE tempdb.dbo.SQLXL_Index_sys_database_scoped_configurations
 --*/
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
@@ -1471,11 +1574,16 @@ BEGIN
      INTO tempdb.dbo.SQLXL_Index_sys_database_scoped_configurations;
 END
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.database_scoped_configurations - SQL 2016+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.database_automatic_tuning_options - Introduced in SQL 2017
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.database_automatic_tuning_options - SQL 2017+',0,0) WITH NOWAIT;
-
 IF TRY_CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 14 -- SQL 2017+
 OR CONVERT(SYSNAME,SERVERPROPERTY(N'Edition')) = N'SQL Azure'   -- Azure SQL
 BEGIN -- SQL 2017+, AZURE
@@ -1539,13 +1647,18 @@ BEGIN
      INTO tempdb.dbo.SQLXL_Index_sys_database_automatic_tuning_options;
 END
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.database_automatic_tuning_options - SQL 2017+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.database_query_store_options - - Introduced in SQL 2016
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.database_query_store_options - SQL 2016+',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -1649,6 +1762,13 @@ END
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.database_query_store_options - SQL 2016+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- cdc.change_tables - if Change Data Capture (CDC) enabled for this database
 -- FUTURE:
@@ -1656,8 +1776,6 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 --      Instead, execute the sys.sp_cdc_help_change_data_capture stored procedure
 --      <BS> Up to two rows can be returned for each source table, one row for each capture instance.
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... cdc.change_tables (if CDC enabled)',0,0) WITH NOWAIT;
-
 IF (SELECT is_cdc_enabled FROM tempdb.dbo.SQLXL_Index_sys_databases WHERE database_id = @database_id) = 1
 BEGIN
 /*** LOCAL TESTING ***
@@ -1729,11 +1847,16 @@ BEGIN
      INTO tempdb.dbo.SQLXL_Index_cdc_change_tables;
 END
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... cdc.change_tables (if CDC enabled)'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.schemas
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.schemas',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -1771,6 +1894,13 @@ IF @ssms = 2 AND @i = 1                      -- SSMS and first database only
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.schemas'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 -- Add index to speed up subsequent queries
 IF @i = 2 -- only execute on second database if more than one
 BEGIN
@@ -1784,15 +1914,21 @@ BEGIN
          ,schema_id
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N'    ... Create index on tempdb.dbo.SQLXL_Index_sys_schemas'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
 END
+
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- sys.tables, including cdc.change_tables if CDC enabled. tempdb.dbo.SQLXL_Index_cdc_change_tables created above
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.tables, sys.change_tracking_tables',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -1948,6 +2084,13 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.tables, sys.change_tracking_tables'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.objects Also includes:
 --    sys.sql_modules     -- for code definitions
@@ -1961,8 +2104,6 @@ EXECUTE sp_executesql @sql; IF @@error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.objects,sys.views,sys.sql_modules,sys.internal_tables,sys.triggers,sys.table_types',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -2215,6 +2356,13 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.objects,sys.views,sys.sql_modules,sys.internal_tables,sys.triggers,sys.table_types'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 -- Add index to speed up subsequent queries
 If @I = 1 -- only execute on first database
 BEGIN
@@ -2228,6 +2376,13 @@ BEGIN
          ,object_id
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N'    ... Created index on tempdb.dbo.SQLXL_Index_sys_objects'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -2235,9 +2390,6 @@ END
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1
-   RAISERROR ('   ... sys.data_spaces, sys.filegroups, sys.database_files, sys.partition_schemes ,sys.partition_functions',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -2367,11 +2519,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.data_spaces, sys.filegroups, sys.database_files, sys.partition_schemes ,sys.partition_functions'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.default_constraints - used below for SEQUENCES, so get it here & reuse below - only grab from source once
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.default_constraints',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -2418,11 +2575,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.default_constraints'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.types
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.types',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -2472,14 +2634,18 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.types'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.columns + sys.identity_columns, sys.computed_columns, sys.sequences, sys.dm_sql_referencing_entities
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1
-   RAISERROR ('   ... sys.columns,sys.identity_columns,sys.computed_columns,sys.sequences,sys.dm_sql_referencing_entities',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -2720,11 +2886,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.columns,sys.identity_columns,sys.computed_columns,sys.sequences,sys.dm_sql_referencing_entities'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.column_type_usages
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.column_type_usages',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -2762,6 +2933,13 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.column_type_usages'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Add Internal Tables to sys.tables collection in SQLXL_Index_sys_tables - used for downstream data compilation
 -- NOTE: Internal Tables not found in sys.tables
@@ -2770,8 +2948,6 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 DECLARE @database_id INT = DB_ID(N'WideWorldImporters')
        ,@ssms        BIT = 0
 --*/
-
-IF @ssms = 1 RAISERROR ('   ... Add System Internal Tables to SQLXL_Index_sys_tables',0,0);
 
 INSERT
   INTO tempdb.dbo.SQLXL_Index_sys_tables
@@ -2841,11 +3017,16 @@ SELECT database_id = @database_id
  WHERE @database_id  = o.database_id
    AND N'IT'         = o.type;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... Add System Internal Tables to SQLXL_Index_sys_tables'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.check_constraints
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.check_constraints',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -2918,13 +3099,18 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.check_constraints'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.key_constraints
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.key_constraints',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -2972,11 +3158,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.key_constraints'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.edge_constraints - Introduced in SQL 2019
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.edge_constraints - SQL 2019+',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3047,11 +3238,16 @@ BEGIN
      INTO tempdb.dbo.SQLXL_Index_sys_edge_constraints;
 END
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.edge_constraints - SQL 2019+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.edge_constraint_clauses - Introduced in SQL 2019
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.edge_constraint_clauses - SQL 2019+',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3108,11 +3304,16 @@ BEGIN
      INTO tempdb.dbo.SQLXL_Index_sys_edge_constraint_clauses;
 END
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.edge_constraint_clauses - SQL 2019+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.hash_indexes - Introduced in SQL 2014
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.hash_indexes - SQL 2014+',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3168,15 +3369,18 @@ BEGIN
      INTO tempdb.dbo.SQLXL_Index_sys_hash_indexes;
 END
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.hash_indexes - SQL 2014+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.indexes + sys.spatial_indexes,sys.spatial_index_tessellations,sys.xml_indexes,sys.hash_indexes
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1
-   RAISERROR ('   ... sys.indexes, sys.spatial_indexes, sys.spatial_index_tessellations, sys.xml_indexes, sys.hash_indexes',0,0)
-   WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3339,12 +3543,19 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.indexes, sys.spatial_indexes, sys.spatial_index_tessellations, sys.xml_indexes, sys.hash_indexes'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 -- Add index to speed up subsequent queries
 IF @i = 1 -- only execute on first database
 BEGIN
    IF NOT EXISTS (SELECT NULL
-                 FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
-                WHERE name = N'ixuc_SQLXL_Index_sys_indexes')
+                    FROM tempdb.sys.indexes WITH (READUNCOMMITTED)
+                   WHERE name = N'ixuc_SQLXL_Index_sys_indexes')
    CREATE UNIQUE CLUSTERED
     INDEX ixuc_SQLXL_Index_sys_indexes
        ON tempdb.dbo.SQLXL_Index_sys_indexes
@@ -3354,6 +3565,14 @@ BEGIN
          ,type
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N'    ... Created index on tempdb.dbo.SQLXL_Index_sys_indexes'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
+
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -3361,8 +3580,6 @@ END
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.fulltext_indexes',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3417,11 +3634,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.fulltext_indexes'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.fulltext_catalogs
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.fulltext_catalogs',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3463,11 +3685,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.fulltext_catalogs'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.fulltext_index_catalog_usages
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.fulltext_index_catalog_usages',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3506,11 +3733,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.fulltext_index_catalog_usages'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.foreign_keys
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.foreign_keys',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3568,11 +3800,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.foreign_keys'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.foreign_key_columns
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.foreign_key_columns',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3614,13 +3851,18 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.foreign_key_columns'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.index_columns
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.index_columns, sys.function_order_columns',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3732,14 +3974,19 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.index_columns, sys.function_order_columns'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Add index columns for additional index objects - missing indexes, fulltext indexes
 -- NOTE: Foreign Key Constraints and table functions handled separately
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR (N'   ... Add to sys.index_columns: sys.dm_db_missing_index_columns, sys.fulltext_index_columns',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3835,6 +4082,13 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... Added to sys.index_columns: sys.dm_db_missing_index_columns, sys.fulltext_index_columns'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 -- Add index to speed up subsequent queries
 IF @i = 1 -- only execute on first database if more than one
 BEGIN
@@ -3851,13 +4105,18 @@ BEGIN
          ,column_id
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N'    ... Created index on tempdb.dbo.SQLXL_Index_sys_index_columns'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.extended_properties
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.extended_properties',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3899,13 +4158,18 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.extended_properties'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.stats
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.stats',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -3969,11 +4233,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.stats'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.stats_columns
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.stats_columns',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4016,12 +4285,17 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.stats_columns'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.dm_db_partition_stats
 -- NOTE: memory optimized table row_counts don't show up in sys.dm_db_partition_stats
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.dm_db_partition_stats',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4076,13 +4350,18 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.dm_db_partition_stats'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.dm_db_stats_properties
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.dm_db_stats_properties - used for modification_counter if SQL 2012+',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4139,6 +4418,13 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.dm_db_stats_properties - used for modification_counter if SQL 2012+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.dm_db_incremental_stats_properties
 -- This function was introduced in SQL Server 2014 (12.x) Service Pack 2 and SQL Server 2016 (13.x) Service Pack 1.
@@ -4146,10 +4432,6 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1
-   RAISERROR ('   ... sys.dm_db_incremental_stats_properties - partition modification_counter - SQL 2012SP2+,2016SP1+,2017+',0,0)
-   WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4223,11 +4505,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 END;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.dm_db_incremental_stats_properties - partition modification_counter - SQL 2012SP2+,2016SP1+,2017+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.partitions
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.partitions',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4281,6 +4568,13 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.partitions'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 -- Add index to speed up subsequent queries
 IF @i = 2 -- only execute on second database if more than one
 BEGIN
@@ -4295,6 +4589,13 @@ BEGIN
          ,index_id
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N'    ... Created index on tempdb.dbo.SQLXL_Index_sys_partitions'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -4302,8 +4603,6 @@ END
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.internal_partitions - 2016+',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4381,6 +4680,13 @@ BEGIN
      INTO tempdb.dbo.SQLXL_Index_sys_internal_partitions;
 END
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.internal_partitions - 2016+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- In-Memory (XTP) Objects
 -- NOTE: sys.dm_db_xtp_hash_index_stats ARE OMITTED, since it scans the entire table
@@ -4389,10 +4695,6 @@ END
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1
-   RAISERROR ('   ... sys.dm_db_xtp_index_stats, sys.xtp_object_stats, sys.xtp_Nonclustered_index_stats, sys.xtp_memory_consumers',0,0)
-   WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4606,11 +4908,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.dm_db_xtp_index_stats, sys.xtp_object_stats, sys.xtp_Nonclustered_index_stats, sys.xtp_memory_consumers'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Add partition & object/index name info to sys.dm_os_buffer_descriptors to create SQLXL_Index_sys_dm_os_buffer_descriptors_EXT
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.dm_os_buffer_descriptors_EXT (aggregates)',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4707,13 +5014,18 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
-/* 2016+ */
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.dm_os_buffer_descriptors_EXT (aggregates)'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
+/* 2016+ */
 -- Collect sys.dm_db_column_store_row_group_physical_stats
 -- includes all columns in sys.column_store_row_groups
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.dm_db_column_store_row_group_physical_stats',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4795,13 +5107,18 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.dm_db_column_store_row_group_physical_stats - 2016+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.dm_db_column_store_row_group_operational_stats - SQL 2016+
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.dm_db_column_store_row_group_operational_stats',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4903,11 +5220,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.dm_db_column_store_row_group_operational_stats - 2016+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.index_resumable_operations - SQL 2017+
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.index_resumable_operations - SQL 2017+',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -4979,11 +5301,16 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.index_resumable_operations - SQL 2017+'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.sql_expression_dependencies
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF @ssms = 1 RAISERROR ('   ... sys.sql_expression_dependencies',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -5034,12 +5361,17 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... sys.sql_expression_dependencies'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /******************************************************************************************************************************************/
 -- Cursor through all statistics procedures for all indexes, Foreign Key Constraints & Columns used across indexable objects
 -- Statistics are not returned on all objects - Nonclustered Column Stores, empty tables, etc.
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR ('   ... DBCC SHOW_STATISTICS: STAT_HEADER, DENSITY_VECTOR, HISTOGRAM',0,0) WITH NOWAIT;
-
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
@@ -5445,7 +5777,7 @@ CLOSE stats_crsr;
 DEALLOCATE stats_crsr;'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'Cursor through DBCC SHOW_STATISTICS'
+   SELECT 'Closed Database cursor'
          ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
          ,lsql=LEN(@sql)
          ,sql1=SUBSTRING(@sql,    1,16383)
@@ -5455,18 +5787,30 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
 
 EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
-SET @sql=N'   End Database '+CAST(@database_name AS NVARCHAR(MAX))
-IF @ssms = 1 RAISERROR (@sql,0,0) WITH NOWAIT;
-
 SET @i = @i + 1;
 
 END -- database cursor
+
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N'    ... DBCC SHOW_STATISTICS - DensityVector,StatHeader,Histogram'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
 
 /****************************************/
 -- END of database cursor
 /****************************************/
 CLOSE db_crsr;
 DEALLOCATE db_crsr;
+
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Closed Database cursor'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
@@ -5477,8 +5821,12 @@ DECLARE @sql       NVARCHAR(MAX)
 --*/
 
 /******************************************************************************************************************************************/
-IF @ssms = 1 RAISERROR('',0,0) WITH NOWAIT;
-IF @ssms = 1 RAISERROR('Indexing previously collected tempdb SQLXL_IDX tables',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Starting Index builds on tempdb SQLXL_IDX tables'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
 /******************************************************************************************************************************************
 Notes on Indexing temp tables:
 
@@ -6096,6 +6444,14 @@ CREATE UNIQUE CLUSTERED
       ,partition_id
       )
   WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
+
+/******************************************************************************************************************************************/
+ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed Index builds on tempdb SQLXL_IDX tables'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
 /*** LOCAL TESTING ***
 DECLARE @ssms BIT = 1
        ,@sql  NVARCHAR(MAX)
@@ -22107,7 +22463,6 @@ SELECT
 ,[cs_returned_group_CNT\B|N0]                     = IIF(i.type IN (N'5',N'6'),i.cs_returned_group_CNT        ,NULL)
 ,[cs_input_groupby_row_CNT\B|N0]                  = IIF(i.type IN (N'5',N'6'),i.cs_input_groupby_row_CNT     ,NULL)
 
-*/
 /******************************************************************************************************************************************/
 -- FROM
 /******************************************************************************************************************************************/
