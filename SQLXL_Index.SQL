@@ -1,4 +1,4 @@
--- VERSION 2023.10.31
+-- VERSION 2023.11.01
 
 /******************************************************************************************************************************************\
 Copyright (C) 2023 Practice Computing Mangement Inc.
@@ -23,7 +23,9 @@ https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/blob/dev/Documen
 \******************************************************************************************************************************************/
 
 /*** LOCAL TESTING ***
+EXEC tempdb.dbo.SQLXL_Index
 EXEC tempdb.dbo.SQLXL_Index @database_name = N'DW_Master'
+EXEC tempdb.dbo.SQLXL_Index @database_name = N'WideWorldImporters'
 --*/
 
 RAISERROR ('Creating procedure tempdb.dbo.SQLXL_Index ...',0,0) WITH NOWAIT;
@@ -198,15 +200,12 @@ DECLARE @collation        SYSNAME  = (SELECT collation_name FROM sys.databases W
        ,@debug_DTTM       DATETIME      = GETDATE()
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
-   RAISERROR( N'Execution',0,0) WITH NOWAIT;
-   RAISERROR( N'MM:SS:hhh SQLXL Index Job Step',0,0) WITH NOWAIT;
-   RAISERROR( N'--------- -------------------------------------------------------------------------------------',0,0) WITH NOWAIT;
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Starting SQLXL_Index data collection'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'Execution',0,0) WITH NOWAIT;
+   RAISERROR(N'MM:SS:hhh SQLXL Index Job Step',0,0) WITH NOWAIT;
+   RAISERROR(N'--------- -------------------------------------------------------------------------------------',0,0) WITH NOWAIT;
+   RAISERROR(N'--------- Starting SQLXL_Index data collection ------------------------------------',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
-
 
 /******************************************************************************************************************************************/
 -- Eliminate all previous SOURCE (SYS) objects, truncate & rebuild to blow out any missing index recommendations
@@ -813,6 +812,7 @@ SELECT name                                        = name                       
                                 ,N'MODEL'
                                 ,N'MSDB'
                                 ,N'SSISDB'
+                                ,N'tempdb'
                                 )
             AND qry.name NOT LIKE N'%ReportServer%'
            )
@@ -5792,27 +5792,18 @@ END
 CLOSE stats_crsr;
 DEALLOCATE stats_crsr;'
 
-IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
-   SELECT 'Closed Database cursor'
-         ,CONVERT(VARCHAR(12),GETDATE()-@dttm,14)
-         ,lsql=LEN(@sql)
-         ,sql1=SUBSTRING(@sql,    1,16383)
-         ,sql2=SUBSTRING(@sql,16384,16383)
-         ,sql3=SUBSTRING(@sql,32768,16383);
-   SET @dttm=GETDATE();
+   EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 
-EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
+   SET @i = @i + 1;
 
-SET @i = @i + 1;
+   IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+      SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+                  +N'    ... Completed DBCC SHOW_STATISTICS - DensityVector,StatHeader,Histogram'
+      RAISERROR(@debug,0,0) WITH NOWAIT;
+      SET @debug_DTTM = GETDATE();
+   END
 
 END -- database cursor
-
-IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N'    ... Completed DBCC SHOW_STATISTICS - DensityVector,StatHeader,Histogram'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
-   SET @debug_DTTM = GETDATE();
-END
 
 /****************************************/
 -- END of database cursor
@@ -5839,9 +5830,7 @@ DECLARE @sql       NVARCHAR(MAX)
 /******************************************************************************************************************************************/
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'',0,0) WITH NOWAIT;
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Starting Index builds on tempdb SQLXL_IDX tables ------------------------'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'--------- Starting Index builds on tempdb SQLXL_IDX tables ------------------------',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 /******************************************************************************************************************************************
@@ -6838,9 +6827,7 @@ SET NOCOUNT OFF
 /******************************************************************************************************************************************/
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'',0,0) WITH NOWAIT;
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Starting SQLXL Index Data Organization ----------------------------------'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'--------- Starting SQLXL Index Data Organization ----------------------------------',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 /******************************************************************************************************************************************/
@@ -8702,7 +8689,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Inserted INSTANCE record'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'          Started "Parent"-level fields across records',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting "Parent"-level fields across records',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -9171,7 +9158,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Updated "Parent"-level fields across records'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'          Started Flag index columns that are filtered',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Flag index columns that are filtered',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -9194,7 +9181,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Flagged index columns that are filtered using sys.sql_expression_dependencies'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'          Started Create table of all used and referenced columns',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Create table of all used and referenced columns',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -9717,7 +9704,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Updated Missing index key sequence based on column uniqueness'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'          Started Build table of column uniqueness & display values',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Build table of column uniqueness & display values',0,0) WITH NOWAIT;
   SET @debug_DTTM = GETDATE();
 END
 
@@ -10236,7 +10223,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Updated index size & count attributes'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'          Started Update index column statistics and attributes',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Update index column statistics and attributes',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -11317,7 +11304,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,partition_function_modify_DTTM    = hoc.partition_function_modify_DTTM
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
-         WHERE rec_type NOT IN (N'A',N'D',N'I')
+         WHERE rec_type NOT IN (N'A',N'D',N'I') -- All, Database, Index
        ) AS tgt
   JOIN tempdb.dbo.SQLXL_Index_Compilation  AS hoc
     ON tgt.database_id           = hoc.database_id
@@ -11423,7 +11410,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                    ,1
                                    ,0)
       ,low_selectivity_additional_keys
-       = (SELECT CASE WHEN d.row_id     = 1 THEN             N'Selectivity LO > '
+       = (SELECT CASE WHEN d.row_id     = 1 THEN             N'Key Selectivity LO > '
                       WHEN d.row_id % 6 = 0 THEN NCHAR(10) + N' > '
                       ELSE N' '
                   END
@@ -11820,6 +11807,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Incorporate Parent Constraints'
    RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Extended Properties',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -11935,7 +11923,7 @@ OPTION (MAXDOP 1);
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Incorporate Extended Properties'
+               +N' Add Extended Properties'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -12043,7 +12031,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Referenced Foreign Keys, Referred Foreign Key Constraints, & Index Covers'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'          Started Parent "Referred" Foreign Key Constraints "covered" by indexes and vice-versa',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Parent "Referred" Foreign Key Constraints "covered" by indexes and vice-versa',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -13027,6 +13015,12 @@ END
 /******************************************************************************************************************************************/
 -- Compute Aggregate Counts & Amounts for Parents, Databases, Instance
 /******************************************************************************************************************************************/
+IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
+   RAISERROR(N'',0,0) WITH NOWAIT;
+   RAISERROR(N'--------- Starting numeric metrics computations -----------------------------------',0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
 
@@ -13061,6 +13055,7 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Metric_Rollup
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Populate Metric Control tables - adds friendlier names and chooses which totals to compute and concatenate together for display
 -- ,(##,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
+-- Diagnostic - Index - Highest Waits (BI11&12)
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
   INTO tempdb.dbo.SQLXL_Index_Metric_Rollup
@@ -13072,7 +13067,7 @@ INSERT
       ,Level_6,abbr_6)
 VALUES
 -- TOTAL Waits & Locks
- ( N'ios_Total_wait_MS_CNT',N'OPS Wait Tm'
+ ( N'ios_Total_wait_MS_CNT',N'OPS Wait Tm (BI11&12)'
   ,N'ios_Total_wait_CNT',N'CNT'
   ,NULL,NULL
   ,NULL,NULL
@@ -13912,9 +13907,9 @@ EXECUTE sys.sp_executesql @sql;IF @@Error > 0 SELECT '### BLAMMO ! ###',@sql;
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' All AVG Totals'
+               +N' Calculated all Averages'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'           Start Compute metrics as percent of Parent or Instance',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Compute metrics as percent of Parent or Instance',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -14102,7 +14097,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Indexed table tempdb.dbo.SQLXL_Index_Metrics'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'           Start Update column rankings - PARENT within TOTAL',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Update column rankings - PARENT within TOTAL',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -14164,7 +14159,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Rank percent of parent within instance & index within Parent'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'           Start Update column rankings - INDEX within PARENT',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Update column rankings - INDEX within PARENT',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -14258,7 +14253,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Created Diagnostics Table tempdb.dbo.SQLXL_Index_Diagnostics'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'           Start Insert consolidated metrics into diagnostic table',0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Insert consolidated metrics into diagnostic table',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -14699,9 +14694,7 @@ Diagnostics
 \#########################################################################################################################################*/
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'',0,0) WITH NOWAIT;
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Starting SQLXL Index Diagnosis ------------------------------------------'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'--------- Starting SQLXL Index Diagnosis ------------------------------------------',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -15186,7 +15179,12 @@ UNION ALL SELECT N'Instance in [SINGLE USER] mode'
              AND run_value     IN (N'1')
 ) src(diagnostic);
 
-IF @ssms = 1 RAISERROR('... Instance',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed Instance diagnostics'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+END
+
 -- NOTE: no index performance related items from SERVERPROPERTY as of yet
 
 /******************************************************************************************************************************************\
@@ -15865,7 +15863,11 @@ SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,ty
 
 SET ANSI_WARNINGS OFF;
 
-IF @ssms = 1 RAISERROR('... Database',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed Database diagnostics'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+END
 
 /******************************************************************************************************************************************\
 *** TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE TABLE ****
@@ -16382,14 +16384,14 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
 ----------------------------------------------------------------------------------------------------
 INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
 SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic =
--- Diagnostic - Table - Total of indexes with writes and no reads (BI22)
--- Diagnostic - Index - Hi writes and no reads (BI22)
+-- Diagnostic - Table - Total of indexes with writes and no reads (BI22&29)
+-- Diagnostic - Index - Hi writes and no reads (BI22&29)
   N'High WRT No RDS -'
 + N' USG ' + tempdb.dbo.SQLXL_3SD(w.metric_AMT,N'I') + COALESCE(N' ' + w.diagnostic,N'0 - Rebuilt?')
 + N' OPS ' + tempdb.dbo.SQLXL_3SD(r.metric_AMT,N'I') + COALESCE(N' ' + r.diagnostic,N'0 - Rebuilt?')
-+ N' (BI22)'
++ N' (BI22&29)'
   FROM (--------------------------------------------------------------------------------------------
-        -- Get the heavy writers with no reads
+        -- Get the significant writers with no reads
         --------------------------------------------------------------------------------------------
         SELECT rec_type
               ,Database_Id
@@ -16727,7 +16729,11 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
  WHERE c.seq_increment   <> 1
     OR c.seq_start_value <  0
 
-IF @ssms = 1 RAISERROR('... Parent/Table',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed Parent/Table diagnostics'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+END
 
 /******************************************************************************************************************************************\
 *** INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX INDEX ***
@@ -18217,7 +18223,11 @@ SELECT COUNT(1)
 ) i
 WHERE i.diagnostic IS NOT NULL
 
-IF @ssms = 1 RAISERROR('... Index',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed Index diagnostics'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+END
 
 /******************************************************************************************************************************************\
 ** INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES IN **
@@ -18615,7 +18625,11 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ) i
  WHERE diagnostic IS NOT NULL;
 
-IF @ssms = 1 RAISERROR('... Index Types',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed Index Types diagnostics'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+END
 
 /******************************************************************************************************************************************\
 ** FOREIGN KEY CONSTRAINTS FOREIGN KEY CONSTRAINTS FOREIGN KEY CONSTRAINTS FOREIGN KEY CONSTRAINTS FOREIGN KEY CONSTRAINTS FOREIGN KEY CON**
@@ -18841,7 +18855,11 @@ SELECT rec_type = N'I',fk.database_id,fk.parent_object_id,fk.object_id,index_id=
 ) fk
  WHERE fk.diagnostic IS NOT NULL;
 
-IF @ssms = 1 RAISERROR('... Foreign Key Constraints',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed Foreign Key Constraints diagnostics'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+END
 
 /******************************************************************************************************************************************\
 ** MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING**
@@ -18959,7 +18977,11 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 
 SET ANSI_WARNINGS OFF;
 
-IF @ssms = 1 RAISERROR('... Missing Indexes',0,0) WITH NOWAIT;
+IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed Missing Indexes diagnostics'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+END
 
 /******************************************************************************************************************************************\
 ** OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS **
@@ -19034,14 +19056,12 @@ SELECT DISTINCT
        ) c
  WHERE c.diagnostic IS NOT NULL
 
-IF @ssms = 1 RAISERROR('... Other Elements',0,0) WITH NOWAIT;
-
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Completed SQLXL Index Diagnostics ---------------------------------------'
+               +N' Completed Other Elements diagnostics'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   SET @debug_DTTM = GETDATE();
 END
+
 /*#########################################################################################################################################\
 Prescriptions
 \#########################################################################################################################################*/
@@ -19052,9 +19072,7 @@ DECLARE @cover_foreign_keys TINYINT = 1
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'',0,0) WITH NOWAIT;
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Starting SQLXL Index Prescriptions --------------------------------------'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'--------- Starting SQLXL Index Prescriptions --------------------------------------',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -19639,7 +19657,7 @@ DELETE FROM #prescription WHERE action_desc = N'Retain'; -- already updated appr
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Clear out "Retain" work in progress'
+               +N' Clear out interim results table - Retain'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -20717,7 +20735,7 @@ DELETE FROM #prescription WHERE action_desc = N'Remove'; -- already updated appr
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' clean up interim results table - removes'
+               +N' Clear out interim results table - Remoove'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -22173,7 +22191,7 @@ DELETE FROM #prescription WHERE action_desc = N'Rebuild'; -- already updated app
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Clear out "Rebuild" work in progress'
+               +N' Clear out interim results table - Rebuild'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -22198,7 +22216,7 @@ SET ANSI_WARNINGS OFF;
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Flag indexes without a presciption'
+               +N' Flag indexes without a prescription'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -22212,7 +22230,7 @@ DELETE
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Clear out empty diagnostic records'
+               +N' Clear out empty interim diagnostic records'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -22332,7 +22350,7 @@ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
 END
 
 /******************************************************************************************************************************************/
--- Add Heavy Metric diagnostics to Parent. Added here to make sure they end up on the bottom of the diagnostics 
+-- Add significant Metric diagnostics to Parent. Added here to make sure they end up on the bottom of the diagnostics
 --<BS> confirm rec_types below
 /******************************************************************************************************************************************/
 ----------------------------------------------------------------------------------------------------
@@ -22397,7 +22415,7 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Add heavy metrics diagnostic records to Parent'
+               +N' Added significant metrics diagnostic records to Parent'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -22427,8 +22445,9 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Add Buffer Cache metric diagnostic records to Parent'
+               +N' Added Buffer Cache metric diagnostic records to Parent'
    RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting significant index metrics diagnostic records',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -22493,8 +22512,9 @@ SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.inde
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Add heavy metrics diagnostic records to Index'
+               +N' Added significant index metrics diagnostic records'
    RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'          Starting Buffer Cache index metric diagnostic records',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -22545,7 +22565,7 @@ SELECT parent_object_id,object_id,index_id,
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Add Buffer Cache metric diagnostic records to Index'
+               +N' Added Buffer Cache index metric diagnostic records'
    RAISERROR(@debug,0,0) WITH NOWAIT;
 END
 
@@ -22613,32 +22633,45 @@ SELECT
  [Priority\B|N0]          = IIF(i.rec_type IN (N'P',N'H'),i.tbl_priority_metric,NULL)
 ,[FLT *DRILL DOWN >>>|NW] =
                            -- Top Level
-                           +CASE WHEN i.rec_type  = N'A' THEN N'A'
-                                 WHEN i.rec_type  = N'D' THEN N'D'
-                                 WHEN i.rec_type  = N'P' THEN N'P'
-                                 ELSE N'T'
+                           +CASE WHEN i.rec_type  = N'A' THEN N'A' -- All
+                                 WHEN i.rec_type  = N'D' THEN N'D' -- Database
+                                 WHEN i.rec_type  = N'P' THEN N'P' -- Parent Table/History Source
+                                 ELSE N'T'                         -- Index
                             END
-                           +CAST(i.database_id AS NVARCHAR(20)) + N'.'
+                           -- database ID & Parent/source object ID
+                           +CAST(i.database_id AS NVARCHAR(10)) 
+                           +N'.'
+                           +CAST(COALESCE(i.history_source_object_id,i.parent_object_id) AS NVARCHAR(10)) + N'|'
 
-                           -- Parent Object. "pipe" added to delimit drill down term in Excel filter
+                           -- Parent/History Table source table. "pipe" added to delimit drill down term in Excel filter
                            +IIF(i.rec_type NOT IN (N'A',N'D')
-                               ,CAST(COALESCE(i.history_source_object_id,i.parent_object_id) AS NVARCHAR(12)) + N'|'
-                               -- Sorting within a parent & HST - parent level followed by internal tables
-                               +IIF(i.obj_type_short_label = N'IT',N'2',N'1')
-                               +CAST(i.object_id AS NVARCHAR(12)) + N'|'
+                               -- Type of "table". Parents/sources first, history seconds, internal third
+                               ,CASE i.obj_type_short_label
+                                     WHEN N'HST'  -- history table
+                                     THEN N'3|' + RIGHT(N'0000000000'+CAST(i.object_id AS NVARCHAR(20)),10)
+                                     WHEN N'IT'   -- system internal table
+                                     THEN N'6|' + RIGHT(N'0000000000'+CAST(i.object_id AS NVARCHAR(20)),10) 
+                                     ELSE N'1|'   -- origin/parent table, Clustered column store
+                                END 
                                +IIF(i.rec_type IN (N'I')
                                    ,CASE RTRIM(i.type)
-                                         WHEN N'0' THEN N'0'
-                                         WHEN N'1' THEN N'0'
-                                         WHEN N'5' THEN N'0'
-                                         WHEN N'6' THEN N'1'
+                                         WHEN N'0' THEN N'0' -- Heap
+                                         WHEN N'1' THEN N'0' -- clustered rowstore
+                                         WHEN N'5' THEN N'0' -- clustered columnstore
+                                         WHEN N'6' THEN N'1' -- nonclustered columnstore
                                          ELSE RTRIM(i.type)
-                                    END
-                                   +IIF(i.type = N'F',IIF(i.fkc_covered_by_idx_IDS IS NULL,N'U',N'C'),N'') -- Foreign Key index coverage
-                                   ,N'')
-                                -- "Index Level"
-                               +IIF(i.rec_type = N'I'
-                                   ,+N'*'+RIGHT(N'000000000'+CAST(i.index_id AS NVARCHAR(20)),10)
+                                    END 
+                                   +N'|'
+                                   +IIF(TRY_CAST(i.type AS INT) IS NOT NULL
+                                       ,RIGHT(N'000000000'+CAST(i.index_id AS NVARCHAR(20)),10)
+                                       ,N'')
+                                   +IIF(i.type = N'F'
+                                       ,IIF(i.fkc_covered_by_idx_IDS IS NULL,N'U',N'C')
+                                       +RIGHT(N'0000000000'+CAST(i.object_id AS NVARCHAR(20)),10)
+                                       ,N'') -- Foreign Key index coverage
+                                   +IIF(i.type = N'M'
+                                       ,RIGHT(N'0000000000'+CAST(i.object_id AS NVARCHAR(20)),10)
+                                       ,N'') -- Foreign Key index coverage
                                    ,N'')
                                ,N'')
 
