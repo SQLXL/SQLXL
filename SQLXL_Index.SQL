@@ -1,4 +1,4 @@
--- VERSION 2023.11.07
+-- VERSION 2024.01.08
 
 /******************************************************************************************************************************************\
 Copyright (C) 2023 Practice Computing Mangement Inc.
@@ -23,34 +23,42 @@ https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/blob/dev/Documen
 \******************************************************************************************************************************************/
 
 /*** LOCAL TESTING ***
-EXEC tempdb.dbo.SQLXL_Index
+EXEC tempdb.dbo.SQLXL_Index -- runs for all non-system databases
 EXEC tempdb.dbo.SQLXL_Index @database_name = N'DW_Master'
 EXEC tempdb.dbo.SQLXL_Index @database_name = N'WideWorldImporters'
-GO 100
 --*/
 
 RAISERROR ('Creating procedure tempdb.dbo.SQLXL_Index ...',0,0) WITH NOWAIT;
 
-/******************************************************************************************************************************************/
--- Calling Session Environment settings
-/******************************************************************************************************************************************/
-SET ANSI_NULL_DFLT_ON,ANSI_NULLS,ANSI_PADDING,ARITHABORT,CONCAT_NULL_YIELDS_NULL,CURSOR_CLOSE_ON_COMMIT,NOCOUNT,QUOTED_IDENTIFIER ON;
-SET ANSI_WARNINGS,ARITHIGNORE,FMTONLY,FORCEPLAN,IMPLICIT_TRANSACTIONS,NOEXEC,NUMERIC_ROUNDABORT,XACT_ABORT OFF;
+/******************************************************************************************************************************************\
+ Creating Session Environment settings
+\******************************************************************************************************************************************/
+SET ANSI_DEFAULTS ON; -- enables ISO settings: ANSI_NULLS, CURSOR_CLOSE_ON_COMMIT, ANSI_NULL_DFLT_ON, IMPLICIT_TRANSACTIONS, ANSI_PADDING
+                      -- QUOTED_IDENTIFIER, ANSI_WARNINGS
+
+SET ARITHABORT,CONCAT_NULL_YIELDS_NULL ON; -- required for indexes on computed columns and indexed views
+SET NUMERIC_ROUNDABORT OFF;                -- required for indexes on computed columns and indexed views
+
+SET CURSOR_CLOSE_ON_COMMIT,NOCOUNT,XACT_ABORT ON;
+SET ARITHIGNORE,IMPLICIT_TRANSACTIONS,NOEXEC,NUMERIC_ROUNDABORT OFF;
+
 SET STATISTICS IO,PROFILE,TIME,XML OFF;
 SET DATEFORMAT                  YMD;
 SET DEADLOCK_PRIORITY           -10;  -- Lowest priority
-SET LOCK_TIMEOUT              10000;  -- in milliseconds
-SET QUERY_GOVERNOR_COST_LIMIT     0;  -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
+SET LOCK_TIMEOUT              30000;  -- in milliseconds
 SET TEXTSIZE             2147483647;  -- Use 32767 on export to Excel - cell maximum
+SET QUERY_GOVERNOR_COST_LIMIT     0;  -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 /******************************************************************************************************************************************\
-Change to tempdb NOTE: tempdb must be lower case if server installed with CASE SENSITIVE collation
+ Change to tempdb for all object creation 
+ NOTE: tempdb must be lower case if server installed with CASE SENSITIVE collation
 \******************************************************************************************************************************************/
 USE tempdb;
 
 /******************************************************************************************************************************************/
--- Eliminate all previous tempdb source data stores (_SYS_, _CDC_) objects in case of structure change with latest version
+-- Get rid of all previous SQLXL index tempdb source data stores (SQLXL_Index_SYS_, SQLXL_Index_CDC_) objects in case of structure change with latest version
+-- TRUNCATE/REBULD is used to clear out any missing index recommendations that were created from the last execution(s)
 /******************************************************************************************************************************************/
 DECLARE @sql       NVARCHAR(MAX)
        ,@run_value NVARCHAR(4000)
@@ -86,16 +94,18 @@ BEGIN
 END
 
 /******************************************************************************************************************************************/
--- Create the proc dbo.SQLXL_Index
+-- Create the procedure dbo.SQLXL_Index - captures source index data, organizes, and investigates for impreovment opportunities
 /******************************************************************************************************************************************/
 IF OBJECT_ID('tempdb.dbo.SQLXL_Index') IS NULL EXEC ('CREATE PROCEDURE dbo.SQLXL_Index AS RETURN 0;');
 GO
 
  ALTER PROCEDURE dbo.SQLXL_Index
       (@database_name                    SYSNAME = NULL
-      ,@cover_foreign_keys               TINYINT = 2 -- continue to cover all Foreign Key Constraints TRUSTED, ENABLED, and REPLICATED
-                                                     -- Includes creating new indexes based on MISSING index recommendations
-      ,@create_Nonclustered_columnstores TINYINT = 1 -- create Nonclustered columnstores on tables as below
+      ,@cover_foreign_keys               TINYINT = 2 -- see Parameters below. flagged unused by SQL Prompt, used in INVESTIGATE source sql
+      ,@create_Nonclustered_columnstores TINYINT = 1 -- see Parameters below. flagged unused by SQL Prompt, used in INVESTIGATE source sql
+      -----------------------------------
+      -- priority computation weightings. relative values to apply to each of the corresponding metrics.
+      -- larger value means higher weighting assigned to that metric
       -----------------------------------
       ,@Prio_wait_time                   SMALLINT = 100
       ,@Prio_wait_count                  SMALLINT =  50
@@ -115,6 +125,7 @@ GO
       ,@Prio_scans                       SMALLINT =  40
       ,@Prio_lookups                     SMALLINT =  60
       ,@Prio_LOB                         SMALLINT =  80
+      ,@xtp_Priority_deflator            SMALLINT =  40
       )
 /******************************************************************************************************************************************\
 Parameters:
@@ -139,7 +150,7 @@ NULL = (DEFAULT) All user databases
      and drop existing low READ usage/non-FKC covering indexes
 
 DEVELOPER NOTE: Procedure scripts can't reference views that haven't been created yet,
-                so no views will be created on tempdb.dbo.SQLXL_Index_Compilation for code simplification
+                so no views will be created on the principal table tempdb.dbo.SQLXL_Index_Compilation for code simplification
 \******************************************************************************************************************************************/
 AS
 
@@ -157,11 +168,29 @@ BEGIN
 END
 
 /******************************************************************************************************************************************/
--- Session Environment settings - Inside procedure
+-- Procedure Environment settings
 /******************************************************************************************************************************************/
-SET ANSI_NULLS ON
-SET ANSI_NULL_DFLT_ON,ANSI_NULLS,ANSI_PADDING,ARITHABORT,CONCAT_NULL_YIELDS_NULL,CURSOR_CLOSE_ON_COMMIT,NOCOUNT ON;
-SET ANSI_WARNINGS,ARITHIGNORE,IMPLICIT_TRANSACTIONS,NOEXEC,NUMERIC_ROUNDABORT,XACT_ABORT OFF;
+SET ANSI_NULL_DFLT_ON,ANSI_NULLS,ANSI_PADDING,ARITHABORT,CONCAT_NULL_YIELDS_NULL,CURSOR_CLOSE_ON_COMMIT,NOCOUNT,QUOTED_IDENTIFIER ON;
+SET ANSI_WARNINGS,ARITHIGNORE,FMTONLY,FORCEPLAN,IMPLICIT_TRANSACTIONS,NOEXEC,NUMERIC_ROUNDABORT,XACT_ABORT OFF;
+SET STATISTICS IO,PROFILE,TIME,XML OFF;
+SET DATEFORMAT                  YMD;
+SET DEADLOCK_PRIORITY           -10;  -- Lowest priority
+SET LOCK_TIMEOUT              10000;  -- in milliseconds
+SET QUERY_GOVERNOR_COST_LIMIT     0;  -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
+SET TEXTSIZE             2147483647;  -- Use 32767 on export to Excel - cell maximum
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+SET ANSI_DEFAULTS ON; -- enables ISO settings: ANSI_NULLS, CURSOR_CLOSE_ON_COMMIT, ANSI_NULL_DFLT_ON, IMPLICIT_TRANSACTIONS, ANSI_PADDING
+                      -- QUOTED_IDENTIFIER, ANSI_WARNINGS
+
+SET ARITHABORT,CONCAT_NULL_YIELDS_NULL ON; -- required for indexes on computed columns and indexed views
+SET NUMERIC_ROUNDABORT OFF;                -- required for indexes on computed columns and indexed views
+
+-- SET CURSOR_CLOSE_ON_COMMIT,NOCOUNT,XACT_ABORT ON;
+SET XACT_ABORT ON;
+SET ARITHIGNORE,IMPLICIT_TRANSACTIONS,NOEXEC,NUMERIC_ROUNDABORT OFF;
+
+/*
 SET STATISTICS IO,PROFILE,TIME,XML OFF;
 SET DATEFORMAT                  YMD;
 SET DEADLOCK_PRIORITY           -10;  -- Lowest priority
@@ -169,9 +198,10 @@ SET LOCK_TIMEOUT              30000;  -- in milliseconds
 SET TEXTSIZE             2147483647;  -- Use 32767 on export to Excel - cell maximum
 SET QUERY_GOVERNOR_COST_LIMIT     0;  -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+*/
 
 /******************************************************************************************************************************************/
--- Session variables
+-- Local Session variables
 /******************************************************************************************************************************************/
 DECLARE @collation        SYSNAME  = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
        ,@collection_DTTM  DATETIME = GETDATE()
@@ -181,13 +211,12 @@ DECLARE @collation        SYSNAME  = (SELECT collation_name FROM sys.databases W
        ,@version_revision SMALLINT = CONVERT(SMALLINT,PARSENAME(CONVERT(VARCHAR(20),SERVERPROPERTY('ProductVersion')),1))
        ----------------------------
        ,@database_id      INT      = 0
-       ,@name             NVARCHAR(MAX)
        ,@sql              NVARCHAR(MAX)
        ,@dttm             DATETIME = GETDATE()
        ,@i                INT      = 1            -- database cursor loop counter, starts at 1
        ,@run_value        NVARCHAR(4000)
        -----------------------------
-       ,@ssms             TINYINT = CASE WHEN (SELECT 1
+       ,@ssms             TINYINT = CASE WHEN (SELECT (1)
                                                  FROM sys.dm_exec_sessions
                                                 WHERE session_id = @@spid
                                                   AND (   program_name LIKE N'Microsoft SQL Server Management Studio%'
@@ -198,7 +227,7 @@ DECLARE @collation        SYSNAME  = (SELECT collation_name FROM sys.databases W
                                          ELSE 0
                                     END
        ,@debug            VARCHAR(1000)
-       ,@debug_DTTM       DATETIME      = GETDATE()
+       ,@debug_DTTM       DATETIME      = GETDATE();
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'Execution',0,0) WITH NOWAIT;
@@ -213,9 +242,11 @@ END
 /******************************************************************************************************************************************/
 
 /*** LOCAL TESTING ***
-DECLARE @sql       NVARCHAR(MAX)
-       ,@run_value NVARCHAR(4000)
-       ,@ssms BIT = 1
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000)
+       ,@ssms        TINYINT       = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 --*/
 
 WHILE 1 = 1
@@ -256,7 +287,7 @@ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
 END
 
 /******************************************************************************************************************************************/
--- What platforms are we running on?
+-- For further use, capture platform information into a persisted table
 /******************************************************************************************************************************************/
 SELECT collation        = @collation
       ,collection_DTTM  = @collection_DTTM
@@ -345,6 +376,7 @@ INSERT
       )
   EXEC ('DBCC TRACESTATUS(-1) WITH NO_INFOMSGS');
 
+-- save off data source of above records
 UPDATE tempdb.dbo.SQLXL_Index_sys_instance
    SET source = N'TRACESTATUS'
  WHERE source IS NULL;
@@ -459,7 +491,7 @@ SELECT N'System'        ,N'HOST_ID'                        ,CONVERT(NVARCHAR(400
 SELECT N'System'        ,N'HOST_NAME'                      ,CONVERT(NVARCHAR(4000),HOST_NAME()           ) UNION ALL
 SELECT N'System'        ,N'PUBLISHINGSERVERNAME'           ,CONVERT(NVARCHAR(4000),PUBLISHINGSERVERNAME());
 
-IF @version_major >= 16
+IF @version_major >= 16 -- 2022+
 BEGIN
    SET @sql = N'INSERT
   INTO tempdb.dbo.SQLXL_Index_sys_instance
@@ -480,31 +512,31 @@ END;
 /******************************************************************************************************************************************/
 ;WITH newcol AS (
 SELECT -- SQL 2008 & 2008R2 ONLY --------------------------------
-       physical_memory_in_bytes    = CONVERT(BIGINT        ,NULL) -- SQL 2008 & 2008R2 ONLY
-      ,virtual_memory_in_bytes     = CONVERT(BIGINT        ,NULL) -- SQL 2008 & 2008R2 ONLY
-      ,bpool_visible               = CONVERT(BIGINT        ,NULL) -- SQL 2008 & 2008R2 ONLY
-      ,bpool_committed             = CONVERT(BIGINT        ,NULL) -- SQL 2008 & 2008R2 ONLY
-      ,bpool_commit_target         = CONVERT(BIGINT        ,NULL) -- SQL 2008 & 2008R2 ONLY
+       physical_memory_in_bytes    = CONVERT(BIGINT        ,NULL)
+      ,virtual_memory_in_bytes     = CONVERT(BIGINT        ,NULL)
+      ,bpool_visible               = CONVERT(BIGINT        ,NULL)
+      ,bpool_committed             = CONVERT(BIGINT        ,NULL)
+      ,bpool_commit_target         = CONVERT(BIGINT        ,NULL)
        -- SQL 2012+ ---------------------------------------------
-      ,committed_kb                = CONVERT(BIGINT        ,NULL) -- SQL 2012+
-      ,virtual_memory_kb           = CONVERT(BIGINT        ,NULL) -- SQL 2012+
-      ,committed_target_kb         = CONVERT(BIGINT        ,NULL) -- SQL 2012+
-      ,physical_memory_kb          = CONVERT(BIGINT        ,NULL) -- SQL 2012+
-      ,visible_target_kb           = CONVERT(BIGINT        ,NULL) -- SQL 2012+
-      ,sql_memory_model            = CONVERT(BIGINT        ,NULL) -- SQL 2012+
-      ,sql_memory_model_desc       = CONVERT(SYSNAME       ,NULL) -- SQL 2012+
+      ,committed_kb                = CONVERT(BIGINT        ,NULL)
+      ,virtual_memory_kb           = CONVERT(BIGINT        ,NULL)
+      ,committed_target_kb         = CONVERT(BIGINT        ,NULL)
+      ,physical_memory_kb          = CONVERT(BIGINT        ,NULL)
+      ,visible_target_kb           = CONVERT(BIGINT        ,NULL)
+      ,sql_memory_model            = CONVERT(BIGINT        ,NULL)
+      ,sql_memory_model_desc       = CONVERT(SYSNAME       ,NULL)
        -- SQL 2014+ ---------------------------------------------
-      ,socket_count                = CONVERT(BIGINT        ,NULL) -- SQL 2014+
-      ,cores_per_socket            = CONVERT(BIGINT        ,NULL) -- SQL 2014+
-      ,numa_node_count             = CONVERT(BIGINT        ,NULL) -- SQL 2014+
+      ,socket_count                = CONVERT(BIGINT        ,NULL)
+      ,cores_per_socket            = CONVERT(BIGINT        ,NULL)
+      ,numa_node_count             = CONVERT(BIGINT        ,NULL)
        -- SQL 2016+ ---------------------------------------------
-      ,softnuma_configuration      = CONVERT(BIGINT        ,NULL) -- SQL 2016+
-      ,softnuma_configuration_desc = CONVERT(SYSNAME       ,NULL) -- SQL 2016+
+      ,softnuma_configuration      = CONVERT(BIGINT        ,NULL)
+      ,softnuma_configuration_desc = CONVERT(SYSNAME       ,NULL)
        -- SQL 2017+ ---------------------------------------------
-      ,process_physical_affinity   = CONVERT(NVARCHAR(3072),NULL) -- SQL 2017+
-      ,container_type              = CONVERT(BIGINT        ,NULL) -- SQL 2017+
-      ,container_type_desc         = CONVERT(SYSNAME       ,NULL) -- SQL 2017+
-      ,pdw_node_id                 = CONVERT(BIGINT        ,NULL) -- SQL 2017+
+      ,process_physical_affinity   = CONVERT(NVARCHAR(3072),NULL)
+      ,container_type              = CONVERT(BIGINT        ,NULL)
+      ,container_type_desc         = CONVERT(SYSNAME       ,NULL)
+      ,pdw_node_id                 = CONVERT(BIGINT        ,NULL)
 )
 INSERT
   INTO tempdb.dbo.SQLXL_Index_sys_instance
@@ -544,7 +576,7 @@ SELECT N'dm_os_sys_info',N'time_source'                    ,(SELECT time_source 
 SELECT N'dm_os_sys_info',N'time_source_desc'               ,(SELECT time_source_desc               FROM sys.dm_os_sys_info) UNION ALL
 SELECT N'dm_os_sys_info',N'virtual_machine_type'           ,(SELECT virtual_machine_type           FROM sys.dm_os_sys_info) UNION ALL
 SELECT N'dm_os_sys_info',N'virtual_machine_type_desc'      ,(SELECT virtual_machine_type_desc      FROM sys.dm_os_sys_info) UNION ALL
------------------------------------------------------------
+-- columns added in later versions ---------------------------------------------------------
 SELECT N'dm_os_sys_info',N'physical_memory_in_bytes'       ,(SELECT physical_memory_in_bytes       FROM sys.dm_os_sys_info) UNION ALL
 SELECT N'dm_os_sys_info',N'virtual_memory_in_bytes'        ,(SELECT virtual_memory_in_bytes        FROM sys.dm_os_sys_info) UNION ALL
 SELECT N'dm_os_sys_info',N'bpool_visible'                  ,(SELECT bpool_visible                  FROM sys.dm_os_sys_info) UNION ALL
@@ -581,7 +613,8 @@ SELECT N'dm_os_sys_info',N'sqlserver_start_time'   ,REPLACE((SELECT CONVERT(NVAR
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 /******************************************************************************************************************************************/
 ;WITH newcol AS (
-SELECT is_rda_server    = CONVERT(BIT,NULL) -- SQL 2016+
+SELECT -- SQL 2016+ ----------------------- 
+       is_rda_server    = CONVERT(BIT,NULL)
 )
 INSERT
   INTO tempdb.dbo.SQLXL_Index_sys_instance
@@ -647,59 +680,61 @@ END
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 /******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @database_name NVARCHAR(128) = N'DW_Master'
-DELETE FROM tempdb.dbo.SQLXL_Index_sys_databases WHERE name = N'DW_Master';
-
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000)
+       ,@ssms        TINYINT       = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 --*/
 
 ;WITH newcol AS (-- these are columns added after SQL 2005
-SELECT -----------------------------------------------------------------------------
-       log_reuse_wait                              = CONVERT(TINYINT         ,NULL)                          -- SQL 2008+
-      ,log_reuse_wait_desc                         = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT -- SQL 2008+
-      ,is_cdc_enabled                              = CONVERT(BIT             ,NULL)                          -- SQL 2008+
-      ,is_memory_optimized_elevate_to_snapshot_on  = CONVERT(BIT             ,NULL)                          -- SQL 2008+
-      -----------------------------------------------------------------------------
-      ,replica_id                                  = CONVERT(UNIQUEIDENTIFIER,NULL)                          -- SQL 2012+
-      ,group_database_id                           = CONVERT(UNIQUEIDENTIFIER,NULL)                          -- SQL 2012+
-      ,default_language_lcid                       = CONVERT(SMALLINT        ,NULL)                          -- SQL 2012+
-      ,default_language_name                       = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT -- SQL 2012+
-      ,default_fulltext_language_lcid              = CONVERT(INT             ,NULL)                          -- SQL 2012+
-      ,default_fulltext_language_name              = CONVERT(NVARCHAR(256)   ,NULL)                          -- SQL 2012+
-      ,is_nested_triggers_on                       = CONVERT(BIT             ,NULL)                          -- SQL 2012+
-      ,is_transform_noise_words_on                 = CONVERT(BIT             ,NULL)                          -- SQL 2012+
-      ,two_digit_year_cutoff                       = CONVERT(SMALLINT        ,NULL)                          -- SQL 2012+
-      ,containment                                 = CONVERT(TINYINT         ,NULL)                          -- SQL 2012+
-      ,containment_desc                            = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT -- SQL 2012+
-      ,target_recovery_time_in_seconds             = CONVERT(INT             ,NULL)                          -- SQL 2012+
-      -----------------------------------------------------------------------------
-      ,resource_pool_id                            = CONVERT(INT             ,NULL)                          -- SQL 2014+
-      ,is_auto_create_stats_incremental_on         = CONVERT(BIT             ,NULL)                          -- SQL 2014+
-      -----------------------------------------------------------------------------
-      ,delayed_durability                          = CONVERT(INT             ,NULL)                          -- SQL 2014+,Azure SQL Database
-      ,delayed_durability_desc                     = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT -- SQL 2014+,Azure SQL Database
-      -----------------------------------------------------------------------------
-      ,is_query_store_on                           = CONVERT(BIT             ,NULL)                          -- SQL 2016+
-      ,is_remote_data_archive_enabled              = CONVERT(BIT             ,NULL)                          -- SQL 2016+
-      ,is_mixed_page_allocation_on                 = CONVERT(BIT             ,NULL)                          -- SQL 2016+
-      -----------------------------------------------------------------------------
-      ,is_temporal_history_retention_enabled       = CONVERT(BIT             ,NULL)                          -- SQL 2017+
-      -----------------------------------------------------------------------------
-      ,physical_database_name                      = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT -- SQL 2019+,Azure SQL Database
-      ,is_accelerated_database_recovery_on         = CONVERT(BIT             ,NULL)                          -- SQL 2019+,Azure SQL Database
-      ,is_memory_optimized_enabled                 = CONVERT(BIT             ,NULL)                          -- SQL 2019+,Azure SQL Database
-      -----------------------------------------------------------------------------
-      ,is_change_feed_enabled                      = CONVERT(BIT             ,NULL)                          -- SQL 2022+
-      ,is_data_retention_enabled                   = CONVERT(BIT             ,NULL)                          -- SQL 2022+
-      -----------------------------------------------------------------------------
-      ,is_result_set_caching_on                    = CONVERT(BIT             ,NULL)                          -- Azure Synapse Analytics Gen2
-      ,is_tempdb_spill_to_remote_store             = CONVERT(BIT             ,NULL)                          -- Azure Synapse Analytics Gen2
-      ,is_stale_page_detection_on                  = CONVERT(BIT             ,NULL)                          -- Azure Synapse Analytics Gen2
-      -----------------------------------------------------------------------------
-      ,catalog_collation_type                      = CONVERT(INT             ,NULL)                          -- Azure SQL Database
-      ,catalog_collation_type_desc                 = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT -- Azure SQL Database
-      ,is_federation_member                        = CONVERT(BIT             ,NULL)                          -- Azure SQL Database
-      ,is_ledger_on                                = CONVERT(BIT             ,NULL)                          -- Azure SQL Database
+SELECT -- SQL 2008+ ---------------------------------------------------------------
+       log_reuse_wait                              = CONVERT(TINYINT         ,NULL)                          
+      ,log_reuse_wait_desc                         = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT 
+      ,is_cdc_enabled                              = CONVERT(BIT             ,NULL)                          
+      ,is_memory_optimized_elevate_to_snapshot_on  = CONVERT(BIT             ,NULL)                          
+      -- SQL 2012+ ----------------------------------------------------------------
+      ,replica_id                                  = CONVERT(UNIQUEIDENTIFIER,NULL)                          
+      ,group_database_id                           = CONVERT(UNIQUEIDENTIFIER,NULL)                          
+      ,default_language_lcid                       = CONVERT(SMALLINT        ,NULL)                          
+      ,default_language_name                       = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT 
+      ,default_fulltext_language_lcid              = CONVERT(INT             ,NULL)                          
+      ,default_fulltext_language_name              = CONVERT(NVARCHAR(256)   ,NULL)                          
+      ,is_nested_triggers_on                       = CONVERT(BIT             ,NULL)                          
+      ,is_transform_noise_words_on                 = CONVERT(BIT             ,NULL)                          
+      ,two_digit_year_cutoff                       = CONVERT(SMALLINT        ,NULL)                          
+      ,containment                                 = CONVERT(TINYINT         ,NULL)                          
+      ,containment_desc                            = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT 
+      ,target_recovery_time_in_seconds             = CONVERT(INT             ,NULL)                          
+      -- SQL 2014+ ----------------------------------------------------------------
+      ,resource_pool_id                            = CONVERT(INT             ,NULL)                          
+      ,is_auto_create_stats_incremental_on         = CONVERT(BIT             ,NULL)                          
+      -- SQL 2014+,Azure SQL Database ---------------------------------------------
+      ,delayed_durability                          = CONVERT(INT             ,NULL)                          
+      ,delayed_durability_desc                     = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT 
+      -- SQL 2016+ ----------------------------------------------------------------
+      ,is_query_store_on                           = CONVERT(BIT             ,NULL)                          
+      ,is_remote_data_archive_enabled              = CONVERT(BIT             ,NULL)                          
+      ,is_mixed_page_allocation_on                 = CONVERT(BIT             ,NULL)                          
+      -- SQL 2017+ ----------------------------------------------------------------
+      ,is_temporal_history_retention_enabled       = CONVERT(BIT             ,NULL)                          
+      -- SQL 2019+,Azure SQL Database ---------------------------------------------
+      ,physical_database_name                      = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT 
+      ,is_accelerated_database_recovery_on         = CONVERT(BIT             ,NULL)                          
+      ,is_memory_optimized_enabled                 = CONVERT(BIT             ,NULL)                          
+      -- SQL 2022+ ----------------------------------------------------------------
+      ,is_change_feed_enabled                      = CONVERT(BIT             ,NULL)                          
+      ,is_data_retention_enabled                   = CONVERT(BIT             ,NULL)                          
+      -- Azure Synapse Analytics Gen2 ---------------------------------------------
+      ,is_result_set_caching_on                    = CONVERT(BIT             ,NULL)                          
+      ,is_tempdb_spill_to_remote_store             = CONVERT(BIT             ,NULL)                          
+      ,is_stale_page_detection_on                  = CONVERT(BIT             ,NULL)                          
+      -- Azure SQL Database -------------------------------------------------------
+      ,catalog_collation_type                      = CONVERT(INT             ,NULL)                          
+      ,catalog_collation_type_desc                 = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT 
+      ,is_federation_member                        = CONVERT(BIT             ,NULL)                          
+      ,is_ledger_on                                = CONVERT(BIT             ,NULL)                          
 )
 SELECT qry.*
   INTO tempdb.dbo.SQLXL_Index_sys_databases
@@ -862,21 +897,26 @@ BEGIN
    END
 END
 
-
 /******************************************************************************************************************************************/
 -- Collect sys.availability_replicas
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 /******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_availability_replicas') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_availability_replicas
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_availability_replicas') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_availability_replicas;
+DECLARE @database_name SYSNAME = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000)
+       ,@ssms        TINYINT       = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 --*/
 
 ;WITH newcol AS (
-SELECT read_write_routing_url = CONVERT(SYSNAME,NULL) -- SQL 2019+
-      ,seeding_mode           = CONVERT(TINYINT,NULL) -- SQL 2019+
-      ,seeding_mode_desc      = CONVERT(SYSNAME,NULL) -- SQL 2019+
+SELECT -- SQL 2019+ ---------------------------------
+       read_write_routing_url = CONVERT(SYSNAME,NULL)
+      ,seeding_mode           = CONVERT(TINYINT,NULL)
+      ,seeding_mode_desc      = CONVERT(SYSNAME,NULL)
 )
 SELECT qry.*
   INTO tempdb.dbo.SQLXL_Index_sys_availability_replicas
@@ -921,13 +961,17 @@ END
 /******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000)
+       ,@ssms        TINYINT       = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 --*/
 
 ;WITH newcol AS (
-SELECT write_lease_remaining_ticks                 = CONVERT(BIGINT  ,NULL) -- SQL 2017+
-      ,current_configuration_commit_start_time_utc = CONVERT(DATETIME,NULL) -- SQL 2017+
+SELECT -- SQL 2017+ ------------------------------------------------------- 
+       write_lease_remaining_ticks                 = CONVERT(BIGINT  ,NULL)
+      ,current_configuration_commit_start_time_utc = CONVERT(DATETIME,NULL)
 )
 SELECT qry.*
   INTO tempdb.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states
@@ -966,8 +1010,11 @@ END
 /******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_details
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000)
+       ,@ssms        TINYINT       = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 --*/
 
 SELECT --------------------------------------------------------------
@@ -1019,12 +1066,7 @@ SELECT --------------------------------------------------------------
   LEFT OUTER
   JOIN sys.dm_db_missing_index_group_stats AS migs
     ON mig.index_group_handle               = migs.group_handle
-OPTION (RECOMPILE
-       ,FORCE ORDER
-       ,ROBUST PLAN
-       ,OPTIMIZE FOR UNKNOWN
-       ,MAXDOP 1);
-
+OPTION (MAXDOP 1);
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -1038,8 +1080,11 @@ END
 /******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000)
+       ,@ssms        TINYINT       = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 --*/
 
 SELECT --------------------------------------------------------------
@@ -1058,11 +1103,7 @@ SELECT --------------------------------------------------------------
   FROM tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_details AS mid WITH (READUNCOMMITTED)
  CROSS
  APPLY sys.dm_db_missing_index_columns(mid.index_handle) mic
-OPTION (RECOMPILE
-       ,FORCE ORDER
-       ,ROBUST PLAN
-       ,OPTIMIZE FOR UNKNOWN
-       ,MAXDOP 1);
+OPTION (MAXDOP 1);
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -1106,8 +1147,11 @@ END
 /******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000)
+       ,@ssms        TINYINT       = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 --*/
 
 IF TRY_CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 15           -- SQL 2019+
@@ -1127,9 +1171,13 @@ SELECT migs.group_handle
   INTO tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_group_stats_query
 
 /*** LOCAL TESTING ***
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000)
+       ,@ssms        TINYINT       = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 SELECT *
 --*/
-
   FROM (
         ---------------------------------------------------------------------------------------------------
         -- get query with greatest benefit from each missing index group handle
@@ -1142,8 +1190,11 @@ SELECT *
                       ,mgq.last_statement_start_offset
                       ,mgq.last_statement_end_offset
                       ,rn = ROW_NUMBER() OVER (PARTITION BY mgq.group_handle
-                                                   ORDER BY (mgq.avg_total_user_cost * mgq.avg_user_impact)
-                                                           *(mgq.user_seeks + (mgq.user_scans * 4.0)) DESC  -- scans count 4X seeks
+                                                   ORDER BY ( mgq.avg_total_user_cost 
+                                                            * mgq.avg_user_impact)
+                                                            * (   mgq.user_seeks 
+                                                               + (mgq.user_scans * 4.0)
+                                                              ) DESC  -- scans count 4X seeks
                                               )
                       --------------------------------------------------------------------------------------------------
                       -- Columns OMITTED from sys.dm_db_missing_index_group_stats_query
@@ -1189,12 +1240,10 @@ SELECT *
  APPLY sys.dm_exec_query_plan(qs.plan_handle)     AS qp
  CROSS
  APPLY sys.dm_exec_sql_text(migs.last_sql_handle) AS st
-OPTION (RECOMPILE
-       ,FORCE ORDER
-       ,ROBUST PLAN
-       ,OPTIMIZE FOR UNKNOWN
+OPTION (FORCE ORDER
        ,MAXDOP 1)
-ELSE
+-- END INNER TESTING
+ELSE -- < SQL 2019
    SELECT TOP (0)
           group_handle                = CAST(NULL AS INT)
          ,plan_handle                 = CAST(NULL AS VARCHAR(100)) COLLATE DATABASE_DEFAULT
@@ -1215,8 +1264,9 @@ END
 /******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DROP TABLE IF EXISTS tempdb.dbo.SQLXL_Index_sys_dm_db_index_usage_stats
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_databases') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_databases
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+DECLARE @ssms             TINYINT = 1
+       ,@debug            VARCHAR(1000)
+       ,@debug_DTTM       DATETIME      = GETDATE();
 --*/
 
 SELECT qry.*
@@ -1225,7 +1275,7 @@ SELECT qry.*
 SELECT ius.database_id
       ,ius.object_id
       ,ius.index_id
-      ,User_Total_CNT    = ius.user_seeks + ius.user_scans + ius.user_lookups + ius.user_updates
+      ,User_total_CNT    = ius.user_seeks + ius.user_scans + ius.user_lookups + ius.user_updates
       ,user_read_CNT     = ius.user_seeks + ius.user_scans + ius.user_lookups
       ,ius.user_seeks
       ,ius.user_scans
@@ -1248,11 +1298,7 @@ SELECT ius.database_id
   JOIN sys.dm_db_index_usage_stats        AS ius
     ON d.database_id                       = ius.database_id
 ) AS qry
-OPTION (RECOMPILE
-       ,FORCE ORDER
-       ,ROBUST PLAN
-       ,OPTIMIZE FOR UNKNOWN
-       ,MAXDOP 1);
+OPTION (FORCE ORDER,MAXDOP 1);
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -1268,10 +1314,14 @@ END
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 /******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_index_operational_stats') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_db_index_operational_stats
-DECLARE @database_name NVARCHAR(128) = (SELECT database_name from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_db_index_operational_stats
+DECLARE @database_id SMALLINT = (SELECT DB_ID(database_name) from tempdb.dbo.SQLXL_Index_sys_Startup_Parameters)
+DECLARE @ssms             TINYINT = 1
+       ,@debug            VARCHAR(1000)
+       ,@debug_DTTM       DATETIME      = GETDATE();
 --*/
+
+SET ANSI_WARNINGS OFF; -- to suppress "Warning: Null value is eliminated by an aggregate or other SET operation"
 
 ;WITH newcol AS (
 SELECT version_generated_off_row         = CONVERT(BIGINT,NULL) -- SQL 2016+
@@ -1404,11 +1454,9 @@ SELECT ios.database_id
       ,ios.object_id
       ,ios.index_id
 ) AS qry
-OPTION (RECOMPILE
-       ,FORCE ORDER
-       ,ROBUST PLAN
-       ,OPTIMIZE FOR UNKNOWN
-       ,MAXDOP 1);
+OPTION (MAXDOP 1);
+
+SET ANSI_WARNINGS ON;
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -1513,9 +1561,12 @@ END
 
 WHILE @i > 0 -- On the first database displays the dynamic sql and recreates target tables
 
-/******************************************************************************************************************************************/
--- Start of database cursor loop. Collect database-specific information for one or all user databases
-/******************************************************************************************************************************************/
+/******************************************************************************************************************************************\
+ Start of database cursor loop. Collect database-specific information for the one database selected by execution parameter @database_name
+   or if no database selected, all user databases.
+ List of databases to loop through built above into tempdb.dbo.SQLXL_Index_sys_databases. 
+ See list of excluded system databases in that script element.
+\******************************************************************************************************************************************/
 BEGIN
    FETCH NEXT
     FROM db_crsr
@@ -1552,7 +1603,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_database_scoped_configurations') IS NO
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
@@ -1625,7 +1676,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_database_automatic_tuning_options') IS
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_database_automatic_tuning_options'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -1697,7 +1748,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_database_query_store_options') IS NOT 
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT -- SQL 2017+ ------------------------------------------------------------
@@ -1816,7 +1867,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_cdc_change_tables') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_cdc_change_tables'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -1895,7 +1946,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_schemas') IS NOT NULL
 --*/
 -------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_schemas'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -1949,7 +2000,6 @@ BEGIN
    END
 END
 
-
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- sys.tables, including cdc.change_tables if CDC enabled. tempdb.dbo.SQLXL_Index_cdc_change_tables created above
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
@@ -1967,7 +2017,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_tables') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT -- SQL 2012+ ----------------------------------------------
@@ -2121,7 +2171,7 @@ END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Collect sys.objects Also includes:
---    sys.sql_modules     -- for code definitions
+--    sys.sys.all_sql_modules     -- for code definitions
 --    sys.internal_tables
 --    sys.triggers
 --    sys.table_types
@@ -2144,7 +2194,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_objects') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 DECLARE @ssms             TINYINT = CASE WHEN (SELECT 1
                                                  FROM sys.dm_exec_sessions
@@ -2159,31 +2209,31 @@ DECLARE @ssms             TINYINT = CASE WHEN (SELECT 1
        ,@debug            VARCHAR(1000)
        ,@debug_DTTM       DATETIME      = GETDATE();
 
-DROP TABLE IF EXISTS #sys_objects         ;SELECT * INTO #sys_objects         FROM sys.objects WITH (READUNCOMMITTED);
+DROP TABLE IF EXISTS #sys_objects ;SELECT * INTO #sys_objects FROM sys.objects WITH (READUNCOMMITTED);
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N''    ... #sys_objects''
+               +N''    ... sys.objects''
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
-DROP TABLE IF EXISTS #sys_table_types     ;SELECT * INTO #sys_table_types     FROM sys.table_types WITH (READUNCOMMITTED);
+DROP TABLE IF EXISTS #sys_table_types ;SELECT * INTO #sys_table_types FROM sys.table_types WITH (READUNCOMMITTED);
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N''    ... #sys_table_types''
+               +N''    ... sys.table_types''
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
-DROP TABLE IF EXISTS #sys_views           ;SELECT * INTO #sys_views           FROM sys.views WITH (READUNCOMMITTED);
+DROP TABLE IF EXISTS #sys_views ;SELECT * INTO #sys_views FROM sys.views WITH (READUNCOMMITTED);
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N''    ... #sys_views''
+               +N''    ... sys.views''
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
---/* FUTURE - get code for table valued functions
+-- code for table valued functions
 BEGIN TRY
    SET LOCK_TIMEOUT 1000; -- 1 second in milliseconds
 
@@ -2202,7 +2252,7 @@ BEGIN TRY
 
    IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
       SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-                  +N''    ... #sys_sql_modules''
+                  +N''    ... sys.sql_modules''
       RAISERROR(@debug,0,0) WITH NOWAIT;
       SET @debug_DTTM = GETDATE();
    END
@@ -2218,19 +2268,18 @@ BEGIN CATCH
 
 END CATCH
 
-
 DROP TABLE IF EXISTS #sys_internal_tables ;SELECT * INTO #sys_internal_tables FROM sys.internal_tables WITH (READUNCOMMITTED);
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N''    ... #sys_internal_tables''
+               +N''    ... sys.internal_tables''
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
-DROP TABLE IF EXISTS #sys_triggers        ;SELECT * INTO #sys_triggers        FROM sys.triggers WITH (READUNCOMMITTED);
+DROP TABLE IF EXISTS #sys_triggers ;SELECT * INTO #sys_triggers FROM sys.triggers WITH (READUNCOMMITTED);
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N''    ... #sys_triggers''
+               +N''    ... sys.triggers''
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -2481,7 +2530,7 @@ EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WIT
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N'    ... sys.objects,sys.views,sys.sql_modules,sys.internal_tables,sys.triggers,sys.table_types'
+               +N'    ... Added sys.objects,sys.views,sys.sql_modules,sys.internal_tables,sys.triggers,sys.table_types'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -2520,12 +2569,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_data_spaces') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_data_spaces
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_data_spaces') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_data_spaces
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT is_system                     = CONVERT(BIT   ,NULL) -- SQL 2012+
@@ -2659,12 +2707,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_default_constraints') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_default_constraints
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_default_constraints') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_default_constraints
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_default_constraints'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -2715,12 +2762,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_types') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_types
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_types') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_types;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_types'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -2761,7 +2807,7 @@ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N'    ... sys.types'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'                 Start sys.columns ...',0,0) WITH NOWAIT;
+   RAISERROR(N'                 Start tempdb.dbo.SQLXL_Index_sys_columns ...',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
@@ -2777,12 +2823,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_columns') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_columns
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_columns') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_columns;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT -- SQL 2016+, SQL Database ------------------------------------
@@ -3032,7 +3077,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_column_type_usages') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_column_type_usages'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3163,7 +3208,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_check_constraints') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_check_constraints'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3247,7 +3292,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_key_constraints') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT is_enforced = CONVERT(BIT,NULL)
@@ -3306,7 +3351,7 @@ IF TRY_CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 15 -- SQL 2019+
 BEGIN
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_edge_constraints'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3386,7 +3431,7 @@ IF TRY_CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 15 -- SQL 2019+
 BEGIN
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_edge_constraint_clauses'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3452,7 +3497,7 @@ IF TRY_CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 12 -- SQL 2014+
 BEGIN
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_hash_indexes'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3512,11 +3557,10 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_indexes') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_indexes
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_indexes') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_indexes;
 --*/
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT -- SQL 2016+ --------------------------------------
@@ -3711,12 +3755,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_fulltext_indexes') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_fulltext_indexes
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_fulltext_indexes') IS NOT NULL  DROP TABLE tempdb.dbo.SQLXL_Index_sys_fulltext_indexes;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT property_list_id = CONVERT(INT,NULL)
@@ -3775,12 +3818,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_fulltext_catalogs') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_fulltext_catalogs
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_fulltext_catalogs') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_fulltext_catalogs;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_fulltext_catalogs'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3831,7 +3873,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_fulltext_index_catalog_usages') IS NOT
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_fulltext_index_catalog_usages'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3874,12 +3916,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_foreign_keys') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_foreign_keys
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_foreign_keys') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_foreign_keys;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_foreign_keys'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3941,12 +3982,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_foreign_key_columns') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_foreign_key_columns
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_foreign_key_columns') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_foreign_key_columns;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_foreign_key_columns'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -3994,12 +4034,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_index_columns') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_index_columns
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_index_columns') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_index_columns;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- NOTE: will contain column list for ALL TYPES of objects - indexes, fulltext indexes, missing indexes, Foreign Key Constraints
 -- NOTE: Used to drive the list of columns to get statistics details for the cursored routine below
@@ -4121,7 +4160,7 @@ DECLARE @sql           NVARCHAR(MAX)
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT statistical_semantics = CONVERT(INT,NULL)
@@ -4248,12 +4287,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_extended_properties') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_extended_properties
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_extended_properties') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_extended_properties;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_extended_properties'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -4302,13 +4340,12 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_stats') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_stats
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_stats') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_stats;
 --*/
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT is_temporary                 = CONVERT(BIT    ,NULL)                             -- SQL 2012+
@@ -4377,12 +4414,13 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_stats_columns') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_stats_columns
+       ,@debug            VARCHAR(1000)
+       ,@debug_DTTM       DATETIME      = GETDATE();
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_stats_columns') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_stats_columns;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_stats_columns'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -4399,7 +4437,7 @@ SELECT database_id       = DB_ID()
     ON DB_ID()                           = o.database_id
    AND s.object_id                       = o.object_id
 ) AS qry
-OPTION (FORCE ORDER,MAXDOP 1);'  -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (MAXDOP 1);'  -- Force order eliminates "Warning: join order enforced because a local join hint is used."
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
    SELECT 'tempdb.dbo.SQLXL_Index_sys_stats_columns'
@@ -4425,18 +4463,20 @@ END
 -- NOTE: memory optimized table row_counts don't show up in sys.dm_db_partition_stats
 --------------------------------------------------------------------------------------------------------------------------------------------
 /*** LOCAL TESTING ***
+USE [WideWorldImporters]
 DECLARE @sql           NVARCHAR(MAX)
        ,@i             INT           = 1
        ,@database_name NVARCHAR(MAX) = N'DW_Master'
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
+       ,@debug         VARCHAR(1000)
+       ,@debug_DTTM    DATETIME   = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -4466,11 +4506,7 @@ SELECT database_id                    = DB_ID()
        ps.object_id
       ,ps.index_id
 ) AS qry
-OPTION (RECOMPILE
-       ,FORCE ORDER
-       ,ROBUST PLAN
-       ,OPTIMIZE FOR UNKNOWN
-       ,MAXDOP 1);'
+OPTION (FORCE ORDER,MAXDOP 1);'
 
 IF @ssms = 2 AND @i = 1                            -- SSMS and first database only
    SELECT 'tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats'
@@ -4502,12 +4538,11 @@ DECLARE @sql           NVARCHAR(MAX)
        ,@ssms          TINYINT       = 2
        ,@dttm          DATETIME      = GETDATE()
        ,@collation     SYSNAME       = (SELECT collation_name FROM sys.databases WHERE name = N'tempdb')
-IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_stats_properties') IS NOT NULL
-   DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_db_stats_properties
+IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_stats_properties') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_db_stats_properties;
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
@@ -4600,7 +4635,7 @@ IF (        PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 14
 BEGIN
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
@@ -4639,7 +4674,7 @@ IF @ssms = 2 AND @i = 1                            -- SSMS and first database on
          ,sql3=SUBSTRING(@sql,32768,16383);
    SET @dttm=GETDATE();
 
-EXECUTE sp_executesql @sql; IF @@Error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
+EXECUTE sp_executesql @sql; IF @@error > 0 RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT;
 END;
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
@@ -4665,7 +4700,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_partitions') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_partitions'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -4760,7 +4795,7 @@ OR CONVERT(SYSNAME,SERVERPROPERTY(N'Edition')) = N'SQL Azure'   -- Azure SQL Dat
 BEGIN -- SQL 2016+, AZURE SQL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT optimize_for_sequential_key = CONVERT(BIT,NULL) -- SQL 2019+, Azure SQL Database
@@ -4849,7 +4884,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_xtp_index_stats') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT uses_key_normalization = CONVERT(BIT   ,NULL) -- 2016+
@@ -5073,7 +5108,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors_EXT') IS NOT 
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_dm_os_buffer_descriptors_EXT'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -5181,7 +5216,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_physical_
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     ,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats'
@@ -5274,7 +5309,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_operation
    DROP TABLE tempdb.dbo.SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats
 --*/
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (
 SELECT -- SQL 2019+ -----------------------------------
@@ -5385,7 +5420,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_index_resumable_operations') IS NOT NU
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_index_resumable_operations'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -5467,7 +5502,7 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_sql_expression_dependencies') IS NOT N
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1,NCHAR(13)+NCHAR(10)+N'INSERT INTO tempdb.dbo.SQLXL_Index_sys_sql_expression_dependencies'
            +NCHAR(13)+NCHAR(10)+N'SELECT qry.*'
@@ -5537,12 +5572,12 @@ IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary') IS 
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql=N'USE '+CAST(@database_name AS NVARCHAR(MAX)) + N';
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_WARNINGS OFF;SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF (object_id(N''tempdb.dbo.#XL_IDX_sys_ShowStatistics_StatHeader'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_StatHeader;
+IF (object_id(N''tempdb..#XL_IDX_sys_ShowStatistics_StatHeader'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_StatHeader;
 
 CREATE
  TABLE #XL_IDX_sys_ShowStatistics_StatHeader
@@ -5587,7 +5622,7 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF (object_id(N''tempdb.dbo.#XL_IDX_sys_ShowStatistics_DensityVector'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_DensityVector;
+IF (object_id(N''tempdb..#XL_IDX_sys_ShowStatistics_DensityVector'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_DensityVector;
 
 CREATE
  TABLE #XL_IDX_sys_ShowStatistics_DensityVector
@@ -5617,7 +5652,7 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF (object_id(N''tempdb.dbo.#XL_IDX_sys_ShowStatistics_Histogram'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_Histogram;
+IF (object_id(N''tempdb..#XL_IDX_sys_ShowStatistics_Histogram'') IS NOT NULL) DROP TABLE #XL_IDX_sys_ShowStatistics_Histogram;
 
 CREATE
  TABLE #XL_IDX_sys_ShowStatistics_Histogram
@@ -5674,7 +5709,7 @@ SELECT ----------------------------------------------------------------------
               ,name
           FROM tempdb.dbo.SQLXL_Index_sys_indexes
          WHERE DB_ID()    = database_id
-           AND type NOT IN (N''F'',N''FT'',N''IF'',N''TF'',N''V'') -- omit views since statistics only on indexes
+           AND type NOT IN (N''0'',N''3'')
         ----------------------------------------------------------------------
         -- Full text indexes
         ----------------------------------------------------------------------
@@ -5689,6 +5724,7 @@ SELECT ----------------------------------------------------------------------
   JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON i.database_id                  = o.database_id
    AND i.object_id                    = o.object_id
+   AND o.type NOT IN (N''TT'',N''F'',N''FT'',N''IF'',N''TF'',N''V'') -- exclude TYPE_TABLE ...
   JOIN tempdb.dbo.SQLXL_Index_sys_schemas AS s
     ON o.database_id                  = s.database_id
    AND o.schema_id                    = s.schema_id
@@ -5710,7 +5746,7 @@ SELECT -------------------------------------------------------------------------
               ,object_id
               ,column_id
           FROM tempdb.dbo.SQLXL_Index_sys_index_columns
-         WHERE DB_ID()   = database_id
+         WHERE @database_id = database_id
          GROUP BY
                database_id
               ,object_id
@@ -5723,7 +5759,7 @@ SELECT -------------------------------------------------------------------------
               ,object_id   = parent_object_id
               ,column_id   = parent_column_id
           FROM tempdb.dbo.SQLXL_Index_sys_foreign_key_columns
-         WHERE DB_ID()     = database_id
+         WHERE @database_id = database_id
          GROUP BY
                database_id
               ,parent_object_id
@@ -5737,7 +5773,7 @@ SELECT -------------------------------------------------------------------------
               ,object_id
               ,column_id
           FROM tempdb.dbo.SQLXL_Index_sys_stats_columns
-         WHERE DB_ID()    = database_id
+         WHERE @database_id = database_id
          GROUP BY
                database_id
               ,object_id
@@ -5746,6 +5782,7 @@ SELECT -------------------------------------------------------------------------
   JOIN tempdb.dbo.SQLXL_Index_sys_objects AS o
     ON ic.database_id                    = o.database_id
    AND ic.object_id                      = o.object_id        -- want parent objects only
+   AND o.type NOT IN (N''TT'',N''F'',N''FT'',N''IF'',N''TF'',N''V'') -- exclude TYPE_TABLE ...
   JOIN tempdb.dbo.SQLXL_Index_sys_schemas AS s
     ON o.database_id                     = s.database_id
    AND o.schema_id                       = s.schema_id
@@ -5770,145 +5807,139 @@ BEGIN
       BREAK
 
    BEGIN TRY
-      BEGIN
-         -----------------------------------------------------------------------------------------------------------------------------------
-         -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
-         -----------------------------------------------------------------------------------------------------------------------------------
-         INSERT
-           INTO #XL_IDX_sys_ShowStatistics_StatHeader
-               (Name,Updated,Rows,Rows_sampled,Steps,Density,Average_Key_Length,String_index,Filter_Expression,Unfiltered_Rows'
-         +  CASE WHEN (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4)     >= 14     -- SQL 2017+
-                       ------------------------------------------------------------------------------
-                       OR (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4)  = 13     -- SQL 2016 SP1
-                           AND PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),2) >= 4446   -- SQL 2016 SP1 CU4+
-                          )
-                      )
-                 THEN N',Persisted_Sample_Percent'
-                 ELSE N''
-            END + N')
-         EXEC(N''USE ' + CAST(@database_name AS NVARCHAR(MAX))
-                       + N';DBCC SHOW_STATISTICS ('''''' + @object_name        + N'''''',N'''''' + @stats_target_name + N'''''')
+      -----------------------------------------------------------------------------------------------------------------------------------
+      -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
+      -----------------------------------------------------------------------------------------------------------------------------------
+      INSERT
+        INTO #XL_IDX_sys_ShowStatistics_StatHeader
+            (Name,Updated,Rows,Rows_sampled,Steps,Density,Average_Key_Length,String_index,Filter_Expression,Unfiltered_Rows'
+      +  CASE WHEN (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4)     >= 14     -- SQL 2017+
+                    ------------------------------------------------------------------------------
+                    OR (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4)  = 13     -- SQL 2016 SP1
+                        AND PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),2) >= 4446   -- SQL 2016 SP1 CU4+
+                       )
+                   )
+              THEN N',Persisted_Sample_Percent'
+              ELSE N''
+         END + N')
+      EXEC(N''USE ' + CAST(@database_name AS NVARCHAR(MAX))
+                    + N';DBCC SHOW_STATISTICS ('''''' + @object_name        + N'''''',N'''''' + @stats_target_name + N'''''')
  WITH STAT_HEADER, NO_INFOMSGS'')
 
-         INSERT
-           INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
-               (database_id
-               ,object_id
-               ,index_ID
-               ,column_id
-               ,Updated
-               ,Rows
-               ,Rows_sampled
-               ,Steps
-               ,Density
-               ,Average_Key_Length
-               ,String_index
-               ,Filter_Expression
-               ,Unfiltered_Rows'
-         +  CASE WHEN (        PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 14   -- SQL 2017+
-                       ------------------------------------------------------------------------------
-                       OR (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4)  = 13   -- SQL 2016
-                           AND PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),2) >= 4446 -- SQL 2016 SP1 CU4+
-                          )
-                      )
-                 THEN N',Persisted_Sample_Percent'
-                 ELSE N''
-            END + N'
-              ,Statistics_age_days)
-         SELECT DB_ID()
-               ,@object_id
-               ,@index_ID
-               ,@column_id
-               ,Updated
-               ,Rows
-               ,Rows_sampled
-               ,Steps
-               ,Density
-               ,Average_Key_Length
-               ,String_index
-               ,Filter_Expression
-               ,Unfiltered_Rows'
-         +  CASE WHEN (        PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 14   -- SQL 2017+
-                       ------------------------------------------------------------------------------
-                       OR (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4)  = 13   -- SQL 2016
-                           AND PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),2) >= 4446 -- SQL 2016 SP1 CU4+
-                          )
-                      )
-                 THEN N',Persisted_Sample_Percent = CASE WHEN Persisted_Sample_Percent = 0 THEN 100 ELSE Persisted_Sample_Percent END'
-                 ELSE N''
-            END + N'
-              ,Statistics_age_days = DATEDIFF(DAY,Updated,GETDATE())
-           FROM #XL_IDX_sys_ShowStatistics_StatHeader;
-      END
+      INSERT
+        INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_StatHeader
+            (database_id
+            ,object_id
+            ,index_ID
+            ,column_id
+            ,Updated
+            ,Rows
+            ,Rows_sampled
+            ,Steps
+            ,Density
+            ,Average_Key_Length
+            ,String_index
+            ,Filter_Expression
+            ,Unfiltered_Rows'
+      +  CASE WHEN (        PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 14   -- SQL 2017+
+                    ------------------------------------------------------------------------------
+                    OR (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4)  = 13   -- SQL 2016
+                        AND PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),2) >= 4446 -- SQL 2016 SP1 CU4+
+                       )
+                   )
+              THEN N',Persisted_Sample_Percent'
+              ELSE N''
+         END + N'
+           ,Statistics_age_days)
+      SELECT DB_ID()
+            ,@object_id
+            ,@index_ID
+            ,@column_id
+            ,Updated
+            ,Rows
+            ,Rows_sampled
+            ,Steps
+            ,Density
+            ,Average_Key_Length
+            ,String_index
+            ,Filter_Expression
+            ,Unfiltered_Rows'
+      +  CASE WHEN (        PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 14   -- SQL 2017+
+                    ------------------------------------------------------------------------------
+                    OR (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4)  = 13   -- SQL 2016
+                        AND PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),2) >= 4446 -- SQL 2016 SP1 CU4+
+                       )
+                   )
+              THEN N',Persisted_Sample_Percent = CASE WHEN Persisted_Sample_Percent = 0 THEN 100 ELSE Persisted_Sample_Percent END'
+              ELSE N''
+         END + N'
+           ,Statistics_age_days = DATEDIFF(DAY,Updated,GETDATE())
+        FROM #XL_IDX_sys_ShowStatistics_StatHeader;
 
-      BEGIN
-         -----------------------------------------------------------------------------------------------------------------------------------
-         -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
-         -----------------------------------------------------------------------------------------------------------------------------------
-         INSERT INTO #XL_IDX_sys_ShowStatistics_DensityVector
-               (All_Density
-               ,Average_Length
-               ,[Columns]
-               )
-         EXEC(N''USE ' + CAST(@database_name AS NVARCHAR(MAX))
-                       + N';DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''',N'''''' + @stats_target_name + N'''''')
+      -----------------------------------------------------------------------------------------------------------------------------------
+      -- tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
+      -----------------------------------------------------------------------------------------------------------------------------------
+      INSERT INTO #XL_IDX_sys_ShowStatistics_DensityVector
+            (All_Density
+            ,Average_Length
+            ,[Columns]
+            )
+      EXEC(N''USE ' + CAST(@database_name AS NVARCHAR(MAX))
+                    + N';DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''',N'''''' + @stats_target_name + N'''''')
  WITH DENSITY_VECTOR, NO_INFOMSGS'')
 
-         INSERT INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
+      INSERT INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_DensityVector
+      SELECT DB_ID()
+            ,@object_id
+            ,@index_ID
+            ,@column_id
+            ,Row_ID = ROW_NUMBER() OVER (ORDER BY LEN([Columns]))
+            ,All_Density
+            ,Average_Length
+            ,LTRIM(RTRIM([Columns]))
+        FROM #XL_IDX_sys_ShowStatistics_DensityVector;
+
+      -----------------------------------------------------------------------------------------------------------------------------------
+      -- insert into tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram
+      -- BOL says:
+      -- "AVG_RANGE_ROWS = Average number of rows with duplicate column values within a histogram step, excluding the upper bound.
+      --  When DISTINCT_RANGE_ROWS is greater than 0, AVG_RANGE_ROWS is calculated by dividing RANGE_ROWS by DISTINCT_RANGE_ROWS.
+      --  When DISTINCT_RANGE_ROWS is 0, AVG_RANGE_ROWS returns 1 for the histogram step."
+
+      -- Since the histogram "upper bound" is not included in the AVG_RANGE_ROWS, compute parameter sniffing range by adding
+      --    the EQ_ROWS to the RANGE_ROWS to get all records in a histogram step,
+      --    then divide by the DISTINCT_RANGE_ROWS plus 1 to account for the upper bound.
+      -----------------------------------------------------------------------------------------------------------------------------------
+      INSERT INTO #XL_IDX_sys_ShowStatistics_Histogram (Range_Hi_Key,Range_Rows,EQ_Rows,Distinct_Range_Rows,Avg_Range_Rows)
+      EXEC(N''USE ' + CAST(@database_name AS NVARCHAR(MAX))
+                    + N';DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''',N'''''' + @stats_target_name + N'''''')
+ WITH HISTOGRAM, NO_INFOMSGS'')
+
+      IF (SELECT MAX(avg_range_rows) FROM #XL_IDX_sys_ShowStatistics_Histogram) > 0
+      BEGIN
+         INSERT INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary
          SELECT DB_ID()
                ,@object_id
                ,@index_ID
                ,@column_id
-               ,Row_ID = ROW_NUMBER() OVER (ORDER BY LEN([Columns]))
-               ,All_Density
-               ,Average_Length
-               ,LTRIM(RTRIM([Columns]))
-           FROM #XL_IDX_sys_ShowStatistics_DensityVector;
-      END
-
-      BEGIN
-         -----------------------------------------------------------------------------------------------------------------------------------
-         -- insert into tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram
-         -- BOL says:
-         -- "AVG_RANGE_ROWS = Average number of rows with duplicate column values within a histogram step, excluding the upper bound.
-         --  When DISTINCT_RANGE_ROWS is greater than 0, AVG_RANGE_ROWS is calculated by dividing RANGE_ROWS by DISTINCT_RANGE_ROWS.
-         --  When DISTINCT_RANGE_ROWS is 0, AVG_RANGE_ROWS returns 1 for the histogram step."
-
-         -- Since the histogram "upper bound" is not included in the AVG_RANGE_ROWS, compute parameter sniffing range by adding
-         --    the EQ_ROWS to the RANGE_ROWS to get all records in a histogram step,
-         --    then divide by the DISTINCT_RANGE_ROWS plus 1 to account for the upper bound.
-         -----------------------------------------------------------------------------------------------------------------------------------
-         INSERT INTO #XL_IDX_sys_ShowStatistics_Histogram (Range_Hi_Key,Range_Rows,EQ_Rows,Distinct_Range_Rows,Avg_Range_Rows)
-         EXEC(N''USE ' + CAST(@database_name AS NVARCHAR(MAX))
-                       + N';DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''',N'''''' + @stats_target_name + N'''''')
- WITH HISTOGRAM, NO_INFOMSGS'')
-
-         IF (SELECT MAX(avg_range_rows) FROM #XL_IDX_sys_ShowStatistics_Histogram) > 0
-         BEGIN
-            INSERT INTO tempdb.dbo.SQLXL_Index_sys_ShowStatistics_Histogram_summary
-            SELECT DB_ID()
-                  ,@object_id
-                  ,@index_ID
-                  ,@column_id
-                  ,e.min_rows_per_value
-                  ,e.max_rows_per_value
-                  ,e.null_rows
-                  ,param_sniff = IIF(e.min_rows_per_value > 0,e.max_rows_per_value / e.min_rows_per_value,NULL)
-              FROM (
-                    SELECT min_rows_per_value = MIN(e.arr)
-                          ,max_rows_per_value = MAX(e.arr)
-                          ,null_rows          = MAX(e.Nrr)
-                      FROM (
-                            SELECT arr = IIF(range_hi_key IS NOT NULL
-                                            ,(eq_rows + Range_Rows) / (Distinct_Range_Rows + 1)
-                                            ,EQ_Rows)
-                                  ,nrr = IIF(range_hi_key IS NULL
-                                            ,EQ_Rows
-                                            ,0)
-                              FROM #XL_IDX_sys_ShowStatistics_Histogram
-                           ) e
-                   ) e;
-         END
+               ,e.min_rows_per_value
+               ,e.max_rows_per_value
+               ,e.null_rows
+               ,param_sniff = IIF(e.min_rows_per_value > 0,e.max_rows_per_value / e.min_rows_per_value,NULL)
+           FROM (
+                 SELECT min_rows_per_value = MIN(e.arr)
+                       ,max_rows_per_value = MAX(e.arr)
+                       ,null_rows          = MAX(e.Nrr)
+                   FROM (
+                         SELECT arr = IIF(range_hi_key IS NOT NULL
+                                         ,(eq_rows + Range_Rows) / (Distinct_Range_Rows + 1)
+                                         ,EQ_Rows)
+                               ,nrr = IIF(range_hi_key IS NULL
+                                         ,EQ_Rows
+                                         ,0)
+                           FROM #XL_IDX_sys_ShowStatistics_Histogram
+                        ) e
+                ) e;
       END
 
    END TRY
@@ -5952,24 +5983,24 @@ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
 END
 
 /*** LOCAL TESTING ***
-SET NOCOUNT ON
-SET ANSI_WARNINGS OFF
 IF OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Compilation') IS NOT NULL DROP TABLE tempdb.dbo.SQLXL_Index_Compilation;
-DECLARE @sql       NVARCHAR(MAX)
-       ,@name      NVARCHAR(MAX)
-       ,@ssms      BIT = 1
+DECLARE @sql         NVARCHAR(MAX)
+       ,@run_value   NVARCHAR(4000);
+       ,@ssms        TINYINT = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE();
 --*/
 
 /******************************************************************************************************************************************/
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'',0,0) WITH NOWAIT;
-   RAISERROR(N'--------- Start Index builds on tempdb SQLXL_IDX tables ------------------------',0,0) WITH NOWAIT;
+   RAISERROR(N'--------- Index builds on tempdb SQLXL_IDX tables ------------------------------',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 /******************************************************************************************************************************************
 Notes on Indexing temp tables:
 
--- Clustered Index created at previous data collection time for: (in order of appearance)
+-- Clustered Index created in above previous data collection steps for: (in order of appearance)
 -----------------------------------------------------------------------
 tempdb.dbo.SQLXL_Index_sys_databases
 tempdb.dbo.SQLXL_Index_sys_dm_db_missing_index_columns
@@ -6940,7 +6971,14 @@ END
                +N' Completed Index builds on tempdb SQLXL_IDX tables'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
-END
+END;
+
+COMMIT;
+
+/* TO DO
+consider High ratio PAGE to ROW locks as priority
+*/
+
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
 DECLARE @sql  NVARCHAR(MAX)
@@ -7063,7 +7101,7 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 ,tbl_is_filetable                           BIT                                     NOT NULL DEFAULT(0)
 -----------------------------------------------------------
 ,tbl_row_CNT                                BIGINT                                      NULL
-,tbl_used_page_CNT                          BIGINT                                      NULL
+,tbl_used_page_PG_CNT                       BIGINT                                      NULL
 ,tbl_row_size_byte_AVG                      BIGINT                                      NULL
 -----------------------------------------------------------
 ,tbl_CLR_trigger_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
@@ -7242,20 +7280,20 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 ,rk_referencing_fkc_system_named_CNT        BIGINT                                  NOT NULL DEFAULT(0)
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Missing index details. See index_Usage_Stats for remainder of columns
+-- Missing index details. See index_Usage_Stats (IUS_*) for remainder of Missing Index columns
 --------------------------------------------------------------------------------------------------------------------------------------------
-,mix_avg_Total_user_cost_AMT                FLOAT                                   NOT NULL DEFAULT(0)
-,mix_avg_Total_system_cost_AMT              FLOAT                                   NOT NULL DEFAULT(0)
-,mix_avg_user_impact_AMT                    FLOAT                                   NOT NULL DEFAULT(0)
-,mix_avg_system_impact_AMT                  FLOAT                                   NOT NULL DEFAULT(0) -- typically ZERO
-,mix_unique_compiles_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
-,mix_Advantage_AMT                          FLOAT                                   NOT NULL DEFAULT(0)
-,mix_Advantage_weighted_AMT                 FLOAT                                   NOT NULL DEFAULT(0)
-                                            -- computed (((i.user_seeks  + i.user_scans) * i.avg_Total_user_cost * i.avg_user_impact  )
-                                            --         +((i.system_seeks + i.system_scans) * i.avg_Total_system_cost * i.avg_system_impact))
+,mix_avg_total_user_cost_AMT                FLOAT                                       NULL
+,mix_avg_total_system_cost_AMT              FLOAT                                       NULL
+,mix_avg_user_impact_AMT                    FLOAT                                       NULL
+,mix_avg_system_impact_AMT                  FLOAT                                       NULL
+,mix_unique_compiles_CNT                    BIGINT                                      NULL
+,mix_Advantage_AMT                          FLOAT                                       NULL
+,mix_Advantage_weighted_AMT                 FLOAT                                       NULL
+                                            -- computed (((i.user_seeks  + i.user_scans) * i.avg_total_user_cost * i.avg_user_impact  )
+                                            --         +((i.system_seeks + i.system_scans) * i.avg_total_system_cost * i.avg_system_impact))
 -----------------------------------------------------------
 -- missing_index_group_stats_query
--- NOTE: since this should total to the existing MISSING index values omitting for version 3
+-- NOTE: since this should total to the existing MISSING index values omitting for this version of XLNSQL_Index
 -----------------------------------------------------------
 --,mqy_user_seeks_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
 --,mqy_user_scans_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
@@ -7317,41 +7355,54 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 -----------------------------------------------------------
 ,Stats_Prop_modification_CNT                BIGINT                                  NOT NULL DEFAULT(0)
 
------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------
 -- Aggregate Operational Metrics Values
------------------------------------------------------------------------
-,ops_Total_contacts_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
+-- sys.dm_db_index_operational_stats + sys.dm_db_xtp_index_stats + sys.dm_db_xtp_Nonclustered_index_stats
+----------------------------------------------------------------------------------------------------------
+,ops_total_contacts_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
    -- includes XTP scans_started,row_insert_attempts,row_update_attempts,row_delete_attempts,delta_pages,page_update_count
    -- includes CS  scan_CNT,delete_buffer_scan_CNT,row_group_lock_CNT
-,ops_Total_read_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_read_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP scans_started, CS scan_CNT,delete_buffer_scan_CNT
-,ops_Total_write_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_write_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
    -- Include XTP row_insert_attempts,row_update_attempts,row_delete_attempts,delta_pages,page_update_count
    -- included CS row_group_lock_CNT
-,ops_Total_insert_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_insert_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP row_insert_attempts
-,ops_Total_update_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_update_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP row_update_attempts,page_update_count
-,ops_Total_delete_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_delete_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP row_delete_attempts
-,ops_Total_scan_cnt                         BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_scan_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP scans_started, CS scan_CNT
-,ops_Total_scan_retries_cnt                 BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_scan_retries_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP scans_started, CS scan_CNT
-,ops_Total_page_split_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_page_split_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP page_split_count,key_split_count
-,ops_Total_page_merge_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
+,ops_total_page_merge_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
  -- Includes XTP page_merge_count,key_merge_count & potentially page_consolidation_count
+,ops_total_wait_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
+ -- Includes 
+,ops_total_wait_MS_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
+ -- Includes 
+,ops_total_wait_MS_AVG                      FLOAT                                       NULL
+ -- Includes 
+,ops_no_read_total_write_CNT                BIGINT                                  NOT NULL DEFAULT(0)
+ -- Includes 
+,ops_total_lock_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
+   -- includes CS row_group_lock_CNT
+,ops_total_lock_wait_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
+   -- includes dm_db_column_store_row_group_operational_stats.row_group_lock_wait_CNT
+,ops_total_lock_wait_MS_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
+   -- includes dm_db_column_store_row_group_operational_stats.row_group_lock_wait_MS_CNT
+,ops_total_lock_wait_MS_AVG                 FLOAT                                       NULL
+   -- includes dm_db_column_store_row_group_operational_stats.row_group_lock_wait_CNT
+   --         ,dm_db_column_store_row_group_operational_stats.row_group_lock_wait_MS_CNT
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- sys.dm_db_index_operational_stats + sys.dm_db_xtp_index_stats + sys.dm_db_xtp_Nonclustered_index_stats
 --------------------------------------------------------------------------------------------------------------------------------------------
-,ios_Total_wait_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
-,ios_Total_wait_MS_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
-,ios_Total_wait_AVG                         FLOAT                                   NOT NULL DEFAULT(0)
-,ios_Total_Column_value_off_row_CNT         BIGINT                                  NOT NULL DEFAULT(0)
--------------------------------------
-,ops_no_read_Total_write_CNT                BIGINT                                  NOT NULL DEFAULT(0)
+,ios_total_Column_value_off_row_CNT         BIGINT                                  NOT NULL DEFAULT(0)
 -------------------------------------
 ,ios_partition_CNT                          BIGINT                                  NOT NULL DEFAULT(0)
 -------------------------------------
@@ -7359,12 +7410,12 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 ,ios_leaf_update_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_leaf_delete_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_leaf_ghost_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
-,ios_Total_leaf_Contacts_CNT                BIGINT                                  NOT NULL DEFAULT(0)
+,ios_total_leaf_Contacts_CNT                BIGINT                                  NOT NULL DEFAULT(0)
 -------------------------------------
 ,ios_nonleaf_insert_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_nonleaf_delete_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_nonleaf_update_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
-,ios_Total_nonleaf_Contacts_CNT             BIGINT                                  NOT NULL DEFAULT(0)
+,ios_total_nonleaf_Contacts_CNT             BIGINT                                  NOT NULL DEFAULT(0)
 -------------------------------------
 ,ios_leaf_alloc_page_split_CNT              BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_nonleaf_alloc_page_split_CNT           BIGINT                                  NOT NULL DEFAULT(0)
@@ -7388,51 +7439,36 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 ,ios_row_lock_CNT                           BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_row_lock_wait_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_row_lock_wait_MS_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
-,ios_row_lock_wait_AVG                      FLOAT                                   NOT NULL DEFAULT(0)
+,ios_row_lock_wait_MS_AVG                   FLOAT                                       NULL
 -------------------------------------
 ,ios_page_lock_CNT                          BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_page_lock_wait_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_page_lock_wait_MS_CNT                  BIGINT                                  NOT NULL DEFAULT(0)
-,ios_page_lock_wait_AVG                     FLOAT                                   NOT NULL DEFAULT(0)
--------------------------------------
-,ios_Total_lock_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
-   -- includes CS row_group_lock_CNT
-,ios_Total_lock_wait_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
-   -- includes CS row_group_lock_wait_CNT
-,ios_Total_lock_wait_MS_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
-   -- includes CS row_group_lock_wait_MS_CNT
-,ios_Total_lock_wait_AVG                    FLOAT                                   NOT NULL DEFAULT(0)
-   -- includes CS row_group_lock_wait_CNT,row_group_lock_wait_MS_CNT
+,ios_page_lock_wait_MS_AVG                  FLOAT                                       NULL
 -------------------------------------
 ,ios_lock_promotion_attempt_CNT             BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_lock_promotion_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_lock_promotion_fail_CNT                BIGINT                                  NOT NULL DEFAULT(0)
-,ios_lock_promotion_fail_PCT                FLOAT                                   NOT NULL DEFAULT(0) -- Computed
--------------------------------------
-,ios_Total_latch_wait_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
-,ios_Total_latch_wait_MS_CNT                BIGINT                                  NOT NULL DEFAULT(0)
-,ios_Total_latch_wait_AVG                   FLOAT                                   NOT NULL DEFAULT(0)
 -------------------------------------
 ,ios_page_latch_wait_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_page_latch_wait_MS_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
-,ios_page_latch_wait_AVG                    FLOAT                                   NOT NULL DEFAULT(0)
+,ios_page_latch_wait_MS_AVG                 FLOAT                                       NULL
 -------------------------------------
 ,ios_page_io_latch_wait_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_page_io_latch_wait_MS_CNT              BIGINT                                  NOT NULL DEFAULT(0)
-,ios_page_io_latch_wait_AVG                 FLOAT                                   NOT NULL DEFAULT(0)
+,ios_page_io_latch_wait_MS_AVG              FLOAT                                       NULL
 -------------------------------------
 ,ios_tree_page_latch_wait_CNT               BIGINT                                  NOT NULL DEFAULT(0) -- Subset of ios_page_latch_wait_CNT
 ,ios_tree_page_latch_wait_MS_CNT            BIGINT                                  NOT NULL DEFAULT(0) -- Subset of ios_page_latch_wait_MS_CNT
-,ios_tree_page_latch_wait_AVG               FLOAT                                   NOT NULL DEFAULT(0) -- Subset of ios_page_latch_wait_AVG
+,ios_tree_page_latch_wait_MS_AVG            FLOAT                                       NULL            -- Subset of ios_page_latch_wait_MS_AVG
 -------------------------------------
 ,ios_tree_page_io_latch_wait_CNT            BIGINT                                  NOT NULL DEFAULT(0) -- Subset of ios_page_io_latch_wait_CNT
 ,ios_tree_page_io_latch_wait_MS_CNT         BIGINT                                  NOT NULL DEFAULT(0) -- Subset of ios_page_io_latch_wait_MS_CNT
-,ios_tree_page_io_latch_wait_AVG            FLOAT                                   NOT NULL DEFAULT(0) -- Subset of ios_page_io_latch_wait_AVG
+,ios_tree_page_io_latch_wait_MS_AVG         FLOAT                                       NULL            -- Subset of ios_page_io_latch_wait_MS_AVG
 -------------------------------------
 ,ios_page_compression_attempt_CNT           BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_page_compression_success_CNT           BIGINT                                  NOT NULL DEFAULT(0)
 ,ios_page_compression_fail_CNT              BIGINT                                  NOT NULL DEFAULT(0)
-,ios_page_compression_fail_PCT              FLOAT                                   NOT NULL DEFAULT(0) -- Computed
 -------------------------------------
 -- New for 2019
 -------------------------------------
@@ -7446,7 +7482,7 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- sys.dm_db_index_usage_stats + sys.dm_db_missing_index_group_stats
 --------------------------------------------------------------------------------------------------------------------------------------------
-,ius_user_Total_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
+,ius_user_total_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
 ,ius_user_read_CNT                          BIGINT                                  NOT NULL DEFAULT(0)
 ,ius_user_seeks_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
                                             -- includes: sys.dm_db_missing_index_group_stats user_seeks
@@ -7488,7 +7524,7 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 ,cs_row_group_lock_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
 ,cs_row_group_lock_wait_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
 ,cs_row_group_lock_wait_MS_CNT              BIGINT                                  NOT NULL DEFAULT(0)
-,cs_row_group_lock_wait_AVG                 FLOAT                                   NOT NULL DEFAULT(0)
+,cs_row_group_lock_wait_MS_AVG              FLOAT                                       NULL
 ,cs_returned_row_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
 ,cs_returned_aggregate_CNT                  BIGINT                                  NOT NULL DEFAULT(0)
 ,cs_returned_group_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
@@ -7514,52 +7550,37 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 ,xtp_leaf_pages_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_page_update_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_page_update_retry_CNT                  BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_page_update_retry_PCT                  FLOAT                                   NOT NULL DEFAULT(0) -- Computed
 ,xtp_page_consolidation_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_page_consolidation_retry_CNT           BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_page_consolidation_retry_PCT           FLOAT                                   NOT NULL DEFAULT(0) -- Computed
 ,xtp_page_split_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_page_split_retry_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_page_split_retry_PCT                   FLOAT                                   NOT NULL DEFAULT(0) -- Computed
 ,xtp_key_split_CNT                          BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_key_split_retry_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_key_split_retry_PCT                    FLOAT                                   NOT NULL DEFAULT(0) -- Computed
 ,xtp_page_merge_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_page_merge_retry_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_page_merge_retry_PCT                   FLOAT                                   NOT NULL DEFAULT(0) -- Computed
 ,xtp_key_merge_CNT                          BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_key_merge_retry_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_key_merge_retry_PCT                    FLOAT                                   NOT NULL DEFAULT(0) -- Computed
 ,xtp_uses_key_normalization                 BIT                                     NOT NULL DEFAULT(0)
 -- sys.dm_db_xtp_memory_consumers ---------
 ,xtp_allocated_bytes_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_used_bytes_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_allocation_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
--------------------------------------------
-,xtp_Total_Contacts_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_Total_read_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_Total_write_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_Total_insert_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_Total_update_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_Total_delete_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_Total_Split_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
-,xtp_Total_merge_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
 
 -----------------------------------------------------------------------
 -- Shared - sys.dm_db_partition_stats, sys.dm_db_xtp_memory_consumers
 -----------------------------------------------------------------------
 ,row_CNT                                    BIGINT                                  NOT NULL DEFAULT(0)
-,reserved_page_CNT                          BIGINT                                  NOT NULL DEFAULT(0)
+,reserved_page_PG_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
  -- Includes XTP allocated_bytes/8192.0
-,used_page_CNT                              BIGINT                                  NOT NULL DEFAULT(0)
+,used_page_PG_CNT                           BIGINT                                  NOT NULL DEFAULT(0)
  -- Includes XTP CEILING(used_bytes/8192.0)
-,in_row_data_page_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
-,in_row_used_page_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
-,in_row_reserved_page_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
-,lob_used_page_CNT                          BIGINT                                  NOT NULL DEFAULT(0)
-,lob_reserved_page_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
-,row_overflow_used_page_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
-,row_overflow_reserved_page_CNT             BIGINT                                  NOT NULL DEFAULT(0)
+,in_row_data_page_PG_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
+,in_row_used_page_PG_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
+,in_row_reserved_page_PG_CNT                BIGINT                                  NOT NULL DEFAULT(0)
+,lob_used_page_PG_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
+,lob_reserved_page_PG_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
+,row_overflow_used_page_PG_CNT              BIGINT                                  NOT NULL DEFAULT(0)
+,row_overflow_reserved_page_PG_CNT          BIGINT                                  NOT NULL DEFAULT(0)
 
 -----------------------------------------------------------
 -- Index Data Space, filegroup
@@ -7608,7 +7629,7 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 -----------------------------------------------------------
 -- sys.dm_os_buffer_descriptors
 -----------------------------------------------------------
-,buffer_Total_KB_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
+,buffer_total_KB_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
  -- Includes XTP allocated_bytes/1024.0
 ,buffer_free_KB_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
  -- Includes (allocated_bytes - used_bytes)/1024.0
@@ -7633,11 +7654,10 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 ,fkc_missing_index_CNT                      BIGINT                                  NOT NULL DEFAULT(0) -- used for FKC
 ,Foreign_Key_CNT                            BIGINT                                  NOT NULL DEFAULT(0)
 ,Relates_Fulltext_index_ID                  BIGINT                                      NULL
-,Histogram_NULL_PCT                         FLOAT                                       NULL            -- Computed
 --------------------------------------------
-,key_Total_datatype_length_bytes            BIGINT                                      NULL
-,inc_Total_datatype_length_bytes            BIGINT                                      NULL
-,idx_Total_datatype_length_bytes            BIGINT                                      NULL
+,key_total_datatype_length_bytes            BIGINT                                      NULL
+,inc_total_datatype_length_bytes            BIGINT                                      NULL
+,idx_total_datatype_length_bytes            BIGINT                                      NULL
 ,Key_Columns_CNT                            BIGINT                                  NOT NULL DEFAULT(0)
 ,Included_Columns_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
 
@@ -7672,27 +7692,37 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Compilation
 -----------------------------------------------------------
 -- Computed Ratios
 -----------------------------------------------------------
-,ius_scans_to_read_PCT                      FLOAT                                       NULL
-,ops_scans_to_read_PCT                      FLOAT                                       NULL
-
-,ius_lookups_to_read_PCT                    FLOAT                                       NULL
-,ios_singleton_lookup_to_read_PCT           FLOAT                                       NULL
-
-,ius_scans_to_seeks_RAT                     FLOAT                                       NULL
-
-,ius_read_to_write_RAT                      FLOAT                                       NULL -- if less than zero WRITES with NO READS
-,ios_read_to_write_RAT                      FLOAT                                       NULL -- if less than zero WRITES with NO READS
-
-,ius_read_to_parent_RAT                     FLOAT                                       NULL -- if less than zero WRITES with NO READS
-,ios_read_to_parent_RAT                     FLOAT                                       NULL -- if less than zero WRITES with NO READS
-
-,ius_write_to_instance_RAT                  FLOAT                                       NULL -- if less than zero WRITES with NO READS
-,ios_write_to_instance_RAT                  FLOAT                                       NULL -- if less than zero WRITES with NO READS
-
-,used_pages_in_buffer_PCT                   FLOAT                                       NULL
+,ius_read_to_write_RAT                      FLOAT                                       NULL
+,ops_read_to_write_RAT                      FLOAT                                       NULL
 ,page_lock_to_row_lock_RAT                  FLOAT                                       NULL
+
+,ius_scans_to_read_PCT                      FLOAT                                       NULL
+,ius_lookups_to_read_PCT                    FLOAT                                       NULL
+,ius_seeks_to_read_PCT                      FLOAT                                       NULL
+,ius_read_to_parent_PCT                     FLOAT                                       NULL
+,ius_write_to_parent_PCT                    FLOAT                                       NULL
+,ius_write_to_instance_PCT                  FLOAT                                       NULL
+
+,ops_scans_to_read_PCT                      FLOAT                                       NULL
+,ios_singleton_lookup_to_read_PCT           FLOAT                                       NULL
+,ios_forwarded_fetch_to_read_PCT            FLOAT                                       NULL
+,ops_read_to_parent_PCT                     FLOAT                                       NULL
+,ops_write_to_parent_PCT                    FLOAT                                       NULL
+,ops_write_to_instance_PCT                  FLOAT                                       NULL
 ,page_splits_to_write_PCT                   FLOAT                                       NULL
 ,page_merge_to_write_PCT                    FLOAT                                       NULL
+,ios_page_compression_fail_PCT              FLOAT                                       NULL
+
+,used_pages_in_buffer_PCT                   FLOAT                                       NULL
+,free_pages_in_buffer_PCT                   FLOAT                                       NULL
+
+,xtp_page_update_retry_PCT                  FLOAT                                       NULL
+,xtp_page_consolidation_retry_PCT           FLOAT                                       NULL
+,xtp_page_split_retry_PCT                   FLOAT                                       NULL
+,xtp_key_split_retry_PCT                    FLOAT                                       NULL
+,xtp_page_merge_retry_PCT                   FLOAT                                       NULL
+,xtp_key_merge_retry_PCT                    FLOAT                                       NULL
+
 -----------------------------------------------------------
 -- Overlappers
 -----------------------------------------------------------
@@ -7810,7 +7840,7 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       ----------------------------------------------------------------------------------------------------
       -- sys.dm_os_buffer_descriptors
       ----------------------------------------------------------------------------------------------------
-      ,buffer_Total_KB_CNT
+      ,buffer_total_KB_CNT
       ,buffer_free_KB_CNT
       ----------------------------------------------------------------------------------------------------
       -- Object Computed/derived Values
@@ -7957,7 +7987,7 @@ SELECT rec_type                          = N'I'
       ----------------------------------------------------------------------------------------------------
       -- sys.dm_os_buffer_descriptors
       ----------------------------------------------------------------------------------------------------
-      ,buffer_Total_KB_CNT               = ISNULL(bd.buffer_Total_KB,0)
+      ,buffer_total_KB_CNT               = ISNULL(bd.buffer_total_KB,0)
       ,buffer_free_KB_CNT                = ISNULL(bd.buffer_free_KB ,0)
       ----------------------------------------------------------------------------------------------------
       -- Object Computed/derived Values
@@ -7991,7 +8021,7 @@ SELECT o.history_source_object_id,o.parent_object_id,op.name,o.object_id,o.name,
         SELECT database_id
               ,name
               ,object_id
-              ,parent_object_id
+              ,parent_object_id = COALESCE(history_source_object_id,parent_object_id)
               ,history_source_object_id
               ,principal_id
               ,type
@@ -8018,6 +8048,7 @@ SELECT o.history_source_object_id,o.parent_object_id,op.name,o.object_id,o.name,
                        ,N'U'  -- Table (user-defined)
                        ,N'V'  -- View
                        )
+--AND (   Object_id IN (2099048,82099333) OR parent_Object_id IN (2099048,82099333) OR history_source_object_id IN (2099048,82099333))
        ) AS o
 
 ------------------------------------------------------------------------------------------------------
@@ -8139,7 +8170,7 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       ----------------------------------------------------------------------------------------------------
       -- sys.dm_os_buffer_descriptors
       ----------------------------------------------------------------------------------------------------
-      ,buffer_Total_KB_CNT
+      ,buffer_total_KB_CNT
       ,buffer_free_KB_CNT
       ----------------------------------------------------------------------------------------------------
       -- Object Computed/derived Values
@@ -8209,7 +8240,7 @@ SELECT rec_type                          = N'I'
       ----------------------------------------------------------------------------------------------------
       -- sys.dm_os_buffer_descriptors - no links between buffer cache and FUllText indexes found as of yet
       ----------------------------------------------------------------------------------------------------
-      ,buffer_Total_KB_CNT               = 0 -- bd.buffer_Total_KB_CNT
+      ,buffer_total_KB_CNT               = 0 -- bd.buffer_total_KB_CNT
       ,buffer_free_KB_CNT                = 0 -- bd.buffer_free_KB_CNT
       ----------------------------------------------------------------------------------------------------
       -- Object Computed/derived Values
@@ -8287,8 +8318,8 @@ INSERT INTO tempdb.dbo.SQLXL_Index_Compilation
       ,internal_type_desc
       ,parent_minor_id
       ---------------------
-      ,mix_avg_Total_user_cost_AMT
-      ,mix_avg_Total_system_cost_AMT
+      ,mix_avg_total_user_cost_AMT
+      ,mix_avg_total_system_cost_AMT
       ,mix_avg_user_impact_AMT
       ,mix_avg_system_impact_AMT
       ,mix_unique_compiles_CNT
@@ -8346,12 +8377,12 @@ SELECT rec_type                          = N'I'
       ,internal_type_desc                = o.internal_type_desc
       ,parent_minor_id                   = o.parent_minor_id
       ---------------------
-      ,mix_avg_Total_user_cost_AMT       = ISNULL(i.avg_Total_user_cost  ,0)
-      ,mix_avg_Total_system_cost_AMT     = ISNULL(i.avg_Total_system_cost,0)
-      ,mix_avg_user_impact_AMT           = ISNULL(i.avg_user_impact      ,0)
-      ,mix_avg_system_impact_AMT         = ISNULL(i.avg_system_impact    ,0)
-      ,mix_unique_compiles_CNT           = ISNULL(i.unique_compiles      ,0)
-      ,mix_Advantage_AMT                 = ISNULL(i.mix_Advantage_AMT    ,0)
+      ,mix_avg_total_user_cost_AMT       = i.avg_total_user_cost  
+      ,mix_avg_total_system_cost_AMT     = i.avg_total_system_cost
+      ,mix_avg_user_impact_AMT           = i.avg_user_impact      
+      ,mix_avg_system_impact_AMT         = i.avg_system_impact    
+      ,mix_unique_compiles_CNT           = i.unique_compiles      
+      ,mix_Advantage_AMT                 = i.mix_Advantage_AMT    
       ----------------------------------------
       -- missing_index_group_stats_query
       ----------------------------------------
@@ -8461,7 +8492,7 @@ END
 UPDATE tgt
    SET
 /*** LOCAL TESTING ***
-SET ANSI_WARNINGS ON; -- required for the FOR XML function below
+SET ANSI_WARNINGS ON; -- Needed for "FOR XML PATH"
 SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
 --*/
 
@@ -8500,7 +8531,7 @@ END
 UPDATE tgt
    SET
 /*** LOCAL TESTING ***
-SET ANSI_WARNINGS ON; -- required for the FOR XML function below
+SET ANSI_WARNINGS ON; -- Needed for "FOR XML PATH"
 SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
 --*/
 
@@ -8604,7 +8635,7 @@ SELECT rec_type = IIF(o.type = N'IT'
       -- sys.objects
       ----------------------------
       ,history_source_object_id    = o.history_source_object_id
-      ,parent_object_id            = o.parent_object_id
+      ,parent_object_id            = COALESCE(o.history_source_object_id,o.parent_object_id)
       ----------------------------
       ,object_id                   = o.object_id
       ,obj_name                    = o.name
@@ -8657,6 +8688,7 @@ SELECT rec_type = IIF(o.type = N'IT'
                ,N'U'  -- Table
                ,N'V'  -- View
                )
+--AND (   Object_id IN (2099048,82099333) OR parent_Object_id IN (2099048,82099333) OR history_source_object_id IN (2099048,82099333))
          ORDER BY
                database_id
               ,object_id
@@ -8901,7 +8933,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,
       ,tbl_history_table_name                 = his.name
       ------------------------------------------------------------------------------------------------
       ,tbl_row_cnt                            = rc.tbl_row_CNT
-      ,tbl_used_page_CNT                      = rc.tbl_used_page_CNT
+      ,tbl_used_page_PG_CNT                   = rc.tbl_used_page_PG_CNT
       ,tbl_row_size_byte_AVG                  = rc.tbl_row_size_byte_AVG
       ------------------------------------------------------------------------------------------------
       ,tbl_CLR_trigger_CNT                    = ISNULL(tr.tbl_CLR_trigger_CNT             ,0)
@@ -9095,7 +9127,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.parent_object
         SELECT p.database_id
               ,p.object_id
               ,tbl_row_CNT           = SUM(p.row_count)
-              ,tbl_used_page_CNT     = SUM(p.used_page_CNT)
+              ,tbl_used_page_PG_CNT  = SUM(p.used_page_CNT)
               ,tbl_row_size_byte_AVG = (8192.0 * SUM(p.used_page_CNT)) / SUM(p.row_count) -- /zero handled by WHERE below
           FROM tempdb.dbo.SQLXL_Index_sys_dm_db_partition_stats AS p
           JOIN tempdb.dbo.SQLXL_Index_sys_indexes               AS i
@@ -9197,7 +9229,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,pot = tgt.parent_object
                                         ------------------------------------------------------------
                                    ELSE N''
                               END
-/* <BS> removed for simplicity
+/* <BS> removed for simplicity. May be useful later
                              +CASE tgt.internal_type
                                    WHEN   3 THEN N' QDS HNT' -- QUERY_DISK_STORE_QUERY_HINTS
                                    WHEN   4 THEN N' QDS PRM' -- QUERY_DISK_STORE_QUERY_TEMPLATE_PARAMETERIZATION
@@ -10252,7 +10284,6 @@ END
 
 /******************************************************************************************************************************************/
 -- Update index size & count attributes
--- Update index size & count attributes
 /******************************************************************************************************************************************/
 UPDATE tgt
    SET
@@ -10263,21 +10294,21 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
        Key_Columns_CNT                 = COALESCE(fkc.key_columns_CNT      ,lng.key_columns_CNT      ,0)
       ,Included_Columns_CNT            = COALESCE(fkc.Included_Columns_CNT ,lng.Included_Columns_CNT ,0)
       ----------------------------------------------
-      ,key_Total_datatype_length_bytes = COALESCE(fkc.key_column_width     ,lng.key_column_width     ,0)
-      ,inc_Total_datatype_length_bytes = COALESCE(fkc.included_column_width,lng.included_column_width,0)
-      ,idx_Total_datatype_length_bytes = COALESCE(fkc.total_width          ,lng.total_width          ,0)
+      ,key_total_datatype_length_bytes = COALESCE(fkc.key_column_width     ,lng.key_column_width     ,0)
+      ,inc_total_datatype_length_bytes = COALESCE(fkc.included_column_width,lng.included_column_width,0)
+      ,idx_total_datatype_length_bytes = COALESCE(fkc.total_width          ,lng.total_width          ,0)
       -----------------------------------------------------------------------------------------
-      ,row_CNT                         = ISNULL(ps.row_count                 ,0)
-      ,Partition_CNT                   = ISNULL(ps.Partition_CNT             ,0)
-      ,used_page_CNT                   = ISNULL(ps.used_page_CNT             ,0)
-      ,in_row_data_page_CNT            = ISNULL(ps.in_row_data_page          ,0)
-      ,in_row_used_page_CNT            = ISNULL(ps.in_row_used_page          ,0)
-      ,in_row_reserved_page_CNT        = ISNULL(ps.in_row_reserved_page      ,0)
-      ,lob_used_page_CNT               = ISNULL(ps.lob_used_page             ,0)
-      ,lob_reserved_page_CNT           = ISNULL(ps.lob_reserved_page         ,0)
-      ,row_overflow_used_page_CNT      = ISNULL(ps.row_overflow_used_page    ,0)
-      ,row_overflow_reserved_page_CNT  = ISNULL(ps.row_overflow_reserved_page,0)
-      ,reserved_page_CNT               = ISNULL(ps.reserved_page             ,0)
+      ,row_CNT                           = ISNULL(ps.row_count                 ,0)
+      ,Partition_CNT                     = ISNULL(ps.Partition_CNT             ,0)
+      ,used_page_PG_CNT                  = ISNULL(ps.used_page_CNT             ,0)
+      ,in_row_data_page_PG_CNT           = ISNULL(ps.in_row_data_page          ,0)
+      ,in_row_used_page_PG_CNT           = ISNULL(ps.in_row_used_page          ,0)
+      ,in_row_reserved_page_PG_CNT       = ISNULL(ps.in_row_reserved_page      ,0)
+      ,lob_used_page_PG_CNT              = ISNULL(ps.lob_used_page             ,0)
+      ,lob_reserved_page_PG_CNT          = ISNULL(ps.lob_reserved_page         ,0)
+      ,row_overflow_used_page_PG_CNT     = ISNULL(ps.row_overflow_used_page    ,0)
+      ,row_overflow_reserved_page_PG_CNT = ISNULL(ps.row_overflow_reserved_page,0)
+      ,reserved_page_PG_CNT              = ISNULL(ps.reserved_page             ,0)
 
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
@@ -10378,7 +10409,7 @@ SET ANSI_WARNINGS ON; -- required for the FOR XML function below
 UPDATE tgt
    SET
 /*** LOCAL TESTING ***
-SET ANSI_WARNINGS ON;
+SET ANSI_WARNINGS ON; -- required for the FOR XML function below
 SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
 
@@ -10772,7 +10803,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.index_id,tgt.type,c.UNQ,c.column
                                            ORDER BY i.stathdr_Average_Key_Length  -- smallest one first if more than one
                                                    ,i.Lead_Element_Uniqueness     -- most uniquest first key element next
                                                    ,i.Key_Columns_CNT             -- fewest key columns
-                                                   ,i.ius_user_Total_CNT  DESC    -- most used
+                                                   ,i.ius_user_total_CNT  DESC    -- most used
                                       )
           FROM tempdb.dbo.SQLXL_Index_Compilation AS i
          WHERE i.rec_type = N'I'
@@ -10933,9 +10964,9 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       -------------------------------------------------------------------------------------------------------------------------------------
       -- sys.dm_db_index_usage_stats, sys.dm_db_missing_index_details
       -------------------------------------------------------------------------------------------------------------------------------------
-       ius_user_Total_CNT = CASE WHEN tgt.type = N'M'
+       ius_user_total_CNT = CASE WHEN tgt.type = N'M'
                                  THEN ISNULL(mix.user_seeks  ,0) + ISNULL(mix.user_scans  ,0)
-                                 ELSE ISNULL(ius.user_Total_cnt,0)
+                                 ELSE ISNULL(ius.user_total_cnt,0)
                             END
       ,ius_user_read_CNT           = ISNULL(mix.user_seeks     ,0) + ISNULL(mix.user_scans             ,0)
                                    + ISNULL(ius.user_read_CNT  ,0) + ISNULL(rgos.index_scan_cnt        ,0)
@@ -10957,7 +10988,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,ius_last_system_scan_DTTM   = IIF(tgt.type = N'M',mix.last_system_scan,ius.last_system_scan  ) -- NULL values OK for Dates
       ,ius_last_system_lookup_DTTM = IIF(tgt.type = N'M',NULL                ,ius.last_system_lookup) -- NULL values OK for Dates
       ,ius_last_system_update_DTTM = IIF(tgt.type = N'M',NULL                ,ius.last_system_update) -- NULL values OK for Dates
-      -------------------------------------------------------
+      -------------------------------------------------------             buffe
       ,ius_last_read_days_ago   = DATEDIFF(DAY
                                           ,(SELECT dt = MAX(dt)
                                               FROM (VALUES (mix.last_user_seek)  ,(mix.last_user_scan)
@@ -10981,7 +11012,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,ios_leaf_update_CNT                       = ISNULL(ios.leaf_update_CNT              ,0)
       ,ios_leaf_delete_CNT                       = ISNULL(ios.leaf_delete_CNT              ,0)
       ,ios_leaf_ghost_CNT                        = ISNULL(ios.leaf_ghost_CNT               ,0)
-      ,ios_Total_leaf_Contacts_CNT               = ISNULL(ios.leaf_insert_CNT              ,0)
+      ,ios_total_leaf_Contacts_CNT               = ISNULL(ios.leaf_insert_CNT              ,0)
                                                  + ISNULL(ios.leaf_update_CNT              ,0)
                                                  + ISNULL(ios.leaf_delete_CNT              ,0)
                                                  + ISNULL(ios.leaf_ghost_CNT               ,0)
@@ -10989,7 +11020,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,ios_nonleaf_insert_CNT                    = ISNULL(ios.nonleaf_insert_CNT           ,0)
       ,ios_nonleaf_delete_CNT                    = ISNULL(ios.nonleaf_delete_CNT           ,0)
       ,ios_nonleaf_update_CNT                    = ISNULL(ios.nonleaf_update_CNT           ,0)
-      ,ios_Total_nonleaf_Contacts_CNT            = ISNULL(ios.nonleaf_insert_CNT           ,0)
+      ,ios_total_nonleaf_Contacts_CNT            = ISNULL(ios.nonleaf_insert_CNT           ,0)
                                                  + ISNULL(ios.nonleaf_update_CNT           ,0)
                                                  + ISNULL(ios.nonleaf_delete_CNT           ,0)
       -----------------------------------------
@@ -11031,16 +11062,18 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,ios_row_lock_CNT                          = ISNULL(ios.row_lock_CNT                 ,0)
       ,ios_row_lock_wait_CNT                     = ISNULL(ios.row_lock_wait_CNT            ,0)
       ,ios_row_lock_wait_MS_CNT                  = ISNULL(ios.row_lock_wait_MS             ,0)
-      ,ios_row_lock_wait_AVG                     = IIF(ios.row_lock_wait_CNT > 0
-                                                      ,1.0 * ISNULL(ios.row_lock_wait_MS,0) / ios.row_lock_wait_CNT
-                                                      ,0)
+--<BS> Computed below
+--    ,ios_row_lock_wait_MS_AVG                  = IIF(ios.row_lock_wait_CNT > 0
+--                                                    ,1.0 * ISNULL(ios.row_lock_wait_MS,0) / ios.row_lock_wait_CNT
+--                                                    ,0)
       -----------------------------------------
       ,ios_page_lock_CNT                         = ISNULL(ios.page_lock_CNT     ,0)
       ,ios_page_lock_wait_CNT                    = ISNULL(ios.page_lock_wait_CNT,0)
       ,ios_page_lock_wait_MS_CNT                 = ISNULL(ios.page_lock_wait_MS ,0)
-      ,ios_page_lock_wait_AVG                    = IIF(ios_page_lock_wait_CNT > 0
-                                                      ,1.0 * ISNULL(ios_page_lock_wait_MS_CNT,0) / ios_page_lock_wait_CNT
-                                                      ,0)
+--<BS> Computed below
+--    ,ios_page_lock_wait_MS_AVG                 = IIF(ios_page_lock_wait_CNT > 0
+--                                                    ,1.0 * ISNULL(ios_page_lock_wait_MS_CNT,0) / ios_page_lock_wait_CNT
+--                                                    ,0)
       -----------------------------------------
       ,ios_lock_promotion_attempt_CNT            = ISNULL(ios.lock_promotion_attempt_CNT,0)
       ,ios_lock_promotion_CNT                    = ISNULL(ios.lock_promotion_CNT        ,0)
@@ -11049,46 +11082,53 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       -----------------------------------------
       ,ios_page_latch_wait_CNT                   = ISNULL(ios.page_latch_wait_CNT,0)
       ,ios_page_latch_wait_MS_CNT                = ISNULL(ios.page_latch_wait_MS ,0)
-      ,ios_page_latch_wait_AVG                   = IIF(ios.page_latch_wait_CNT > 0
-                                                      ,1.0 * ISNULL(ios.page_latch_wait_MS,0) / ios.page_latch_wait_CNT
-                                                      ,0)
+--<BS> Computed below
+--    ,ios_page_latch_wait_MS_AVG                = IIF(ios.page_latch_wait_CNT > 0
+--                                                    ,1.0 * ISNULL(ios.page_latch_wait_MS,0) / ios.page_latch_wait_CNT
+--                                                    ,0)
       -----------------------------------------
       ,ios_page_io_latch_wait_CNT                = ISNULL(ios.page_io_latch_wait_CNT,0)
       ,ios_page_io_latch_wait_MS_CNT             = ISNULL(ios.page_io_latch_wait_MS ,0)
-      ,ios_page_io_latch_wait_AVG                = IIF(ios.page_io_latch_wait_CNT > 0
+      ,ios_page_io_latch_wait_MS_AVG             = IIF(ios.page_io_latch_wait_CNT > 0
                                                       ,1.0 * ISNULL(ios.page_io_latch_wait_MS,0) / ios.page_io_latch_wait_CNT
                                                       ,0)
       -----------------------------------------
       ,ios_tree_page_latch_wait_CNT              = ISNULL(ios.tree_page_latch_wait_CNT,0)
       ,ios_tree_page_latch_wait_MS_CNT           = ISNULL(ios.tree_page_latch_wait_MS ,0)
-      ,ios_tree_page_latch_wait_AVG              = IIF(ios.tree_page_latch_wait_CNT > 0
-                                                      ,1.0 * ISNULL(ios.tree_page_latch_wait_MS,0) / ios.tree_page_latch_wait_CNT
-                                                      ,0)
+--<BS> Computed below
+--    ,ios_tree_page_latch_wait_MS_AVG           = IIF(ios.tree_page_latch_wait_CNT > 0
+--                                                    ,1.0 * ISNULL(ios.tree_page_latch_wait_MS,0) / ios.tree_page_latch_wait_CNT
+--                                                    ,0)
       -----------------------------------------
       ,ios_tree_page_io_latch_wait_CNT           = ISNULL(ios.tree_page_io_latch_wait_CNT,0)
       ,ios_tree_page_io_latch_wait_MS_CNT        = ISNULL(ios.tree_page_io_latch_wait_MS ,0)
-      ,ios_tree_page_io_latch_wait_AVG           = IIF(ios.tree_page_io_latch_wait_CNT > 0
-                                                      ,1.0 * ISNULL(ios.tree_page_io_latch_wait_MS,0) / ios.tree_page_io_latch_wait_CNT
-                                                      ,0)
+--<BS> Computed below
+--    ,ios_tree_page_io_latch_wait_MS_AVG        = IIF(ios.tree_page_io_latch_wait_CNT > 0
+--                                                    ,1.0 * ISNULL(ios.tree_page_io_latch_wait_MS,0) / ios.tree_page_io_latch_wait_CNT
+--                                                    ,0)
       --------------------------------------------------------------------------------------------------------
-      -- sys.dm_db_index_operational_stats Lock & Wait Aggregates - includes ColStor & InMemory if found
+      -- sys.dm_db_index_operational_stats Lock & Wait Aggregates - includes ColumnStore & InMemory if found
       --------------------------------------------------------------------------------------------------------
-      ,ios_Total_Lock_CNT                        = ISNULL(ios.row_lock_CNT       ,0)
+      ,ops_total_lock_CNT                        = ISNULL(ios.row_lock_CNT       ,0)
                                                  + ISNULL(ios.page_lock_CNT      ,0)
                                                  + ISNULL(rgos.row_group_lock_CNT,0)
       -----------------------------------------
-      ,ios_Total_lock_wait_CNT                   = ISNULL(ios.row_lock_wait_CNT       ,0)
+      ,ops_total_lock_wait_CNT                   = ISNULL(ios.row_lock_wait_CNT       ,0)
                                                  + ISNULL(ios.page_lock_wait_CNT      ,0)
                                                  + ISNULL(rgos.row_group_lock_wait_CNT,0)
       -----------------------------------------
-      ,ios_Total_lock_wait_MS_CNT                = ISNULL(ios.row_lock_wait_ms       ,0)
+      ,ops_total_lock_wait_MS_CNT                = ISNULL(ios.row_lock_wait_ms       ,0)
                                                  + ISNULL(ios.page_lock_wait_ms      ,0)
                                                  + ISNULL(rgos.row_group_lock_wait_MS,0)
       -----------------------------------------
-      ,ios_Total_lock_wait_AVG                   = IIF(( ISNULL(ios.row_lock_wait_CNT       ,0)
-                                                        +ISNULL(ios.page_lock_wait_CNT      ,0)
-                                                        +ISNULL(rgos.row_group_lock_wait_CNT,0)
-                                                       ) > 0
+      ,ops_total_lock_wait_MS_AVG                = IIF(    ( ISNULL(ios.row_lock_wait_CNT       ,0)
+                                                            +ISNULL(ios.page_lock_wait_CNT      ,0)
+                                                            +ISNULL(rgos.row_group_lock_wait_CNT,0)
+                                                           ) > 0
+                                                       AND ( ISNULL(ios.row_lock_wait_ms       ,0)
+                                                            +ISNULL(ios.page_lock_wait_ms      ,0)
+                                                            +ISNULL(rgos.row_group_lock_wait_MS,0)
+                                                           ) > 0
                                                       ,1.0 * ( ISNULL(ios.row_lock_wait_ms       ,0)
                                                               +ISNULL(ios.page_lock_wait_ms      ,0)
                                                               +ISNULL(rgos.row_group_lock_wait_MS,0)
@@ -11097,51 +11137,47 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                               +ISNULL(ios.page_lock_wait_CNT      ,0)
                                                               +ISNULL(rgos.row_group_lock_wait_CNT,0)
                                                              )
-                                                      ,0)
+                                                      ,NULL)
       -----------------------------------------
-      ,ios_Total_wait_CNT                      = (  ISNULL(ios.row_lock_wait_CNT          ,0)
+      ,ops_total_wait_CNT                      = (  ISNULL(ios.row_lock_wait_CNT          ,0)
                                                   + ISNULL(ios.page_lock_wait_CNT         ,0)
                                                   + ISNULL(ios.page_latch_wait_CNT        ,0)
                                                   + ISNULL(ios.page_io_latch_wait_CNT     ,0)
-                                                  + ISNULL(ios.tree_page_latch_wait_CNT   ,0)
-                                                  + ISNULL(ios.tree_page_io_latch_wait_CNT,0)
                                                   + ISNULL(rgos.row_group_lock_wait_CNT   ,0)
+                                                  -- ios.tree_page_latch_wait_CNT, ios.tree_page_io_latch_wait_CNT are subsets
                                                  )
       --------------------------------------
-      ,ios_Total_wait_MS_CNT                   = (  ISNULL(ios.row_lock_wait_MS          ,0)
+      ,ops_total_wait_MS_CNT                   = (  ISNULL(ios.row_lock_wait_MS          ,0)
                                                   + ISNULL(ios.page_lock_wait_MS         ,0)
                                                   + ISNULL(ios.page_latch_wait_MS        ,0)
                                                   + ISNULL(ios.page_io_latch_wait_MS     ,0)
-                                                  + ISNULL(ios.tree_page_latch_wait_MS   ,0)
-                                                  + ISNULL(ios.tree_page_io_latch_wait_MS,0)
                                                   + ISNULL(rgos.row_group_lock_wait_MS   ,0)
+                                                  -- ios.tree_page_latch_wait_MS, ios.tree_page_io_latch_wait_MS are subsets
                                                  )
       --------------------------------------
-      ,ios_Total_wait_AVG                      = IIF((  ISNULL(ios.row_lock_wait_CNT          ,0)
-                                                      + ISNULL(ios.page_lock_wait_CNT         ,0)
-                                                      + ISNULL(ios.page_latch_wait_CNT        ,0)
-                                                      + ISNULL(ios.page_io_latch_wait_CNT     ,0)
-                                                      + ISNULL(ios.tree_page_latch_wait_CNT   ,0)
-                                                      + ISNULL(ios.tree_page_io_latch_wait_CNT,0)
-                                                      + ISNULL(rgos.row_group_lock_wait_CNT   ,0)
-                                                      ) > 0
-                                                     ,1.0*( ISNULL(ios.row_lock_wait_MS           ,0)
-                                                          + ISNULL(ios.page_lock_wait_MS          ,0)
-                                                          + ISNULL(ios.page_latch_wait_MS         ,0)
-                                                          + ISNULL(ios.page_io_latch_wait_MS      ,0)
-                                                          + ISNULL(ios.tree_page_latch_wait_MS    ,0)
-                                                          + ISNULL(ios.tree_page_io_latch_wait_MS ,0)
-                                                          + ISNULL(rgos.row_group_lock_wait_MS   ,0)
-                                                          )/
-                                                          ( ISNULL(ios.row_lock_wait_CNT          ,0)
-                                                          + ISNULL(ios.page_lock_wait_CNT         ,0)
-                                                          + ISNULL(ios.page_latch_wait_CNT        ,0)
-                                                          + ISNULL(ios.page_io_latch_wait_CNT     ,0)
-                                                          + ISNULL(ios.tree_page_latch_wait_CNT   ,0)
-                                                          + ISNULL(ios.tree_page_io_latch_wait_CNT,0)
-                                                          + ISNULL(rgos.row_group_lock_wait_CNT   ,0)
-                                                          )
-                                                     ,0)
+--<BS> Computed below
+--    ,ops_total_wait_MS_AVG                   = IIF((  ISNULL(ios.row_lock_wait_CNT          ,0)
+--                                                    + ISNULL(ios.page_lock_wait_CNT         ,0)
+--                                                    + ISNULL(ios.page_latch_wait_CNT        ,0)
+--                                                    + ISNULL(ios.page_io_latch_wait_CNT     ,0)
+--                                                    + ISNULL(rgos.row_group_lock_wait_CNT   ,0)
+--                                                    -- ios.tree_page_latch_wait_CNT, ios.tree_page_io_latch_wait_CNT are subsets
+--                                                    ) > 0
+--                                                   ,1.0*( ISNULL(ios.row_lock_wait_MS           ,0)
+--                                                        + ISNULL(ios.page_lock_wait_MS          ,0)
+--                                                        + ISNULL(ios.page_latch_wait_MS         ,0)
+--                                                        + ISNULL(ios.page_io_latch_wait_MS      ,0)
+--                                                        + ISNULL(rgos.row_group_lock_wait_MS   ,0)
+--                                                        -- ios.tree_page_latch_wait_MS, ios.tree_page_io_latch_wait_MS are subsets
+--                                                        )/
+--                                                        ( ISNULL(ios.row_lock_wait_CNT          ,0)
+--                                                        + ISNULL(ios.page_lock_wait_CNT         ,0)
+--                                                        + ISNULL(ios.page_latch_wait_CNT        ,0)
+--                                                        + ISNULL(ios.page_io_latch_wait_CNT     ,0)
+--                                                        + ISNULL(rgos.row_group_lock_wait_CNT   ,0)
+--                                                        -- ios.tree_page_latch_wait_CNT, ios.tree_page_io_latch_wait_CNT are subsets
+--                                                        )
+--                                                   ,0)
 
       -------------------------------------------------------------------------------------------------------------------------------------
       -- sys.dm_db_xtp_object_stats
@@ -11182,42 +11218,23 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,xtp_allocated_bytes_CNT              = ISNULL(xis.allocated_bytes ,0)
       ,xtp_used_bytes_CNT                   = ISNULL(xis.used_bytes      ,0)
       ,xtp_allocation_CNT                   = ISNULL(xis.allocation_count,0)
-      ------------------------------------------------------------------------------
-      ,xtp_Total_Contacts_CNT               = ISNULL(xis.scans_started           ,0)
-                                            + ISNULL(xis.row_insert_attempts     ,0)
-                                            + ISNULL(xis.row_update_attempts     ,0)
-                                            + ISNULL(xis.row_delete_attempts     ,0)
-                                            + ISNULL(xis.delta_pages             ,0)
-                                            + ISNULL(xis.page_update_count       ,0)
-      ,xtp_Total_read_CNT                   = ISNULL(xis.scans_started           ,0)
-      ,xtp_Total_write_CNT                  = ISNULL(xis.row_insert_attempts     ,0)
-                                            + ISNULL(xis.row_update_attempts     ,0)
-                                            + ISNULL(xis.row_delete_attempts     ,0)
-                                            + ISNULL(xis.delta_pages             ,0)
-                                            + ISNULL(xis.page_update_count       ,0)
-      ,xtp_Total_insert_CNT                 = ISNULL(xis.row_insert_attempts     ,0)
-      ,xtp_Total_update_CNT                 = ISNULL(xis.row_update_attempts     ,0)
-                                            + ISNULL(xis.page_update_count       ,0)
-      ,xtp_Total_delete_CNT                 = ISNULL(xis.row_delete_attempts     ,0)
-      ,xtp_Total_Split_CNT                  = ISNULL(xis.page_split_count        ,0)
-                                            + ISNULL(xis.key_split_count         ,0)
-      ,xtp_Total_merge_CNT                  = ISNULL(xis.page_merge_count        ,0)
-                                            + ISNULL(xis.key_merge_count         ,0)
+
 --<BS> review if can be included            + ISNULL(xis.page_consolidation_count,0)
       -------------------------------------------------------------------------------------------------------------------------------------
       -- sys.dm_db_column_store_row_group_operational_stats
       -------------------------------------------------------------------------------------------------------------------------------------
-      ,cs_partition_CNT                     = ISNULL(rgos.partition_CNT          ,0)
+      ,cs_partition_CNT                     = ISNULL(rgos.partition_CNT          ,0) --<BS> move to appropriate OPS_ value
       ,cs_row_group_CNT                     = ISNULL(rgos.row_group_CNT          ,0)
       ,cs_index_scan_CNT                    = ISNULL(rgos.index_scan_CNT         ,0)
       ,cs_scan_CNT                          = ISNULL(rgos.scan_CNT               ,0)
-      ,cs_delete_buffer_scan_CNT            = ISNULL(rgos.delete_buffer_scan_CNT ,0)
-      ,cs_row_group_lock_CNT                = ISNULL(rgos.row_group_lock_CNT     ,0)
-      ,cs_row_group_lock_wait_CNT           = ISNULL(rgos.row_group_lock_wait_CNT,0)
-      ,cs_row_group_lock_wait_MS_CNT        = ISNULL(rgos.row_group_lock_wait_MS ,0)
-      ,cs_row_group_lock_wait_AVG           = IIF(rgos.row_group_lock_wait_CNT > 0
-                                                 ,1.0 * ISNULL(rgos.row_group_lock_wait_MS,0) / rgos.row_group_lock_wait_CNT
-                                                 ,0)
+      ,cs_delete_buffer_scan_CNT            = ISNULL(rgos.delete_buffer_scan_CNT ,0) --<BS> move to appropriate OPS_ value
+      ,cs_row_group_lock_CNT                = ISNULL(rgos.row_group_lock_CNT     ,0) --<BS> eliminate in favor of ops_total values
+      ,cs_row_group_lock_wait_CNT           = ISNULL(rgos.row_group_lock_wait_CNT,0) --<BS> eliminate in favor of ops_total values
+      ,cs_row_group_lock_wait_MS_CNT        = ISNULL(rgos.row_group_lock_wait_MS ,0) --<BS> eliminate in favor of ops_total values
+--<BS> Computed below
+--    ,cs_row_group_lock_wait_MS_AVG        = IIF(rgos.row_group_lock_wait_CNT > 0   --<BS> eliminate in favor of ops_total values
+--                                               ,1.0 * ISNULL(rgos.row_group_lock_wait_MS,0) / rgos.row_group_lock_wait_CNT
+--                                               ,0)
       ,cs_returned_row_CNT                  = ISNULL(rgos.returned_row_CNT       ,0)
       ,cs_returned_aggregate_CNT            = ISNULL(rgos.returned_aggregate_CNT ,0)
       ,cs_returned_group_CNT                = ISNULL(rgos.returned_group_CNT     ,0)
@@ -11226,7 +11243,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       /************************************************************************************************************************************/
       -- Operational Metrics Aggregates
       ---------------------------------------------------------------------------------------
-      ,ops_Total_contacts_CNT         =   ISNULL(ios.leaf_insert_CNT              ,0)
+      ,ops_total_contacts_CNT         =   ISNULL(ios.leaf_insert_CNT              ,0)
                                         + ISNULL(ios.leaf_delete_CNT              ,0)
                                         + ISNULL(ios.leaf_update_CNT              ,0)
                                         + ISNULL(ios.leaf_ghost_CNT               ,0)
@@ -11244,101 +11261,96 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                         + ISNULL(ios.forwarded_fetch_CNT          ,0)
                                         + ISNULL(ios.lob_fetch_in_pages           ,0)
                                         ---------------------------------
-                                        + ISNULL(xis.scans_started                ,0) -- InMemory
-                                        + ISNULL(xis.row_insert_attempts          ,0) -- InMemory
-                                        + ISNULL(xis.row_update_attempts          ,0) -- InMemory
-                                        + ISNULL(xis.row_delete_attempts          ,0) -- InMemory
-                                        + ISNULL(xis.delta_pages                  ,0) -- InMemory
-                                        + ISNULL(xis.page_update_count            ,0) -- InMemory
+                                        + ISNULL(xis.scans_started                ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.row_insert_attempts          ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.row_update_attempts          ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.row_delete_attempts          ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.delta_pages                  ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.page_update_count            ,0) -- InMemory sys.dm_db_xtp_object_stats
                                         ---------------------------------
-                                        + ISNULL(rgos.scan_CNT                    ,0) -- Columnstore
-                                        + ISNULL(rgos.delete_buffer_scan_CNT      ,0) -- Columnstore
-                                        + ISNULL(rgos.row_group_lock_CNT          ,0) -- Columnstore
+                                        + ISNULL(rgos.scan_CNT                    ,0) -- Columnstore dm_db_column_store_row_group_operational_stats
+                                        + ISNULL(rgos.delete_buffer_scan_CNT      ,0) -- Columnstore dm_db_column_store_row_group_operational_stats
+                                        + ISNULL(rgos.index_scan_CNT              ,0) -- Columnstore dm_db_column_store_row_group_operational_stats
+                                        + ISNULL(rgos.row_group_lock_CNT          ,0) -- Columnstore dm_db_column_store_row_group_operational_stats
       --------------------------------
-      ,ops_Total_read_CNT             =   ISNULL(ios.range_scan_CNT               ,0)
+      ,ops_total_read_CNT             =   ISNULL(ios.range_scan_CNT               ,0)
                                         + ISNULL(ios.singleton_lookup_CNT         ,0)
                                         + ISNULL(ios.forwarded_fetch_CNT          ,0)
                                         + ISNULL(ios.lob_fetch_in_pages           ,0)
-                                        ---------------------------------
-                                        + ISNULL(xis.scans_started                ,0) -- InMemory
-                                        ---------------------------------
-                                        + ISNULL(rgos.index_scan_CNT              ,0) -- Columnstore
-                                        + ISNULL(rgos.scan_CNT                    ,0) -- Columnstore
-                                        + ISNULL(rgos.delete_buffer_scan_CNT      ,0) -- Columnstore
+                                        + ISNULL(xis.scans_started                ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(rgos.index_scan_CNT              ,0) -- Columnstore dm_db_column_store_row_group_operational_stats
+                                        + ISNULL(rgos.scan_CNT                    ,0) -- Columnstore dm_db_column_store_row_group_operational_stats
+                                        + ISNULL(rgos.delete_buffer_scan_CNT      ,0) -- Columnstore dm_db_column_store_row_group_operational_stats
       --------------------------------
-      ,ops_Total_write_CNT            =   ISNULL(ios.leaf_insert_CNT              ,0)
+      ,ops_total_write_CNT            =   ISNULL(ios.leaf_insert_CNT              ,0)
                                         + ISNULL(ios.leaf_delete_CNT              ,0)
                                         + ISNULL(ios.leaf_update_CNT              ,0)
                                         + ISNULL(ios.leaf_ghost_CNT               ,0)
-                                        ---------------------------------
                                         + ISNULL(ios.nonleaf_insert_CNT           ,0)
                                         + ISNULL(ios.nonleaf_delete_CNT           ,0)
                                         + ISNULL(ios.nonleaf_update_CNT           ,0)
-                                        ---------------------------------
                                         + ISNULL(ios.lob_orphan_create_CNT        ,0)
                                         + ISNULL(ios.column_value_push_off_row_CNT,0)
                                         + ISNULL(ios.column_value_pull_in_row_CNT ,0)
-                                        ---------------------------------
-                                        + ISNULL(xis.row_insert_attempts          ,0) -- InMemory
-                                        + ISNULL(xis.row_update_attempts          ,0) -- InMemory
-                                        + ISNULL(xis.row_delete_attempts          ,0) -- InMemory
-                                        + ISNULL(xis.delta_pages                  ,0) -- InMemory
-                                        + ISNULL(xis.page_update_count            ,0) -- InMemory
-                                        ---------------------------------
+                                        + ISNULL(xis.row_insert_attempts          ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.row_update_attempts          ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.row_delete_attempts          ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.delta_pages                  ,0) -- InMemory sys.dm_db_xtp_object_stats
+                                        + ISNULL(xis.page_update_count            ,0) -- InMemory sys.dm_db_xtp_object_stats
                                         + ISNULL(rgos.row_group_lock_CNT          ,0) -- Columnstore
       --------------------------------
-      ,ops_Total_insert_CNT           =   ISNULL(ios.leaf_insert_CNT              ,0)
+      ,ops_total_insert_CNT           =   ISNULL(ios.leaf_insert_CNT              ,0)
                                         + ISNULL(ios.nonleaf_insert_CNT           ,0)
                                         ---------------------------------
                                         + ISNULL(xis.row_insert_attempts          ,0) -- InMemory
       --------------------------------
-      ,ops_Total_update_CNT           =   ISNULL(ios.leaf_update_CNT              ,0)
+      ,ops_total_update_CNT           =   ISNULL(ios.leaf_update_CNT              ,0)
                                         + ISNULL(ios.nonleaf_update_CNT           ,0)
                                         ---------------------------------
                                         + ISNULL(xis.row_update_attempts          ,0) -- InMemory
                                         + ISNULL(xis.page_update_count            ,0) -- InMemory
       --------------------------------
-      ,ops_Total_delete_CNT           =   ISNULL(ios.leaf_delete_CNT              ,0)
+      ,ops_total_delete_CNT           =   ISNULL(ios.leaf_delete_CNT              ,0)
                                         + ISNULL(ios.nonleaf_delete_CNT           ,0)
                                         + ISNULL(ios.leaf_ghost_CNT               ,0)
                                         ---------------------------------
                                         + ISNULL(xis.row_delete_attempts          ,0) -- InMemory
       --------------------------------
-      ,ops_Total_scan_cnt             =   ISNULL(ios.range_scan_CNT               ,0)
+      ,ops_total_scan_CNT             =   ISNULL(ios.range_scan_CNT               ,0)
                                         + ISNULL(xis.scans_started                ,0) -- InMemory
+                                        + ISNULL(rgos.row_group_CNT               ,0) -- Columnstore
                                         + ISNULL(rgos.index_scan_CNT              ,0) -- Columnstore
+                                        + ISNULL(rgos.scan_CNT                    ,0) -- Columnstore
       --------------------------------
-      ,ops_Total_scan_retries_cnt     =   ISNULL(xis.scans_retries                ,0)
+      ,ops_total_scan_retries_CNT     =   ISNULL(xis.scans_retries                ,0)
       --------------------------------
-      ,ops_Total_page_split_CNT       =   ISNULL(ios.leaf_alloc_page_split_CNT    ,0)
+      ,ops_total_page_split_CNT       =   ISNULL(ios.leaf_alloc_page_split_CNT    ,0)
                                         + ISNULL(ios.nonleaf_alloc_page_split_CNT ,0)
                                         + ISNULL(ios.column_value_push_off_row_CNT,0)
-                                        ---------------------------------
                                         + ISNULL(xis.page_split_count             ,0) -- InMemory
                                         + ISNULL(xis.key_split_count              ,0) -- InMemory
       --------------------------------
-      ,ops_Total_page_merge_CNT       =   ISNULL(ios.leaf_page_merge_CNT          ,0)
+      ,ops_total_page_merge_CNT       =   ISNULL(ios.leaf_page_merge_CNT          ,0)
                                         + ISNULL(ios.nonleaf_page_merge_CNT       ,0)
                                         + ISNULL(ios.column_value_pull_in_row_CNT ,0)
-                                        ---------------------------------
                                         + ISNULL(xis.page_merge_count             ,0) -- InMemory
                                         + ISNULL(xis.key_merge_count              ,0) -- InMemory
---<BS> review if can be included        + ISNULL(xis.page_consolidation_count     ,0) -- InMemory
+                                        + ISNULL(xis.page_consolidation_count     ,0) -- InMemory
       --------------------------------
-      ,reserved_page_CNT              = IIF(  ISNULL(xis.allocated_bytes,0) / 8192.0    -- InMemory
-                                            > ISNULL(tgt.reserved_page_CNT,0)
-                                           ,ISNULL(xis.allocated_bytes,0) / 8192.0      -- InMemory
-                                           ,ISNULL(tgt.reserved_page_CNT,0))
+      ,reserved_page_PG_CNT           = IIF(  ISNULL(xis.allocated_bytes,0) / 8192.0    -- InMemory
+                                         > ISNULL(tgt.reserved_page_PG_CNT,0)
+                                        ,ISNULL(xis.allocated_bytes,0) / 8192.0      -- InMemory
+                                        ,ISNULL(tgt.reserved_page_PG_CNT,0))
       --------------------------------
-      ,used_page_CNT                  = IIF(  CEILING(ISNULL(xis.used_bytes,0) / 8192.0) -- InMemory
-                                            > ISNULL(tgt.used_page_CNT,0)
-                                           ,CEILING(ISNULL(xis.used_bytes,0) / 8192.0)  -- InMemory
-                                           ,ISNULL(tgt.used_page_CNT,0))
+      ,used_page_PG_CNT               = IIF(  CEILING(ISNULL(xis.used_bytes,0) / 8192.0) -- InMemory
+                                         > ISNULL(tgt.used_page_PG_CNT,0)
+                                        ,CEILING(ISNULL(xis.used_bytes,0) / 8192.0)  -- InMemory
+                                        ,ISNULL(tgt.used_page_PG_CNT,0))
       --------------------------------
-      ,buffer_Total_KB_CNT            = IIF(  ISNULL(xis.allocated_bytes,0) / 1024.0    -- InMemory
-                                            > ISNULL(tgt.buffer_Total_KB_CNT,0)
+      ,buffer_total_KB_CNT            = IIF(  ISNULL(xis.allocated_bytes,0) / 1024.0    -- InMemory
+                                            > ISNULL(tgt.buffer_total_KB_CNT,0)
                                            ,ISNULL(xis.allocated_bytes,0) / 1024.0      -- InMemory
-                                           ,ISNULL(tgt.buffer_Total_KB_CNT,0))
+                                           ,ISNULL(tgt.buffer_total_KB_CNT,0))
       --------------------------------
       ,buffer_free_KB_CNT             = IIF(  (ISNULL(xis.allocated_bytes,0) - ISNULL(xis.used_bytes,0)) / 1024.0 -- InMemory
                                             > ISNULL(tgt.buffer_free_KB_CNT,0)
@@ -11395,7 +11407,7 @@ END
 UPDATE tempdb.dbo.SQLXL_Index_Compilation
    SET
        ius_no_read_user_updates_CNT = IIF(ius_user_updates_CNT > 0 AND ius_user_read_CNT  = 0,ius_user_updates_CNT,0)
-      ,ops_no_read_Total_write_CNT  = IIF(ops_Total_write_CNT  > 0 AND ops_Total_read_CNT = 0,ops_Total_write_CNT ,0)
+      ,ops_no_read_total_write_CNT  = IIF(ops_total_write_CNT  > 0 AND ops_total_read_CNT = 0,ops_total_write_CNT ,0)
       ,partition_CNT                     = CASE WHEN ios_partition_cnt > 0 THEN ios_partition_cnt
                                                 WHEN partition_cnt     > 0 THEN partition_cnt
                                                 WHEN cs_partition_cnt  > 0 THEN cs_partition_cnt
@@ -11542,10 +11554,12 @@ SET ANSI_WARNINGS ON;
 SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
 
-       is_activity_for_period = IIF(   ISNULL(tgt.ius_user_Total_CNT    ,0) > 0
-                                    OR ISNULL(tgt.ops_Total_contacts_CNT,0) > 0
+-- Diagnostic - Index - additional keys not selective
+       is_activity_for_period = IIF(   ISNULL(tgt.ius_user_total_CNT    ,0) > 0
+                                    OR ISNULL(tgt.ops_total_contacts_CNT,0) > 0
                                    ,1
                                    ,0)
+-- Diagnostic - Index - additional keys not selective
       ,low_selectivity_additional_keys
        = (SELECT CASE WHEN d.row_id     = 1 THEN             N'Key Selectivity LO > '
                       WHEN d.row_id % 6 = 0 THEN NCHAR(10) + N' > '
@@ -12214,8 +12228,8 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
               ,i.Key_Columns_CNT
               ,i.ius_user_read_CNT
               ,i.stathdr_Average_Key_Length
-              ,i.key_Total_datatype_length_bytes
-              ,i.inc_Total_datatype_length_bytes
+              ,i.key_total_datatype_length_bytes
+              ,i.inc_total_datatype_length_bytes
           FROM (SELECT *
                   FROM tempdb.dbo.SQLXL_Index_Compilation
                  WHERE rec_type = N'I'
@@ -12234,8 +12248,8 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
               ,i.ius_user_read_CNT           DESC -- most read
               ,i.stathdr_Average_Key_Length  DESC -- biggest
               ,i.Key_Columns_CNT             DESC -- most key elements
-              ,i.key_Total_datatype_length_bytes          DESC -- widest key
-              ,i.inc_Total_datatype_length_bytes      -- fewest included columns
+              ,i.key_total_datatype_length_bytes          DESC -- widest key
+              ,i.inc_total_datatype_length_bytes      -- fewest included columns
               ,i.index_id
        ) covering_index
 
@@ -12266,8 +12280,8 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
              ,i.ius_user_read_CNT           DESC -- most read
              ,i.stathdr_Average_Key_Length  DESC -- biggest
              ,i.Key_Columns_CNT             DESC -- most key elements
-             ,i.key_Total_datatype_length_bytes          DESC -- widest key
-             ,i.inc_Total_datatype_length_bytes      -- fewest included columns
+             ,i.key_total_datatype_length_bytes          DESC -- widest key
+             ,i.inc_total_datatype_length_bytes      -- fewest included columns
              ,i.index_id
            FOR XML PATH(N'')
        ) covering_indexes(idx_id)
@@ -12843,7 +12857,6 @@ END
 /******************************************************************************************************************************************/
 -- Update main table with SYNERGIES
 /******************************************************************************************************************************************/
-
 SET ANSI_WARNINGS ON -- Required for XML-based update below
 
 UPDATE tgt
@@ -12902,7 +12915,7 @@ END
 SET ANSI_WARNINGS OFF;
 
 /******************************************************************************************************************************************/
--- Update Missing Index Advantage with percent of table reads factor
+-- Weight the Missing Index Advantage with percent of table reads factor
 /******************************************************************************************************************************************/
 UPDATE tgt
    SET
@@ -12946,22 +12959,22 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT r.database_id,r.object_id,r.index_id,r.type,
 --*/
-       fkc_missing_index_CNT          = ISNULL(r.fkc_missing_index_CNT        ,0)
+       fkc_missing_index_CNT          = r.fkc_missing_index_CNT        
       ---------------------
-      ,mix_avg_Total_user_cost_AMT    = ISNULL(r.mix_avg_Total_user_cost_AMT  ,0)
-      ,mix_avg_Total_system_cost_AMT  = ISNULL(r.mix_avg_Total_system_cost_AMT,0)
-      ,mix_avg_user_impact_AMT        = ISNULL(r.mix_avg_user_impact_AMT      ,0)
-      ,mix_avg_system_impact_AMT      = ISNULL(r.mix_avg_system_impact_AMT    ,0)
-      ,mix_unique_compiles_CNT        = ISNULL(r.mix_unique_compiles_CNT      ,0)
-      ,mix_Advantage_AMT              = ISNULL(r.mix_Advantage_AMT            ,0)
-      ,mix_Advantage_weighted_AMT     = ISNULL(r.mix_Advantage_weighted_AMT   ,0)
+      ,mix_avg_total_user_cost_AMT    = r.mix_avg_total_user_cost_AMT  
+      ,mix_avg_total_system_cost_AMT  = r.mix_avg_total_system_cost_AMT
+      ,mix_avg_user_impact_AMT        = r.mix_avg_user_impact_AMT      
+      ,mix_avg_system_impact_AMT      = r.mix_avg_system_impact_AMT    
+      ,mix_unique_compiles_CNT        = r.mix_unique_compiles_CNT      
+      ,mix_Advantage_AMT              = r.mix_Advantage_AMT            
+      ,mix_Advantage_weighted_AMT     = r.mix_Advantage_weighted_AMT   
       ---------------------
-      ,ius_user_Total_CNT             = ISNULL(r.ius_user_Total_CNT           ,0)
-      ,ius_user_read_CNT              = ISNULL(r.ius_user_read_CNT            ,0)
-      ,ius_user_seeks_CNT             = ISNULL(r.ius_user_seeks_CNT           ,0)
-      ,ius_user_scans_CNT             = ISNULL(r.ius_user_scans_CNT           ,0)
-      ,ius_system_seeks_CNT           = ISNULL(r.ius_system_seeks_CNT         ,0)
-      ,ius_system_scans_CNT           = ISNULL(r.ius_system_scans_CNT         ,0)
+      ,ius_user_total_CNT             = r.ius_user_total_CNT           
+      ,ius_user_read_CNT              = r.ius_user_read_CNT            
+      ,ius_user_seeks_CNT             = r.ius_user_seeks_CNT           
+      ,ius_user_scans_CNT             = r.ius_user_scans_CNT           
+      ,ius_system_seeks_CNT           = r.ius_system_seeks_CNT         
+      ,ius_system_scans_CNT           = r.ius_system_scans_CNT         
       ---------------------
       ,ius_last_user_seek_DTTM        = r.ius_last_user_seek_DTTM
       ,ius_last_user_scan_DTTM        = r.ius_last_user_scan_DTTM
@@ -12981,15 +12994,15 @@ SELECT r.database_id,r.object_id,r.index_id,r.type,
               ---------------------
               ,fkc_missing_index_CNT         = COUNT(1)
               ---------------------
-              ,mix_avg_Total_user_cost_AMT   = AVG(mx.mix_avg_Total_user_cost_AMT)
-              ,mix_avg_Total_system_cost_AMT = AVG(mx.mix_avg_Total_system_cost_AMT)
+              ,mix_avg_total_user_cost_AMT   = AVG(mx.mix_avg_total_user_cost_AMT)
+              ,mix_avg_total_system_cost_AMT = AVG(mx.mix_avg_total_system_cost_AMT)
               ,mix_avg_user_impact_AMT       = AVG(mx.mix_avg_user_impact_AMT)
               ,mix_avg_system_impact_AMT     = AVG(mx.mix_avg_system_impact_AMT)
               ,mix_unique_compiles_CNT       = SUM(mx.mix_unique_compiles_CNT)
               ,mix_Advantage_AMT             = SUM(mx.mix_Advantage_AMT)
               ,mix_Advantage_weighted_AMT    = SUM(mx.mix_Advantage_weighted_AMT)
               ---------------------
-              ,ius_user_Total_CNT            = SUM(mx.ius_user_Total_CNT)
+              ,ius_user_total_CNT            = SUM(mx.ius_user_total_CNT)
               ,ius_user_read_CNT             = SUM(mx.ius_user_read_CNT)
               ,ius_user_seeks_CNT            = SUM(mx.ius_user_seeks_CNT)
               ,ius_user_scans_CNT            = SUM(mx.ius_user_scans_CNT)
@@ -13161,606 +13174,15 @@ END
 
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
-
-DECLARE @name NVARCHAR(MAX)
-       ,@sql  NVARCHAR(MAX)
-       ,@ssms TINYINT = 1
+DECLARE @sql  NVARCHAR(MAX)
+       ,@name SYSNAME
+       ,@ssms             TINYINT = 1
+       ,@debug            VARCHAR(1000)
+       ,@debug_DTTM       DATETIME      = GETDATE()
+SET NOCOUNT OFF
 --*/
 
 SET NOCOUNT ON
-
---------------------------------------------------------------------------------------------------------------------------------------------
--- Create Metric Control tables
---------------------------------------------------------------------------------------------------------------------------------------------
-IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Metric_Rollup') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_Index_Metric_Rollup;
-
-CREATE TABLE tempdb.dbo.SQLXL_Index_Metric_Rollup
-      (rollup_nbr  INT     IDENTITY(1,1)
-      ,Level_1     SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,abbr_1      SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,Level_2     SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,abbr_2      SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,Level_3     SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,abbr_3      SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,Level_4     SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,abbr_4      SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,Level_5     SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,abbr_5      SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,Level_6     SYSNAME COLLATE DATABASE_DEFAULT NULL
-      ,abbr_6      SYSNAME COLLATE DATABASE_DEFAULT NULL
-      );
-
---------------------------------------------------------------------------------------------------------------------------------------------
--- Populate Metric Control tables - adds friendlier names and chooses which totals to compute and concatenate together for display
--- ,(##,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
--- Diagnostic - Index - Highest Waits (BI11&12)
---------------------------------------------------------------------------------------------------------------------------------------------
-INSERT
-  INTO tempdb.dbo.SQLXL_Index_Metric_Rollup
-      (Level_1,abbr_1
-      ,Level_2,abbr_2
-      ,Level_3,abbr_3
-      ,Level_4,abbr_4
-      ,Level_5,abbr_5
-      ,Level_6,abbr_6)
-VALUES
--- TOTAL Waits & Locks
- ( N'ios_Total_wait_MS_CNT',N'OPS Wait Tm (BI11&12)'
-  ,N'ios_Total_wait_CNT',N'CNT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Total Lock Promotions
-,( N'ios_Total_Lock_CNT',N'OPS Locks'
-  ,N'ios_lock_promotion_CNT',N'Success'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Total Lock Promotions
-,( N'ios_lock_promotion_attempt_CNT',N'OPS Lock Promo Att'
-  ,N'ios_lock_promotion_fail_CNT',N'Fail'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Operations Splits
-,( N'ops_Total_page_split_CNT',N'OPS Split CNT'
-  ,N'ios_leaf_alloc_Page_Split_CNT',N'Leaf'
-  ,N'ios_nonleaf_alloc_Page_Split_CNT',N'Nonleaf'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Operations Merges Total
-,( N'ops_Total_page_merge_CNT',N'OPS Merge CNT'
-  ,N'ios_leaf_page_merge_CNT',N'Leaf'
-  ,N'ios_nonleaf_page_merge_CNT',N'Nonleaf'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- InMemory Splits
-,( N'xtp_Total_Split_CNT',N'XTP Split CNT'
-  ,N'xtp_page_split_CNT',N'Leaf'
-  ,N'xtp_key_split_CNT',N'Nonleaf'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- InMemory Merges Total
-,( N'xtp_Total_Merge_CNT',N'XTP Merge CNT'
-  ,N'xtp_page_merge_CNT',N'Leaf'
-  ,N'xtp_key_merge_CNT',N'Nonleaf'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Missing index
-, (N'mix_Advantage_AMT',N'MIX Adv (BI50)'
-  ,N'mix_Advantage_weighted_AMT',N'Wtd'
-  ,N'Missing_index_CNT',N'CNT'
-  ,N'mix_unique_compiles_CNT',N'Comp'
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Total OPS IUD
-,( N'ops_Total_write_CNT',N'OPS Writes'
-  ,N'ops_Total_insert_CNT',N'INS'
-  ,N'ops_Total_update_CNT',N'UPD'
-  ,N'ops_Total_delete_CNT',N'DEL'
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- OPS Read
-,( N'ops_Total_read_CNT',N'OPS Reads'
-  ,N'ops_Total_scan_cnt',N'Scans'
-  ,N'ios_singleton_lookup_CNT',N'Lookups'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Total USG IUD
-,( N'ius_user_Total_CNT',N'USG Total'
-  ,N'ius_user_read_CNT',N'Reads'
-  ,N'ius_user_updates_CNT',N'Writes'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Usage Scans & Lookups
-,( N'ius_user_scans_CNT',N'USG Scans'
-  ,N'ius_user_lookups_CNT',N'Lookups'
-  ,N'ios_forwarded_fetch_CNT',N'OPS FWD Fetch'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- LOB
-,( N'ios_lob_fetch_pages_CNT',N'OPS LOB Fetch'
-  ,N'ios_lob_orphan_create_CNT',N'Orphan Create'
-  ,N'ios_lob_orphan_insert_CNT',N'Insert'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Overflow
-,( N'ios_row_overflow_fetch_in_pages_CNT',N'OPS Overflow Fetch'
-  ,N'ios_column_value_pull_in_row_CNT',N'PullIn'
-  ,N'ios_column_value_push_off_row_CNT',N'PushOff'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--------------------------------------------------------------
--- Lock waits
-, (N'ios_Total_Lock_wait_MS_CNT',N'OPS Lock Wait Tm'
-  ,N'ios_Total_Lock_wait_CNT',N'CNT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Missing index Query
-,( N'mqy_Advantage_AMT',N'MQY advantage'
-  ,N'mqy_user_scans_CNT',N'scans'
-  ,N'mqy_user_seeks_CNT',N'seeks'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ops_no_read_Total_write_CNT',N'OPS Wrt W/O Rds'
-  ,N'ius_no_read_user_updates_CNT',N'USG UPD W/O Rds'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_page_lock_wait_MS_CNT',N'OPS Page Lock Wait Tm'
-  ,N'ios_page_lock_wait_CNT',N'CNT'
-  ,N'ios_page_lock_CNT',N'Page Lock'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_row_lock_wait_MS_CNT',N'OPS Row Lock Wait Tm'
-  ,N'ios_row_lock_wait_CNT',N'CNT'
-  ,N'ios_row_lock_CNT',N'Row Lock'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_page_latch_wait_CNT',N'OPS Page Latch Wait CNT'
-  ,N'ios_page_latch_wait_MS_CNT',N'Tm'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_page_io_latch_wait_MS_CNT',N'OPS Page I/O Latch Wait Tm'
-  ,N'ios_page_io_latch_wait_CNT',N'CNT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_tree_page_latch_wait_MS_CNT',N'OPS Tree Page Latch Wait Tm'
-  ,N'ios_tree_page_latch_wait_CNT',N'CNT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_tree_page_io_latch_wait_MS_CNT',N'OPS Tree Page I/O Latch Wait Tm'
-  ,N'ios_tree_page_io_latch_wait_CNT',N'CNT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Usage
-,( N'ius_system_lookups_CNT',N'USG Sys LKP'
-  ,N'ius_system_seeks_CNT',N'Seeks'
-  ,N'ius_system_scans_CNT',N'Scans'
-  ,N'ius_system_updates_CNT',N'UPD'
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ius_user_lookups_CNT',N'USG Lookups'
-  ,N'ius_user_seeks_CNT',N'Seeks'
-  ,N'ius_user_scans_CNT',N'Scans'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- XTP
-,( N'xtp_Total_Contacts_CNT',N'XTP Contacts'
-  ,N'xtp_Total_read_CNT'   ,N'RDS'
-  ,N'xtp_Total_write_CNT'  ,N'WRT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_Total_insert_CNT' ,N'XTP INS'
-  ,N'xtp_Total_update_CNT' ,N'UPD'
-  ,N'xtp_Total_delete_CNT' ,N'DEL'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_allocated_bytes_CNT',N'XTP Allocated Bytes'
-  ,N'xtp_allocation_CNT',N'Allocation CNT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_used_bytes_CNT',N'XTP Bytes Used'
-  ,N'xtp_leaf_pages_CNT',N'Leaf Pg'
-  ,N'xtp_delta_pages_CNT',N'Delta Pg'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_write_conflicts_CNT',N'XTP Write conflicts'
-  ,N'xtp_unique_constraint_violations_CNT',N'UQ constraints'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_page_merge_CNT',N'XTP Page'
-  ,N'xtp_page_merge_retry_CNT',N'Retry'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_Total_Split_CNT',N'XTP Total Splits'
-  ,N'xtp_Total_merge_CNT',N'XTP Total Merges'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_page_split_CNT',N'XTP Page Split'
-  ,N'xtp_page_split_retry_CNT',N'Retry'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_key_split_CNT',N'XTP Key Split'
-  ,N'xtp_key_split_retry_CNT',N'Retry'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_key_merge_CNT',N'XTP Key'
-  ,N'xtp_key_merge_retry_CNT',N'Retry'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_page_consolidation_CNT',N'XTP Page Consolidate'
-  ,N'xtp_page_consolidation_retry_CNT',N'Retry'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_page_update_CNT',N'XTP Page UPD'
-  ,N'xtp_page_update_retry_CNT',N'Retry'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_rows_contacted_CNT',N'XTP Row Contacts'
-  ,N'xtp_row_insert_attempts_CNT',N'INS'
-  ,N'xtp_row_update_attempts_CNT',N'UPD'
-  ,N'xtp_row_delete_attempts_CNT',N'DEL'
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_scans_started_CNT',N'XTP Scans'
-  ,N'xtp_scans_retries_CNT',N'Retry'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'xtp_rows_returned_CNT',N'XTP Rows returned'
-  ,N'xtp_rows_touched_CNT',N'Touched'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'Stats_Prop_modification_CNT',N'Stats Lead Col Mods'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Operations
-,( N'ops_Total_contacts_CNT',N'OPS Total Contacts'
-  ,N'ios_Total_leaf_contacts_CNT',N'Leaf'
-  ,N'ios_Total_nonleaf_contacts_CNT',N'NonLeaf'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- OPS Insert
-,( N'ops_Total_insert_CNT',N'OPS INS'
-  ,N'ios_leaf_insert_CNT',N'Leaf'
-  ,N'ios_nonleaf_insert_CNT',N'Nonleaf'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- OPS Update
-,( N'ops_Total_update_CNT',N'OPS UPD'
-  ,N'ios_leaf_update_CNT',N'Leaf'
-  ,N'ios_nonleaf_update_CNT',N'Nonleaf'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- OPS Delete
-,( N'ops_Total_delete_CNT',N'OPS DEL'
-  ,N'ios_leaf_delete_CNT',N'Leaf'
-  ,N'ios_nonleaf_delete_CNT',N'Nonleaf'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- OPS Read
-,( N'ios_page_compression_attempt_CNT',N'PG Compr Att'
-  ,N'ios_page_compression_success_CNT',N'Succeed'
-  ,N'ios_page_compression_fail_CNT',N'Fail'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_version_generated_off_row_CNT',N'Version Gen off_row'
-  ,N'ios_Total_Column_value_off_row_CNT',N'Total Col Val'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'buffer_Total_KB_CNT',N'MEM Buffer used'
-  ,N'buffer_free_KB_CNT',N'Free'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'reserved_page_CNT',N'Reserved Pages'
-  ,N'used_page_CNT',N'Used'
-  ,N'ios_leaf_ghost_CNT',N'Leaf Ghost CNT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_ghost_version_off_row_CNT',N'OPS Ghost VER off_row'               -- not found in BOL!
-  ,N'ios_ghost_version_inrow_CNT',N'Inrow'                                 -- not found in BOL!
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_insert_over_ghost_version_off_row_CNT',N'OPS Ghost INS off_row'   -- not found in BOL!
-  ,N'ios_insert_over_ghost_version_inrow_CNT',N'Inrow'                     -- not found in BOL!
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'in_row_reserved_page_CNT',N'Reserved Page InRow'
-  ,N'in_row_used_page_CNT',N'Used'
-  ,N'in_row_data_page_CNT',N'Data'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'row_overflow_reserved_page_CNT',N'Reserved Page Overflow'
-  ,N'row_overflow_used_page_CNT',N'Used'
-  ,N'ios_row_overflow_fetch_in_pages_CNT',N'Fetches'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- LOB
-,( N'ios_column_value_push_off_row_CNT',N'OPS Col Val Push Off Row'
-  ,N'ios_column_value_pull_in_row_CNT',N'Pull in'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'lob_reserved_page_CNT',N'LOB Reserved Pages'
-  ,N'lob_used_page_CNT',N'Used'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_lob_orphan_create_CNT',N'LOB Orphan Create'
-  ,N'ios_lob_orphan_insert_CNT',N'Insert'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ios_lob_fetch_bytes_CNT',N'OPS LOB Fetch Bytes'
-  ,N'ios_lob_fetch_pages_CNT',N'Pages'
-  ,N'ios_row_overflow_fetch_in_bytes_CNT',N'Overflow'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Columnstore
-,( N'cs_delete_buffer_scan_CNT',N'ColStor DEL Buffer Scan'
-  ,N'cs_row_group_CNT',N'Row Group CNT'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'cs_row_group_lock_CNT',N'ColStor Lock'
-  ,N'cs_row_group_lock_wait_CNT',N'Wait'
-  ,N'cs_row_group_lock_wait_MS_CNT',N'Wait Tm'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'cs_scan_CNT',N'ColStor Scans'
-  ,N'cs_index_scan_CNT',N'IDX Scans'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'cs_returned_row_CNT',N'ColStor Return Row'
-  ,N'cs_returned_aggregate_CNT',N'AGG'
-  ,N'cs_returned_group_CNT',N' GRP'
-  ,N'cs_input_groupby_row_CNT',N'GRPBY Row' -- input groupby row
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'ius_user_scans_weighted',N'USG Weighted Scans (BI80)'
-  ,N'ios_range_scan_weighted',N'OPS (BI81)'
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL
-  ,NULL,NULL)
-
-,( N'mix_avg_Total_user_cost_AMT',N'MIX User Cost'
-  ,N'mix_avg_user_impact_AMT',N'Impact'
-  ,N'mix_avg_Total_system_cost_AMT',N'System Cost'
-  ,N'mix_avg_system_impact_AMT',N'Impact'
-  ,NULL,NULL
-  ,NULL,NULL)
-
--- Multiple Column calculations TBD -------------------------------------------------
-
--- <BS> METRICS BEING SKIPPED FOR NOW - FOR FUTURE REVIEW -------------------------------------------
-/*
-Clustered_ColumnStore_CNT
-Clustered_index_CNT
-cs_partition_CNT
-fkc_candidate_covering_MIX_CNT
-fkc_missing_index_CNT
-Foreign_Key_CNT
-Fulltext_index_CNT
-heap_index_CNT
-hi_bucket_CNT
-Included_Columns_CNT
-index_CNT
-ios_partition_CNT
-ios_range_scan_CNT
-ios_Total_latch_wait_CNT
-ios_Total_latch_wait_MS_CNT
-ios_version_generated_inrow_CNT
-is_activity_for_period
-ius_last_read_days_ago
-ius_last_write_days_ago
-Key_Columns_CNT
-Nonclustered_ColumnStore_CNT
-Nonclustered_Hash_CNT
-Nonclustered_index_CNT
-ops_Total_scan_retries_cnt
-partition_CNT
-Partition_columnstore_archive_compress_CNT
-Partition_columnstore_compress_CNT
-Partition_none_compress_CNT
-Partition_page_compress_CNT
-Partition_row_compress_CNT
-rk_referencing_fkc_action_cascade_CNT
-rk_referencing_fkc_action_default_CNT
-rk_referencing_fkc_action_none_CNT
-rk_referencing_fkc_action_null_CNT
-rk_referencing_fkc_CNT
-rk_referencing_fkc_disabled_CNT
-rk_referencing_fkc_not_replicated_CNT
-rk_referencing_fkc_not_trusted_CNT
-rk_referencing_fkc_system_named_CNT
-row_CNT
-Spatial_index_CNT
-stathdr_Rows_CNT
-stathdr_Rows_Sampled_CNT
-Stats_CNT
-tbl_CLR_trigger_CNT
-tbl_column_CNT
-tbl_is_instead_of_trigger_CNT
-tbl_row_CNT
-tbl_SQL_trigger_CNT
-tbl_used_page_CNT
-XML_index_CNT
-
-Averages
-----------------------------------------
-cs_row_group_lock_wait_AVG
-ios_page_io_latch_wait_AVG
-ios_page_latch_wait_AVG
-ios_page_lock_wait_AVG
-ios_row_lock_wait_AVG
-ios_Total_latch_wait_AVG
-ios_Total_lock_wait_AVG
-ios_Total_wait_AVG
-ios_tree_page_io_latch_wait_AVG
-ios_tree_page_latch_wait_AVG
-
-Dates
-----------------------------------------
-collection_DTTM
-ius_last_system_lookup_DTTM
-ius_last_system_scan_DTTM
-ius_last_system_seek_DTTM
-ius_last_system_update_DTTM
-ius_last_user_lookup_DTTM
-ius_last_user_scan_DTTM
-ius_last_user_seek_DTTM
-ius_last_user_update_DTTM
-partition_function_create_DTTM
-partition_function_modify_DTTM
-*/
-
-IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Created & populate tempdb.dbo.SQLXL_Index_Metric_Rollup'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
-   SET @debug_DTTM = GETDATE();
-END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Rollup totals to PARENT level - Base (includes Internal Tables) & History tables
@@ -13770,6 +13192,8 @@ END
 SET NOCOUNT ON
 DECLARE @sql       NVARCHAR(MAX)
        ,@name      NVARCHAR(MAX);
+       ,@debug            VARCHAR(1000)
+       ,@debug_DTTM       DATETIME      = GETDATE()
 --*/
 
 SET ANSI_WARNINGS ON;
@@ -13820,8 +13244,9 @@ UPDATE tgt
        ) AS src
     ON tgt.database_id      = src.database_id
    AND tgt.parent_object_id = src.parent_object_id
-   AND tgt.rec_type        IN (N''H'',N''P'');'
+   AND tgt.rec_type         = N''P'''
 
+--SELECT @sql
 EXECUTE sys.sp_executesql @sql;IF @@Error > 0 SELECT '### BLAMMO ! ###',@sql;
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
@@ -13884,7 +13309,7 @@ UPDATE tgt
        ) AS src
     ON tgt.database_id      = src.database_id
    AND tgt.parent_object_id = src.parent_object_id
-   AND tgt.rec_type        IN (N''H'',N''P'');'
+   AND tgt.rec_type         = N''P'';'
 
 EXECUTE sys.sp_executesql @sql;IF @@Error > 0 SELECT '### BLAMMO ! ###',@sql;
 
@@ -13896,12 +13321,14 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
 END
 
 -----------------------------------------------------------------------------------------------------------------------------------------
--- Database AMT & CNT Totals
+-- Rollup totals to Database level
 -----------------------------------------------------------------------------------------------------------------------------------------
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
 DECLARE @sql       NVARCHAR(MAX)
+       ,@debug            VARCHAR(1000)
+       ,@debug_DTTM       DATETIME      = GETDATE()
 --*/
 
 SET @sql = N'
@@ -13938,7 +13365,7 @@ UPDATE tgt
 ).value('(./text())[1]','NVARCHAR(MAX)')
 + N'
           FROM tempdb.dbo.SQLXL_Index_Compilation
-         WHERE rec_type IN (N''H'',N''P'')
+         WHERE rec_type = N''P''
          GROUP BY
                database_id
        ) AS src
@@ -13955,7 +13382,7 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Instance AMT & CNT Totals
+-- Rollup totals to Instance level
 --------------------------------------------------------------------------------------------------------------------------------------------
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
@@ -13997,7 +13424,7 @@ CROSS JOIN (SELECT na = 0'
 ).value('(./text())[1]','NVARCHAR(MAX)')
 + N'
           FROM tempdb.dbo.SQLXL_Index_Compilation
-         WHERE rec_type IN (N''H'',N''P'')
+         WHERE rec_type = N''P''
        ) AS src
  WHERE tgt.rec_type         = N''A'';'
 
@@ -14011,7 +13438,8 @@ IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- All AVG Totals. Requires all other values computed
+-- All millisecond (_MS) average (_AVG) Totals. 
+-- Requires all other values computed. Calculates for all levels (Index->Parent->Database->Instance)
 --------------------------------------------------------------------------------------------------------------------------------------------
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
@@ -14026,32 +13454,146 @@ SET ANSI_WARNINGS OFF;
 UPDATE tgt
    SET ' + STUFF(
 (SELECT NCHAR(10) + N'      ,'
-      + c.name + N' = IIF(' + REPLACE(c.name,N'_AVG',N'_CNT') + N' ' + NCHAR(62) +N' 0'
-               + N',1.0 * ' + REPLACE(c.name,N'_AVG',N'_MS_CNT') + N' / ' + REPLACE(c.name,N'_AVG',N'_CNT') -- /zero handled by line above
-               + N',0)'
+      + c.name + N' = IIF(' + REPLACE(c.name,N'_MS_AVG',N'_CNT') + N' ' + NCHAR(62) + N' 0'
+               + N',1.0 * ISNULL(' + REPLACE(c.name,N'_MS_AVG',N'_MS_CNT') + N',0) / ' + REPLACE(c.name,N'_MS_AVG',N'_CNT')
+               + N',NULL)'
   FROM tempdb.sys.columns c
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
  WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
    AND t.name      = 'float'
-   AND c.name LIKE N'%_AVG'
+   AND c.name LIKE N'%_MS_AVG'
    FOR XML PATH(N''),TYPE
 ).value('(./text())[1]','NVARCHAR(MAX)')
 ,1,8,N'')
 + N'
   FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt';
 
+--SELECT @sql
 EXECUTE sys.sp_executesql @sql;IF @@Error > 0 SELECT '### BLAMMO ! ###',@sql;
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Calculated all Averages'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'          Start Compute metrics as percent of Parent or Instance',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
 SET ANSI_WARNINGS OFF -- XML PATH with TYPE used above
+
+/******************************************************************************************************************************************/
+-- Index Computed values and ratios
+/******************************************************************************************************************************************/
+UPDATE tgt
+   SET
+/*** LOCAL TESTING ***
+SELECT tgt.object_id,tgt.index_id,p.rec_type,
+--*/
+ ius_read_to_write_RAT     = IIF(tgt.ius_user_updates_CNT > 0,1.0 * ISNULL(tgt.ius_user_read_CNT ,0) / tgt.ius_user_updates_CNT,NULL)
+,ops_read_to_write_RAT     = IIF(tgt.ops_total_write_CNT  > 0,1.0 * ISNULL(tgt.ops_total_read_CNT,0) / tgt.ops_total_write_CNT ,NULL)
+,page_lock_to_row_lock_RAT = IIF(tgt.ios_row_lock_CNT     > 0,1.0 * ISNULL(tgt.ios_page_lock_CNT ,0) / tgt.ios_row_lock_CNT    ,NULL)
+-------------------------------------------------
+,ius_scans_to_read_PCT     = IIF(tgt.ius_user_read_CNT  > 0,100.0 * tgt.ius_user_scans_CNT   / tgt.ius_user_read_CNT ,NULL)
+,ius_lookups_to_read_PCT   = IIF(tgt.ius_user_read_CNT  > 0,100.0 * tgt.ius_user_lookups_CNT / tgt.ius_user_read_CNT ,NULL)
+,ius_seeks_to_read_PCT     = IIF(tgt.ius_user_read_CNT  > 0,100.0 * tgt.ius_user_seeks_CNT   / tgt.ius_user_read_CNT ,NULL)
+,ius_read_to_parent_PCT    = IIF(a.ius_user_read_CNT    > 0,100.0 * tgt.ius_user_read_CNT    / a.ius_user_read_CNT   ,NULL)
+,ius_write_to_parent_PCT   = IIF(a.ius_user_updates_CNT > 0,100.0 * tgt.ius_user_updates_CNT / a.ius_user_updates_CNT,NULL)
+,ius_write_to_instance_PCT = IIF(a.ius_user_updates_CNT > 0,100.0 * tgt.ius_user_updates_CNT / a.ius_user_updates_CNT,NULL)
+-------------------------------------------------
+,ops_scans_to_read_PCT            = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ops_total_scan_CNT       / tgt.ops_total_read_CNT,NULL)
+                                    -- NOTE: COLUMNSTORE excluded FROM above since ALL reads are SCANS
+,ios_singleton_lookup_to_read_PCT = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ios_singleton_lookup_CNT / tgt.ops_total_read_CNT,NULL)
+,ios_forwarded_fetch_to_read_PCT  = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ios_forwarded_fetch_CNT  / tgt.ops_total_read_CNT,NULL)
+,ops_read_to_parent_PCT           = IIF(a.ops_total_read_CNT   > 0,100.0 * tgt.ops_total_read_CNT       / a.ops_total_read_CNT,NULL)
+,ops_write_to_parent_PCT          = IIF(a.ops_total_write_CNT  > 0,100.0 * tgt.ops_total_write_CNT      / a.ops_total_write_CNT,NULL)
+,ops_write_to_instance_PCT        = IIF(a.ops_total_write_CNT  > 0,100.0 * tgt.ops_total_write_CNT      / a.ops_total_write_CNT,NULL)
+,page_splits_to_write_PCT         = IIF((ISNULL(tgt.ops_total_insert_CNT,0) + ISNULL(tgt.ops_total_update_CNT,0)) > 0
+                                       ,100.0 *  tgt.ops_total_page_split_CNT/ (tgt.ops_total_insert_CNT + tgt.ops_total_update_CNT)
+                                       ,NULL)
+,page_merge_to_write_PCT          = IIF(tgt.ops_total_write_CNT > 0
+                                       ,100.0 * ISNULL(tgt.ops_total_page_merge_CNT,0) / tgt.ops_total_write_CNT
+                                       ,NULL)
+,ios_page_compression_fail_PCT    = IIF(tgt.ios_page_compression_attempt_CNT > 0
+                                       ,100.0 * tgt.ios_page_compression_fail_CNT / tgt.ios_page_compression_attempt_CNT
+                                       ,NULL)
+-------------------------------------------------
+,used_pages_in_buffer_PCT         = IIF(tgt.reserved_page_PG_CNT > 0,100.0 * tgt.buffer_total_KB_CNT / (tgt.reserved_page_PG_CNT * 8.0),NULL)
+  FROM (SELECT *
+          FROM tempdb.dbo.SQLXL_Index_Compilation
+         WHERE rec_type = N'I'
+       ) AS tgt
+  JOIN (SELECT *
+          FROM tempdb.dbo.SQLXL_Index_Compilation
+         WHERE rec_type = N'P'
+       ) AS p
+    ON tgt.database_id           = p.database_id
+   AND tgt.parent_object_id      = p.parent_object_id
+ CROSS 
+  JOIN (SELECT *
+          FROM tempdb.dbo.SQLXL_Index_Compilation
+         WHERE rec_type = N'A'
+       ) AS a
+OPTION (MAXDOP 1);
+
+IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.percents(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Calculated percents and ratios - Index'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Table/Parent
+UPDATE tgt
+   SET
+/*** LOCAL TESTING ***
+SELECT database_id,parent_object_id,object_id,index_id,type,
+--*/
+ ius_read_to_write_RAT     = IIF(tgt.ius_user_updates_CNT > 0,1.0 * ISNULL(tgt.ius_user_read_CNT ,0) / tgt.ius_user_updates_CNT,NULL)
+,ops_read_to_write_RAT     = IIF(tgt.ops_total_write_CNT  > 0,1.0 * ISNULL(tgt.ops_total_read_CNT,0) / tgt.ops_total_write_CNT ,NULL)
+,page_lock_to_row_lock_RAT = IIF(tgt.ios_row_lock_CNT     > 0,1.0 * ISNULL(tgt.ios_page_lock_CNT ,0) / tgt.ios_row_lock_CNT    ,NULL)
+-------------------------------------------------
+,ius_scans_to_read_PCT     = IIF(tgt.ius_user_read_CNT  > 0,100.0 * tgt.ius_user_scans_CNT   / tgt.ius_user_read_CNT,NULL)
+,ius_lookups_to_read_PCT   = IIF(tgt.ius_user_read_CNT  > 0,100.0 * tgt.ius_user_lookups_CNT / tgt.ius_user_read_CNT,NULL)
+,ius_seeks_to_read_PCT     = IIF(tgt.ius_user_read_CNT  > 0,100.0 * tgt.ius_user_seeks_CNT   / tgt.ius_user_read_CNT,NULL)
+,ius_read_to_parent_PCT    = IIF(a.ius_user_read_CNT    > 0,100.0 * tgt.ius_user_read_CNT    / a.ius_user_read_CNT,NULL)
+,ius_write_to_parent_PCT   = IIF(a.ius_user_updates_CNT > 0,100.0 * tgt.ius_user_updates_CNT / a.ius_user_updates_CNT,NULL)
+,ius_write_to_instance_PCT = IIF(a.ius_user_updates_CNT > 0,100.0 * tgt.ius_user_updates_CNT / a.ius_user_updates_CNT,NULL)
+-------------------------------------------------
+,ops_scans_to_read_PCT            = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ops_total_scan_CNT       / tgt.ops_total_read_CNT,NULL)
+                                    -- NOTE: COLUMNSTORE excluded FROM above since ALL reads are SCANS
+,ios_singleton_lookup_to_read_PCT = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ios_singleton_lookup_CNT / tgt.ops_total_read_CNT,NULL)
+,ios_forwarded_fetch_to_read_PCT  = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ios_forwarded_fetch_CNT  / tgt.ops_total_read_CNT,NULL)
+,ops_read_to_parent_PCT           = IIF(a.ops_total_read_CNT   > 0,100.0 * tgt.ops_total_read_CNT       / a.ops_total_read_CNT,NULL)
+,ops_write_to_parent_PCT          = IIF(a.ops_total_write_CNT  > 0,100.0 * tgt.ops_total_write_CNT      / a.ops_total_write_CNT,NULL)
+,ops_write_to_instance_PCT        = IIF(a.ops_total_write_CNT  > 0,100.0 * tgt.ops_total_write_CNT      / a.ops_total_write_CNT,NULL)
+,page_splits_to_write_PCT         = IIF((ISNULL(tgt.ops_total_insert_CNT,0) + ISNULL(tgt.ops_total_update_CNT,0)) > 0
+                                       ,100.0 *  tgt.ops_total_page_split_CNT/ (tgt.ops_total_insert_CNT + tgt.ops_total_update_CNT)
+                                       ,NULL)
+,page_merge_to_write_PCT          = IIF(tgt.ops_total_write_CNT > 0
+                                       ,100.0 * ISNULL(tgt.ops_total_page_merge_CNT,0) / tgt.ops_total_write_CNT
+                                       ,NULL)
+,ios_page_compression_fail_PCT    = IIF(tgt.ios_page_compression_attempt_CNT > 0
+                                       ,100.0 * tgt.ios_page_compression_fail_CNT / tgt.ios_page_compression_attempt_CNT
+                                       ,NULL)
+-------------------------------------------------
+,used_pages_in_buffer_PCT         = IIF(tgt.reserved_page_PG_CNT > 0,100.0 * tgt.buffer_total_KB_CNT / (tgt.reserved_page_PG_CNT * 8.0),NULL)
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
+ CROSS
+  JOIN (SELECT *
+          FROM tempdb.dbo.SQLXL_Index_Compilation
+         WHERE rec_type = N'A'
+       ) AS a
+ WHERE tgt.rec_type = N'P'
+OPTION (MAXDOP 1);
+
+IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Calculates percents and ratios - Table/Parent'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   RAISERROR(N'          Start Compute index metrics as percent of Parent or Instance',0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
 
 /******************************************************************************************************************************************/
 -- Compute metrics as percent of Parent or Instance
@@ -14059,30 +13601,32 @@ SET ANSI_WARNINGS OFF -- XML PATH with TYPE used above
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
-DECLARE @sql       NVARCHAR(MAX)
-       ,@name      SYSNAME
-       ,@ssms      TINYINT = 1
+DECLARE @sql         NVARCHAR(MAX)
+       ,@column_name SYSNAME
+       ,@ssms        TINYINT = 1
+       ,@debug       VARCHAR(1000)
+       ,@debug_DTTM  DATETIME      = GETDATE()
 --*/
-IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Metrics') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_Index_Metrics
 
-CREATE TABLE tempdb.dbo.SQLXL_Index_Metrics
-(
- diagnostic_ID    INT            IDENTITY(1,1)
------------------------------
-,rec_type         CHAR(1)        COLLATE DATABASE_DEFAULT NOT NULL  -- D-Database,P-Parent,I-index
-,database_id      SMALLINT                                NOT NULL
-,parent_object_id INT                                     NOT NULL
-,object_id        INT                                     NOT NULL
-,index_id         INT                                     NOT NULL
-,type             CHAR(2)        COLLATE DATABASE_DEFAULT NOT NULL
-,metric           SYSNAME        COLLATE DATABASE_DEFAULT NOT NULL
-,metric_AMT       FLOAT
-,diagnostic_PCT   FLOAT
------------------------------
-,diagnostic       NVARCHAR(1000) COLLATE DATABASE_DEFAULT     NULL
-,diagnostic_RANK  INT
-,previous_sum_PCT FLOAT
-);
+DECLARE @column_name SYSNAME;
+
+IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Metrics') IS NULL)
+   CREATE TABLE tempdb.dbo.SQLXL_Index_Metrics
+   (rec_type         NCHAR(1)       COLLATE DATABASE_DEFAULT NOT NULL  -- D-Database,P-Parent,I-index
+   ,database_id      SMALLINT                                NOT NULL
+   ,parent_object_id INT                                     NOT NULL
+   ,object_id        INT                                     NOT NULL
+   ,index_id         INT                                     NOT NULL
+   ,type             NVARCHAR(2)    COLLATE DATABASE_DEFAULT NOT NULL
+   ,metric           SYSNAME        COLLATE DATABASE_DEFAULT NOT NULL
+   ,metric_AMT       FLOAT                                       NULL
+   ,metric_FMT       NVARCHAR(7)    COLLATE DATABASE_DEFAULT     NULL
+   ,diagnostic_PCT   FLOAT                                       NULL
+   -----------------------------
+   ,diagnostic       NVARCHAR(1000) COLLATE DATABASE_DEFAULT     NULL
+   ,diagnostic_RANK  INT                                         NULL
+   ,previous_sum_PCT FLOAT                                       NULL
+   );
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Cursor through all Parent & index Metrics - AMT & CNT
@@ -14094,12 +13638,12 @@ SELECT -- TOP 1 -- *** LOCAL TESTING
   JOIN tempdb.sys.types   t
     ON c.system_type_id = t.system_type_id
  WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
-    AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
-         OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
-        )
-    AND c.name NOT IN (N'tbl_column_CNT' -- added up separately
-                      )
---AND c.name = N'ius_user_scans_weighted' -- *** LOCAL TESTING
+   AND (   (t.name    = 'float' AND c.name LIKE N'%_AMT')
+        OR (t.name LIKE N'%INT' AND c.name LIKE N'%_CNT%')
+       )
+   AND c.name NOT IN (N'tbl_column_CNT' -- added up separately
+                     ,N'Key_Columns_CNT'
+                     )
  ORDER BY c.name DESC;
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -14111,13 +13655,13 @@ WHILE 1 = 1
 BEGIN
    FETCH NEXT
     FROM agg_crsr
-    INTO @name;
+    INTO @column_name;
 
    IF @@fetch_status <> 0 BREAK
 
    SET @sql = N'
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Compute Percent of Parent ' + @name +N' for Indexes
+-- Compute Percent of Parent ' + @column_name +N' for Indexes
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
   INTO tempdb.dbo.SQLXL_Index_Metrics
@@ -14129,6 +13673,7 @@ INSERT
       ,type
       ,metric
       ,metric_AMT
+      ,metric_FMT
       ,diagnostic_PCT
       )
 SELECT i.rec_type
@@ -14137,38 +13682,52 @@ SELECT i.rec_type
       ,i.object_id
       ,i.index_id
       ,i.type
-      ,metric          = ''' + @name + N'''
-      ,metric_AMT      = i.' + @name + N'
-      ,diagnostic_PCT  = ROUND(100.0 * i.' + @name + N' / a.' + @name + N',2) -- /zero handled by HAVING clause below
+      ,metric     = ''' + @column_name + N'''
+      ,metric_AMT = i.' + @column_name + N'
+      ,metric_FMT = tempdb.dbo.SQLXL_3SD(i.' + @column_name + N'
+                                        ,CASE WHEN CHARINDEX(N''_KB_'',''' + @column_name + N''') > 0 THEN N''KB''
+                                              WHEN CHARINDEX(N''_MS_'',''' + @column_name + N''') > 0 THEN N''MS''
+                                              WHEN CHARINDEX(N''_PG_'',''' + @column_name + N''') > 0 THEN N''P'' 
+                                              WHEN ''' + @column_name + N''' LIKE N''%_CNT''          THEN N''I'' 
+                                              ELSE N''N''
+                                         END
+                                        )
+                   +CASE WHEN ''' + @column_name + N''' LIKE N''%_PCT'' THEN N''%'' 
+                         WHEN ''' + @column_name + N''' LIKE N''%_RAT'' THEN N''x'' 
+                         ELSE N''''
+                    END
+      ,diagnostic_PCT  = CASE WHEN ISNULL(a.' + @column_name + N',0) = 0
+                              THEN 0.0
+                              ELSE 100.0 * i.' + @column_name + N' / a.' + @column_name + N'
+                         END
   FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  INNER HASH
   JOIN (SELECT database_id
               ,parent_object_id
-              ,object_id
-              ,' + @name + N' = SUM(' + @name + N')
+              ,' + @column_name + N' = SUM(' + @column_name + N')
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type IN (N''I'')
            AND NOT (    type IN (N''M'') -- Omit missing index values from where they''ve been rolled up into another source column
-                    AND N''' + @name + N''' NOT LIKE N''MIX_%''
+                    AND N''' + @column_name + N''' NOT LIKE N''MIX_%''
                    )
          GROUP BY
                database_id
               ,parent_object_id
-              ,object_id
-        HAVING SUM(' + @name + N') > 0
        ) a
     ON i.database_id        = a.database_id
    AND i.parent_object_id   = a.parent_object_id
-   AND i.object_id          = a.object_id
    AND i.rec_type           = N''I''
-   AND i.' + @name     + N' > 0
+   AND (   i.' + @column_name     + N' IS NOT NULL
+        OR ''' + @column_name + ''' IN (N''ius_user_read_CNT'',''ops_user_read_CNT'') -- needed for read to write RATIOs
+       )
+ WHERE i.' + @column_name     + N' > 0
 OPTION (FORCE ORDER,MAXDOP 1);'
 
    EXECUTE sys.sp_executesql @sql;IF @@Error > 0 SELECT '### BLAMMO ! ###',@sql;
 
    SET @sql = N'
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Compute Percent of Total ' + @name +N' for Parent
+-- Compute Percent of Total ' + @column_name +N' for Parent
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
   INTO tempdb.dbo.SQLXL_Index_Metrics
@@ -14180,23 +13739,38 @@ INSERT
       ,type
       ,metric
       ,metric_AMT
+      ,metric_FMT
       ,diagnostic_PCT
       )
-SELECT c.rec_type
-      ,c.database_id
-      ,c.parent_object_id
-      ,c.object_id
-      ,c.index_id
-      ,c.type
-      ,metric          = ''' + @name + N'''
-      ,metric_AMT      = c.' + @name + N'
-      ,diagnostic_PCT  = 100.0 * c.' + @name + N' / a.' + @name + N' -- /zero handled by CROSS JOIN WHERE clause below
-  FROM tempdb.dbo.SQLXL_Index_Compilation AS c
+SELECT i.rec_type
+      ,i.database_id
+      ,i.parent_object_id
+      ,i.object_id
+      ,i.index_id
+      ,i.type
+      ,metric          = ''' + @column_name + N'''
+      ,metric_AMT      = i.' + @column_name + N'
+      ,metric_FMT = tempdb.dbo.SQLXL_3SD(i.' + @column_name + N'
+                                        ,CASE WHEN CHARINDEX(N''_KB_'',''' + @column_name + N''') > 0 THEN N''KB''
+                                              WHEN CHARINDEX(N''_MS_'',''' + @column_name + N''') > 0 THEN N''MS''
+                                              WHEN CHARINDEX(N''_PG_'',''' + @column_name + N''') > 0 THEN N''P'' 
+                                              WHEN ''' + @column_name + N''' LIKE N''%_CNT''          THEN N''I'' 
+                                              ELSE N''N''
+                                         END
+                                        )
+                   +CASE WHEN ''' + @column_name + N''' LIKE N''%_PCT'' THEN N''%'' 
+                         WHEN ''' + @column_name + N''' LIKE N''%_RAT'' THEN N''x'' 
+                         ELSE N''''
+                    END
+      ,diagnostic_PCT  = CASE WHEN ISNULL(a.' + @column_name + N',0) = 0
+                              THEN 0.0
+                              ELSE 100.0 * i.' + @column_name + N' / a.' + @column_name + N'
+                         END
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  CROSS
-  JOIN (SELECT ' + @name + N'
+  JOIN (SELECT ' + @column_name + N'
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE database_id      = 0
-           AND ' + @name   + N' > 0
            AND parent_object_id = 0
            AND object_id        = 0
            AND index_id         = 0
@@ -14204,11 +13778,14 @@ SELECT c.rec_type
            AND sub_type         = 0
            AND rec_type         = N''A''
        ) AS a
- WHERE c.rec_type = N''P''
-   AND c.' + @name + N' > 0
+ WHERE i.rec_type = N''P''
+   AND (   i.' + @column_name     + N' IS NOT NULL
+        OR ''' + @column_name + ''' IN (N''ius_user_read_CNT'',''ops_user_read_CNT'') -- needed for read to write RATIOs
+       )
+   AND i.' + @column_name     + N' > 0
 OPTION (MAXDOP 1);'
 
-   EXECUTE sys.sp_executesql @sql;IF @@Error > 0 SELECT '### BLAMMO ! ###',@sql;
+   EXECUTE sys.sp_executesql @sql;IF @@error > 0 SELECT '### BLAMMO ! ###',@sql;
 
 END
 
@@ -14217,7 +13794,102 @@ DEALLOCATE agg_crsr;
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Completed Compute metrics as percent of Parent or Instance'
+               +N' Completed Compute index metrics as percent of Parent or Instance'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Create Loop through Average, Percent, and Ratio columns
+--------------------------------------------------------------------------------------------------------------------------------------------
+/*** LOCAL TESTING ***
+SET NOCOUNT ON
+SET ANSI_WARNINGS OFF
+DECLARE @sql         NVARCHAR(MAX)
+       ,@column_name SYSNAME
+       ,@ssms        TINYINT = 1
+--*/
+DECLARE agg_crsr CURSOR LOCAL FAST_FORWARD FOR
+SELECT -- TOP 1 -- *** LOCAL TESTING
+       c.name COLLATE DATABASE_DEFAULT
+  FROM tempdb.sys.columns c
+  JOIN tempdb.sys.types   t
+    ON c.system_type_id = t.system_type_id
+ WHERE c.object_id = OBJECT_ID('tempdb.dbo.SQLXL_Index_Compilation')
+    AND t.name    = 'float' 
+    AND (   c.name LIKE N'%_AVG'
+         OR c.name LIKE N'%_PCT'
+         OR c.name LIKE N'%_RAT'
+        )
+ ORDER BY c.name DESC;
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Loop through cursor of columns to save off Average, Ratio, Percent computations for use below
+--------------------------------------------------------------------------------------------------------------------------------------------
+OPEN agg_crsr;
+
+WHILE 1 = 1
+BEGIN
+   FETCH NEXT
+    FROM agg_crsr
+    INTO @column_name;
+
+   IF @@fetch_status <> 0 BREAK
+
+   SET @sql = N'
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Add metrics records for ' + @column_name +N' for Indexes 
+--------------------------------------------------------------------------------------------------------------------------------------------
+INSERT
+  INTO tempdb.dbo.SQLXL_Index_Metrics
+      (rec_type
+      ,database_id
+      ,parent_object_id
+      ,object_id
+      ,index_id
+      ,type
+      ,metric
+      ,metric_AMT
+      ,metric_FMT
+      ,diagnostic_PCT
+      )
+SELECT i.rec_type
+      ,i.database_id
+      ,i.parent_object_id
+      ,i.object_id
+      ,i.index_id
+      ,i.type
+      ,metric          = ''' + @column_name + N'''
+      ,metric_AMT      = i.' + @column_name + N'
+      ,metric_FMT = CASE WHEN i.' + @column_name + N' IS NULL THEN N''n/a''
+                         ELSE tempdb.dbo.SQLXL_3SD(i.' + @column_name + N'
+                                                  ,CASE WHEN CHARINDEX(N''_KB_'',''' + @column_name + N''') > 0 THEN N''KB''
+                                                        WHEN CHARINDEX(N''_MS_'',''' + @column_name + N''') > 0 THEN N''MS''
+                                                        WHEN CHARINDEX(N''_PG_'',''' + @column_name + N''') > 0 THEN N''P'' 
+                                                        WHEN ''' + @column_name + N''' LIKE N''%_CNT''          THEN N''I'' 
+                                                        ELSE N''N''
+                                                   END
+                                                  )
+                             +CASE WHEN ''' + @column_name + N''' LIKE N''%_PCT'' THEN N''%'' 
+                                   WHEN ''' + @column_name + N''' LIKE N''%_RAT'' THEN N''x'' 
+                                   ELSE N''''
+                              END
+                    END
+      ,diagnostic_PCT  = i.' + @column_name + N' --NULL
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
+ WHERE i.rec_type IN (N''I'',N''P'')
+   AND i.' + @column_name + N' > 0';
+
+   EXECUTE sys.sp_executesql @sql;IF @@error > 0 SELECT '### BLAMMO ! ###',@sql;
+
+END
+
+CLOSE agg_crsr;
+DEALLOCATE agg_crsr;
+
+IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Completed adding Ratio and Percent metrics to tempdb.dbo.SQLXL_Index_Metrics'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -14228,7 +13900,13 @@ END
 CREATE UNIQUE CLUSTERED
  INDEX ixuc_SQLXL_Index_Metrics
     ON tempdb.dbo.SQLXL_Index_Metrics
-       (diagnostic_ID)
+       (rec_type
+       ,database_id
+       ,parent_object_id
+       ,object_id
+       ,index_id
+       ,type
+       ,metric)
   WITH (DATA_COMPRESSION = PAGE);
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
@@ -14246,13 +13924,19 @@ END
 -- Update column rankings - PARENT within TOTAL
 --------------------------------------------------------------------------------------------------------------------------------------------
 UPDATE tgt
-   SET diagnostic       = N'(' + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'% #' + CAST(c.diagnostic_rank AS NVARCHAR(20)) + N')'
+   SET diagnostic = CASE WHEN RIGHT(c.metric,4) IN (N'_AVG',N'_PCT',N'_RAT')
+                         THEN N'(#' + CAST(c.diagnostic_rank AS NVARCHAR(20)) + N')'
+                         ELSE COALESCE(N'('
+                                      + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'%' 
+                                      + COALESCE(N' #' + CAST(c.diagnostic_rank AS NVARCHAR(20)),N'')
+                                      + N')'
+                                      ,N'')
+                    END
       ,diagnostic_rank  = c.diagnostic_rank
       ,previous_sum_PCT = ISNULL(c.previous_sum_PCT,0.0)
   FROM tempdb.dbo.SQLXL_Index_Metrics AS tgt
   JOIN (
-        SELECT c.diagnostic_ID
-              ,c.rec_type
+        SELECT c.rec_type
               ,c.database_id
               ,c.parent_object_id
               ,c.object_id
@@ -14263,13 +13947,12 @@ UPDATE tgt
               ,c.diagnostic_rank
               ,previous_sum_PCT = LAG(c.running_sum) OVER (PARTITION BY c.metric
                                                                ORDER BY c.running_sum
-                                                                       ,c.object_id
+                                                                       ,c.parent_object_id
                                                           )
           FROM (----------------------------------------------------------------------------------------------------------------------------
                 --
                 ----------------------------------------------------------------------------------------------------------------------------
-                SELECT diagnostic_ID
-                      ,rec_type
+                SELECT rec_type
                       ,database_id
                       ,parent_object_id
                       ,object_id
@@ -14277,20 +13960,31 @@ UPDATE tgt
                       ,type
                       ,metric
                       ,diagnostic_PCT
-                      ,diagnostic_rank = RANK()           OVER (PARTITION BY metric
+                      ,diagnostic_rank = CASE WHEN diagnostic_PCT > 0
+                                              THEN RANK() OVER (PARTITION BY metric
                                                                     ORDER BY diagnostic_PCT DESC
-                                                                            ,object_id
                                                                )
+                                              ELSE NULL
+                                         END
                       ,running_sum  = SUM(diagnostic_PCT) OVER (PARTITION BY metric
                                                                     ORDER BY diagnostic_PCT DESC
-                                                                            ,object_id
                                                                )
                   FROM tempdb.dbo.SQLXL_Index_Metrics
-                 WHERE rec_type IN (N'P',N'H')
+                 WHERE rec_type = N'P'
+--                 AND metric NOT LIKE N'%_AVG'
+--                 AND metric NOT LIKE N'%_PCT'
+--                 AND metric NOT LIKE N'%_RAT'
+                   AND diagnostic_PCT IS NOT NULL
                ) AS c
-       )                AS c
-    ON tgt.diagnostic_ID = c.diagnostic_ID
- WHERE tgt.rec_type     IN (N'P',N'H')
+       ) AS c
+    ON tgt.rec_type         = c.rec_type
+   AND tgt.database_id      = c.database_id
+   AND tgt.parent_object_id = c.parent_object_id
+   AND tgt.object_id        = c.object_id
+   AND tgt.index_id         = c.index_id
+   AND tgt.type             = c.type
+   AND tgt.metric           = c.metric
+ WHERE tgt.rec_type         = N'P'
 OPTION (MAXDOP 1);
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
@@ -14305,13 +13999,19 @@ END
 -- Update column rankings - INDEX within PARENT
 --------------------------------------------------------------------------------------------------------------------------------------------
 UPDATE tgt
-   SET diagnostic       = N'(' + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'% #' + CAST(c.diagnostic_rank AS NVARCHAR(20)) + N')'
+   SET diagnostic = CASE WHEN RIGHT(c.metric,4) IN (N'_AVG',N'_PCT',N'_RAT')
+                         THEN N'(#' + CAST(c.diagnostic_rank AS NVARCHAR(20)) + N')'
+                         ELSE COALESCE(N'('
+                                      + tempdb.dbo.SQLXL_3SD(c.diagnostic_PCT,N'N') + N'%' 
+                                      + COALESCE(N' #' + CAST(c.diagnostic_rank AS NVARCHAR(20)),N'')
+                                      + N')'
+                                      ,N'')
+                    END
       ,diagnostic_rank  = c.diagnostic_rank
       ,previous_sum_PCT = ISNULL(c.previous_sum_PCT,0.0)
   FROM tempdb.dbo.SQLXL_Index_Metrics AS tgt
   JOIN (
-        SELECT c.diagnostic_ID
-              ,c.rec_type
+        SELECT c.rec_type
               ,c.database_id
               ,c.parent_object_id
               ,c.object_id
@@ -14321,15 +14021,13 @@ UPDATE tgt
               ,c.diagnostic_PCT
               ,c.diagnostic_rank
               ,previous_sum_PCT = LAG(c.running_sum) OVER (PARTITION BY c.metric
-                                                                       ,c.object_id
+                                                                       ,c.parent_object_id
                                                                ORDER BY c.running_sum
-                                                                       ,c.index_id
                                                           )
           FROM (----------------------------------------------------------------------------------------------------------------------------
                 --
                 ----------------------------------------------------------------------------------------------------------------------------
-                SELECT diagnostic_ID
-                      ,rec_type
+                SELECT rec_type
                       ,database_id
                       ,parent_object_id
                       ,object_id
@@ -14337,23 +14035,32 @@ UPDATE tgt
                       ,type
                       ,metric
                       ,diagnostic_PCT
-                      ,diagnostic_rank = RANK()           OVER (PARTITION BY metric
-                                                                            ,object_id
+                      ,diagnostic_rank = CASE WHEN diagnostic_PCT > 0
+                                              THEN RANK() OVER (PARTITION BY metric
+                                                                            ,parent_object_id
                                                                     ORDER BY diagnostic_PCT DESC
-                                                                            ,index_id
                                                                )
+                                              ELSE NULL
+                                         END
                       ,running_sum  = SUM(diagnostic_PCT) OVER (PARTITION BY metric
-                                                                            ,object_id
+                                                                            ,parent_object_id
                                                                     ORDER BY diagnostic_PCT DESC
-                                                                            ,index_id
                                                             )
                   FROM tempdb.dbo.SQLXL_Index_Metrics
                  WHERE rec_type = N'I'
-                   AND diagnostic_PCT IS NOT NULL
+                   AND metric_amt > 0
+--                 AND metric = N'buffer_free_KB_CNT'
+--                 AND parent_object_id = 802101898
                ) AS c
-       )                AS c
-    ON tgt.diagnostic_ID = c.diagnostic_ID
- WHERE tgt.rec_type      = N'I'
+       ) AS c
+    ON tgt.rec_type         = c.rec_type
+   AND tgt.database_id      = c.database_id
+   AND tgt.parent_object_id = c.parent_object_id
+   AND tgt.object_id        = c.object_id
+   AND tgt.index_id         = c.index_id
+   AND tgt.type             = c.type
+   AND tgt.metric           = c.metric
+ WHERE tgt.rec_type         = N'I'
 OPTION (MAXDOP 1);
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
@@ -14365,7 +14072,6 @@ END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Create Diagnostics Table
--- type id: 0-Critical,2-Warning,4-Performance,6-nonDefault,8-Information,10-execution metrics; FUTURE:12-footprint metrics
 --------------------------------------------------------------------------------------------------------------------------------------------
 IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Diagnostics') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_Index_Diagnostics
 
@@ -14380,35 +14086,240 @@ CREATE TABLE tempdb.dbo.SQLXL_Index_Diagnostics
 ,index_id                                   INT                                     NOT NULL
 ,type                                       CHAR(2)        COLLATE DATABASE_DEFAULT NOT NULL
 -------------------------------------------------------
-,diagnostic_type_id                         TINYINT                                 NOT NULL
 ,diagnostic                                 NVARCHAR(1000) COLLATE DATABASE_DEFAULT NULL
-,diagnostic_max_pct                         FLOAT
 -------------------------------------------------------
-,consolidated_diagnostic_ID                    INT                                     NULL
+,consolidated_diagnostic_ID                 INT                                     NULL
+);
+
+IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Metrics_Summary') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_Index_Metrics_Summary
+
+CREATE TABLE tempdb.dbo.SQLXL_Index_Metrics_Summary
+(
+ diagnostic_ID                              INT                                     IDENTITY(1,1)
+-------------------------------------------------------
+,rec_type                                   CHAR(1)        COLLATE DATABASE_DEFAULT NOT NULL   -- D-Database,P-Parent,I-index
+,database_id                                SMALLINT                                NOT NULL
+,parent_object_id                           INT                                     NOT NULL
+,object_id                                  INT                                     NOT NULL
+,index_id                                   INT                                     NOT NULL
+,type                                       CHAR(2)        COLLATE DATABASE_DEFAULT NOT NULL
+-------------------------------------------------------
+,diagnostic                                 NVARCHAR(1000) COLLATE DATABASE_DEFAULT NULL
+-------------------------------------------------------
+,consolidated_diagnostic_ID                 INT                                     NULL
 );
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Created Diagnostics Table tempdb.dbo.SQLXL_Index_Diagnostics'
+               +N' Created Diagnostics Tables tempdb.dbo.SQLXL_Index_Diagnostics & Metrics'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    RAISERROR(N'          Start Insert consolidated metrics into diagnostic table',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Insert consolidated metrics into diagnostic table
+-- Create Metric Control tables
+--------------------------------------------------------------------------------------------------------------------------------------------
+IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Metric_Rollup') IS NOT NULL) DROP TABLE tempdb.dbo.SQLXL_Index_Metric_Rollup;
+
+CREATE TABLE tempdb.dbo.SQLXL_Index_Metric_Rollup
+      (rollup_nbr  INT     IDENTITY(1,1)
+      ,Level_1     SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,abbr_1      SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,Level_2     SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,abbr_2      SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,Level_3     SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,abbr_3      SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,Level_4     SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,abbr_4      SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,Level_5     SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,abbr_5      SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,Level_6     SYSNAME COLLATE DATABASE_DEFAULT NULL
+      ,abbr_6      SYSNAME COLLATE DATABASE_DEFAULT NULL
+      );
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Populate Metric Control tables - adds friendlier names and chooses which totals to compute and concatenate together for display
+-- ,(NULL,NULL  -- level 1
+--  ,NULL,NULL  -- level 2
+--  ,NULL,NULL  -- level 3
+--  ,NULL,NULL  -- level 4
+--  ,NULL,NULL  -- level 5
+--  ,NULL,NULL) -- level 6
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
-  INTO tempdb.dbo.SQLXL_Index_Diagnostics
+  INTO tempdb.dbo.SQLXL_Index_Metric_Rollup
+      (Level_1,abbr_1
+      ,Level_2,abbr_2
+      ,Level_3,abbr_3
+      ,Level_4,abbr_4
+      ,Level_5,abbr_5
+      ,Level_6,abbr_6)
+VALUES
+-- OPS RD/WRT Ratio
+-- USG RD/WRT Ratio
+-- OPS Reads
+-- OPS Scans
+-- OPS Lookups
+-- OPS FWD Fetch
+-- USG Reads
+-- USG Scans
+-- USG Lookups
+-- LOB ACTVY
+-- Last Read Days
+
+/*------------------------------------------------------------------------------------------------------------------------------------------
+Priority Metrics
+------------------------------------------------------------------------------------------------------------------------------------------*/
+-- Diagnostic - Index - Wait Time (BI11&12) & percent of next level up  
+-- Diagnostic - Index - Wait Counts (BI11&12) & percent of next level up
+-- Diagnostic - Index - Wait Average time (BI11&12)                     
+ ( N'ops_total_wait_MS_CNT',N'PRIO Waits: Time'
+  ,N'ops_total_wait_CNT',N'Count'
+  ,N'ops_total_wait_MS_AVG',N'Average'
+  ,NULL,NULL
+  ,NULL,NULL
+  ,NULL,NULL)
+
+-- Diagnostic - Index - Total Locks & percent of next level up  
+-- Diagnostic - Index - Lock Promotion Attempts & percent of next level up  
+-- Diagnostic - Index - Lock Promotion Success & percent of next level up  
+-- Diagnostic - Index - Lock Promotion Fail & percent of next level up  
+,( N'ops_total_lock_CNT',N'PRIO Locks: Count'
+  ,N'ios_lock_promotion_attempt_CNT',N'Promotion Attempts'
+  ,N'ios_lock_promotion_CNT',N'Success'
+  ,N'ios_lock_promotion_fail_CNT',N'Fail'
+  ,NULL,NULL
+  ,NULL,NULL)
+
+-- Diagnostic - Index - Operations Page Splits - Total. Includes InMemory
+-- Diagnostic - Index - Operations Page Splits - Leaf. Includes InMemory
+-- Diagnostic - Index - Operations Page Splits - NonLeaf. Includes InMemory
+,( N'ops_total_page_split_CNT',N'PRIO Page Splits: Count'
+  ,N'page_splits_to_write_PCT',N'%Writes'
+  ,N'ios_leaf_alloc_Page_Split_CNT',N'Leaf'
+  ,N'ios_nonleaf_alloc_Page_Split_CNT',N'Nonleaf'
+  ,NULL,NULL
+  ,NULL,NULL)
+
+-- Diagnostic - Index - Operations Merges - Total. Includes InMemory
+-- Diagnostic - Index - Operations Merges - Leaf. Includes InMemory
+-- Diagnostic - Index - Operations Merges - Nonleaf. Includes InMemory
+,( N'ops_total_page_merge_CNT',N'PRIO Page Merges: Count'
+  ,N'page_merge_to_write_PCT',N'Writes'
+  ,N'ios_leaf_page_merge_CNT',N'Leaf'
+  ,N'ios_nonleaf_page_merge_CNT',N'Nonleaf'
+  ,NULL,NULL
+  ,NULL,NULL)
+
+-- Diagnostic - Index - Missing index advantage Weighted (BI50)
+-- Diagnostic - Index - Missing index advantage unweighted (BI50)
+-- Diagnostic - Index - Missing index Compiles (BI50)
+-- Diagnostic - Index - Missing index Cost (BI50)
+-- Diagnostic - Index - Missing index Impact (BI50)
+,( N'mix_Advantage_weighted_AMT',N'PRIO MIX Advantage (BI50)'
+  ,N'mix_Advantage_AMT',N'UnWeighted'
+  ,N'mix_unique_compiles_CNT',N'Compiles'
+  ,N'mix_avg_total_user_cost_AMT',N'Cost'
+  ,N'mix_avg_user_impact_AMT',N'Impact'
+  ,NULL,NULL)
+
+-- Diagnostic - Index - Operations Writes  - Includes InMemory & Columnstore
+-- Diagnostic - Index - Operations Inserts - Includes InMemory & Columnstore
+-- Diagnostic - Index - Operations Updates - Includes InMemory & Columnstore
+-- Diagnostic - Index - Operations Deletes - Includes InMemory & Columnstore
+-- Diagnostic - Index - Usage Updates
+,( N'ops_total_write_CNT',N'PRIO Writes: Total'
+  ,N'ops_total_insert_CNT',N'Inserts'
+  ,N'ops_total_update_CNT',N'Updates'
+  ,N'ops_total_delete_CNT',N'Deletes'
+  ,N'ius_user_updates_CNT',N'USG Updates'
+  ,NULL,NULL)
+
+-- Diagnostic - Index - % reserved data pages in memory buffer 
+-- Diagnostic - Index - Memory Buffer % Used
+,( N'reserved_page_PG_CNT',N'PRIO Buffer: Reserved PGs'
+  ,N'buffer_total_KB_CNT',N'Used Buffer'
+  ,N'used_pages_in_buffer_PCT',N'%InBuffer'
+  ,NULL,NULL
+  ,NULL,NULL
+  ,NULL,NULL)
+
+-- Diagnostic - Index - Operations Touches and % next level
+-- Diagnostic - Index - Operations Reads % next level
+-- Diagnostic - Index - Operations Writes % next level
+-- Diagnostic - Index - Operations Read/Write ratio
+,( N'ops_total_contacts_CNT',N'PRIO Touches: OPS Total'
+  ,N'ops_total_read_CNT',N'Reads'
+  ,N'ops_total_write_CNT',N'Writes'
+  ,N'ops_read_to_write_RAT',N'R/W Ratio'
+  ,NULL,NULL
+  ,NULL,NULL)
+
+-- Diagnostic - Index - Usage Touches and % next level
+-- Diagnostic - Index - Usage Reads and % next level
+-- Diagnostic - Index - Usage Writes and % next level
+-- Diagnostic - Index - Usage Read/Write ratio
+,( N'ius_user_total_CNT',N'PRIO Touches: USG Total'
+  ,N'ius_user_read_CNT',N'Reads'
+  ,N'ius_user_updates_CNT',N'Writes'
+  ,N'ius_read_to_write_RAT',N'R/W Ratio'
+  ,N'ius_last_read_days_ago',N'Days Last Read'
+  ,NULL,NULL)
+
+-- Diagnostic - Index - Operations Read Scan Detail % Parent
+-- Diagnostic - Index - Operations Read Lookup Detail % Parent
+-- Diagnostic - Index - Operations Read Forwarded Fetch Detail % Parent
+,( N'ops_total_scan_CNT',N'PRIO Read Detail: OPS Scans'
+  ,N'ops_scans_to_read_PCT',N'%Reads'
+  ,N'ios_singleton_lookup_CNT',N'Lookups'
+  ,N'ios_singleton_lookup_to_read_PCT',N'%Reads'
+  ,N'ios_forwarded_fetch_CNT',N'FWD Fetch'
+  ,N'ios_forwarded_fetch_to_read_PCT',N'%Reads')
+
+-- Diagnostic - Index - Usage Read Seek Detail % Parent
+-- Diagnostic - Index - Usage Read Scan Detail % Parent
+-- Diagnostic - Index - Usage Read Lookup Detail % Parent
+,( N'ius_user_seeks_CNT',N'PRIO Read Detail: USG Seeks'
+  ,N'ius_seeks_to_read_PCT',N'%Reads'
+  ,N'ius_user_scans_CNT',N'Scans'
+  ,N'ius_scans_to_read_PCT',N'%Reads'
+  ,N'ius_user_lookups_CNT',N'Lookups'
+  ,N'ius_lookups_to_read_PCT',N'%Reads')
+
+-- Diagnostic - Index - LOB Fetches
+-- Diagnostic - Index - LOB Overflow Fetches
+-- Diagnostic - Index - LOB Push off row
+-- Diagnostic - Index - LOB Pull in row
+,( N'ios_lob_fetch_pages_CNT',N'PRIO LOB: Fetch PGs'
+  ,N'ios_row_overflow_fetch_in_pages_CNT',N'Overflow'
+  ,N'ios_column_value_push_off_row_CNT',N'Push off row'
+  ,N'ios_column_value_pull_in_row_CNT',N'Pull in row'
+  ,NULL,NULL
+  ,NULL,NULL);
+
+IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+               +N' Created & populate tempdb.dbo.SQLXL_Index_Metric_Rollup'
+   RAISERROR(@debug,0,0) WITH NOWAIT;
+   SET @debug_DTTM = GETDATE();
+END
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Insert consolidated metrics into diagnostic table
+--------------------------------------------------------------------------------------------------------------------------------------------
+/*** LOCAL TESTING ***
+TRUNCATE TABLE tempdb.dbo.SQLXL_Index_Metrics_Summary
+--*/
+INSERT
+  INTO tempdb.dbo.SQLXL_Index_Metrics_Summary
       (rec_type
       ,database_id
       ,parent_object_id
       ,object_id
       ,index_id
       ,type
-      ,diagnostic_type_id
       ,diagnostic
-      ,diagnostic_max_pct
       )
 SELECT f.rec_type
       ,f.database_id
@@ -14416,91 +14327,74 @@ SELECT f.rec_type
       ,f.object_id
       ,f.index_id
       ,f.type
-      ,diagnostic_type_id = 10
-      ,diagnostic = STUFF(IIF(r.abbr_1 IS NOT NULL
-                             ,N' ' + r.abbr_1
-                             +IIF(CHARINDEX(N'MIX Advtg',r.abbr_1) <> 1
-                                 ,N' '
-                                 +tempdb.dbo.SQLXL_3SD(COALESCE(f1.metric_AMT,0)
-                                                      ,CASE WHEN CHARINDEX(N'_KB_',r.level_1) > 0 THEN N'KB'
-                                                            WHEN CHARINDEX(N'_MS_',r.level_1) > 0 THEN N'MS'
-                                                            ELSE N'I'
-                                                       END)
-                                 ,N'')
-                             +N' ' + COALESCE(f1.diagnostic,N'(0.00%)')
-                             ,N'')
-                         +IIF(r.abbr_2 IS NOT NULL
-                             ,N' ' + r.abbr_2
-                             +IIF(CHARINDEX(N'MIX Advtg',r.abbr_1) <> 1
-                                 ,N' '
-                                 +tempdb.dbo.SQLXL_3SD(COALESCE(f2.metric_AMT,0)
-                                                      ,CASE WHEN CHARINDEX(N'_KB_',r.level_2) > 0 THEN N'KB'
-                                                            WHEN CHARINDEX(N'_MS_',r.level_2) > 0 THEN N'MS'
-                                                            ELSE N'I'
-                                                       END)
-                                 ,N'')
-                             +N' ' + COALESCE(f2.diagnostic,N'(0.00%)')
-                             ,N'')
-                         +IIF(r.abbr_3 IS NOT NULL
-                             ,N' ' + r.abbr_3 + N' '
-                             +tempdb.dbo.SQLXL_3SD(COALESCE(f3.metric_AMT,0)
-                                                  ,CASE WHEN CHARINDEX(N'_KB_',r.level_3) > 0 THEN N'KB'
-                                                        WHEN CHARINDEX(N'_MS_',r.level_3) > 0 THEN N'MS'
-                                                        ELSE N'I'
-                                                   END)
-                             +N' ' + COALESCE(f3.diagnostic,N'(0.00%)')
-                             ,N'')
-                         +IIF(r.abbr_4 IS NOT NULL
-                             ,N' ' + r.abbr_4 + N' '
-                             +tempdb.dbo.SQLXL_3SD(COALESCE(f4.metric_AMT,0)
-                                                  ,CASE WHEN CHARINDEX(N'_KB_',r.level_4) > 0 THEN N'KB'
-                                                        WHEN CHARINDEX(N'_MS_',r.level_4) > 0 THEN N'MS'
-                                                        ELSE N'I'
-                                                   END)
-                             +N' ' + COALESCE(f4.diagnostic,N'(0.00%)')
-                             ,N'')
-                         +IIF(r.abbr_5 IS NOT NULL
-                             ,N' ' + r.abbr_5 + N' '
-                             +tempdb.dbo.SQLXL_3SD(COALESCE(f5.metric_AMT,0)
-                                                  ,CASE WHEN CHARINDEX(N'_KB_',r.level_5) > 0 THEN N'KB'
-                                                        WHEN CHARINDEX(N'_MS_',r.level_5) > 0 THEN N'MS'
-                                                        ELSE N'I'
-                                                   END)
-                             +N' ' + COALESCE(f5.diagnostic,N'(0.00%)')
-                             ,N'')
-                         +IIF(r.abbr_6 IS NOT NULL
-                             ,N' ' + r.abbr_6 + N' '
-                             +tempdb.dbo.SQLXL_3SD(COALESCE(f6.metric_AMT,0)
-                                                  ,CASE WHEN CHARINDEX(N'_KB_',r.level_6) > 0 THEN N'KB'
-                                                        WHEN CHARINDEX(N'_MS_',r.level_6) > 0 THEN N'MS'
-                                                        ELSE N'I'
-                                                   END)
-                             +N' ' + COALESCE(f6.diagnostic,N'(0.00%)')
-                             ,N'')
+      ,diagnostic = STUFF(IIF(    r.abbr_1 IS NOT NULL
+                              AND (   f1.metric_AMT > 0
+                                   OR f2.metric_AMT > 0
+                                   OR f3.metric_AMT > 0
+                                   OR f4.metric_AMT > 0
+                                   OR f5.metric_AMT > 0
+                                   OR f6.metric_AMT > 0
+                                  )
+                             ,N' ' + r.abbr_1 + N' ' + COALESCE(f1.metric_FMT,N'0') + COALESCE(N' ' + f1.diagnostic,N' (n/a)')
+                             ,N'') -- IIF(r.abbr_1 IS NOT NULL                                                        
+                         +IIF(    r.abbr_2 IS NOT NULL                                                                
+                              AND (   f2.metric_AMT > 0                                                               
+                                   OR f3.metric_AMT > 0                                                               
+                                   OR f4.metric_AMT > 0                                                               
+                                   OR f5.metric_AMT > 0                                                               
+                                   OR f6.metric_AMT > 0                                                               
+                                  )                                                                                   
+                             ,N' ' + r.abbr_2 + N' ' + COALESCE(f2.metric_FMT,N'0') + COALESCE(N' ' + f2.diagnostic,N' (n/a)')
+                             ,N'') -- IIF(r.abbr_2 IS NOT NULL                                                        
+                         +IIF(    r.abbr_3 IS NOT NULL                                                                
+                              AND (   f3.metric_AMT > 0                                                               
+                                   OR f4.metric_AMT > 0                                                               
+                                   OR f5.metric_AMT > 0                                                               
+                                   OR f6.metric_AMT > 0                                                               
+                                  )                                                                                   
+                             ,N' ' + r.abbr_3 + N' ' + COALESCE(f3.metric_FMT,N'0') + COALESCE(N' ' + f3.diagnostic,N' (n/a)')
+                             ,N'') -- IIF(r.abbr_3 IS NOT NULL                                                        
+                         +IIF(    r.abbr_4 IS NOT NULL                                                                
+                              AND (   f4.metric_AMT > 0                                                               
+                                   OR f5.metric_AMT > 0                                                               
+                                   OR f6.metric_AMT > 0                                                               
+                                  )                                                                                   
+                             ,N' ' + r.abbr_4 + N' ' + COALESCE(f4.metric_FMT,N'0') + COALESCE(N' ' + f4.diagnostic,N' (n/a)')
+                             ,N'') -- IIF(r.abbr_4 IS NOT NULL                                                        
+                         +IIF(    r.abbr_5 IS NOT NULL                                                                
+                              AND (   f5.metric_AMT > 0                                                               
+                                   OR f6.metric_AMT > 0                                                               
+                                  )                                                                                   
+                             ,N' ' + r.abbr_5 + N' ' + COALESCE(f5.metric_FMT,N'0') + COALESCE(N' ' + f5.diagnostic,N' (n/a)')
+                             ,N'') -- IIF(r.abbr_5 IS NOT NULL                                                        
+                         +IIF(    r.abbr_6 IS NOT NULL                                                                
+                              AND (   f6.metric_AMT > 0                                                               
+                                  )                                                                                   
+                             ,N' ' + r.abbr_6 + N' ' + COALESCE(f6.metric_FMT,N'0') + COALESCE(N' ' + f6.diagnostic,N' (n/a)')
+                             ,N'') -- IIF(r.abbr_6 IS NOT NULL
+
                          ,1,1,N'')
-      ,diagnostic_max_pct = (SELECT MAX(amt)
-                            FROM (VALUES (f1.diagnostic_PCT)
-                                        ,(f2.diagnostic_PCT)
-                                        ,(f3.diagnostic_PCT)
-                                        ,(f4.diagnostic_PCT)
-                                        ,(f5.diagnostic_PCT)
-                                        ,(f6.diagnostic_PCT)
-                                        )
-                              AS value(amt)
-                         )
-/*** LOCAL TESTING
-SELECT COUNT(1)
+/*** LOCAL TESTING ***
+SELECT r.level_1
+      ,tempdb.dbo.SQLXL_3SD(COALESCE(f1.metric_AMT,0)
+                           ,CASE WHEN CHARINDEX(N'_KB_',r.level_1) > 0 THEN N'KB'
+                                 WHEN CHARINDEX(N'_MS_',r.level_1) > 0 THEN N'MS'
+                                 ELSE N'N'
+                            END)
+      ,r.level_2
+      ,r.level_3
+      ,r.level_4
+      ,r.level_5
+      ,r.level_6
 --*/
   FROM (
-        SELECT DISTINCT -- needed since many rows can match the 6 levels of each rollup
+        SELECT DISTINCT -- needed, many rows can match the 6 levels of each rollup
                f.rec_type
               ,f.database_id
               ,f.parent_object_id
               ,f.object_id
               ,f.index_id
               ,f.type
---            ,f.metric
---            ,f.metric_AMT
               ,rollup_level = r.level_1
               ,r.rollup_nbr
           FROM tempdb.dbo.SQLXL_Index_Metrics       AS f
@@ -14513,20 +14407,19 @@ SELECT COUNT(1)
             OR f.metric                            = r.level_5
             OR f.metric                            = r.level_6
          WHERE 1 = 1
-           AND f.rec_type NOT IN (N'A',N'D')
-           AND (  (    f.previous_sum_PCT <= 90.0
-                   AND f.diagnostic_PCT   >= 1.00
-                  )
-                OR f.diagnostic_RANK = 1
-               )
+           AND f.metric_AMT > 0
+--AND f.metric = N'ops_total_wait_MS_CNT'
+--AND f.object_id = 775673811
+--AND f.index_id = 1
+           AND f.rec_type IN (N'I',N'P')
            AND COALESCE(r.level_1,r.level_2,r.level_3,r.level_4,r.level_5,r.level_6) IS NOT NULL
-       ) f
+       ) F
   JOIN tempdb.dbo.SQLXL_Index_Metric_Rollup AS r
-    ON f.rollup_nbr       = r.rollup_nbr
+    ON F.rollup_nbr       = r.rollup_nbr
    AND f.rollup_level     = r.level_1
   LEFT OUTER
   JOIN tempdb.dbo.SQLXL_Index_Metrics AS f1
-    ON r.Level_1          = f1.metric
+    ON r.LEVEL_1          = f1.metric
    AND f.rec_type         = f1.rec_type
    AND f.database_id      = f1.database_id
    AND f.parent_object_id = f1.parent_object_id
@@ -14535,7 +14428,7 @@ SELECT COUNT(1)
    AND f.type             = f1.type
   LEFT OUTER
   JOIN tempdb.dbo.SQLXL_Index_Metrics AS f2
-    ON r.Level_2          = f2.metric
+    ON r.LEVEL_2          = f2.metric
    AND f.rec_type         = f2.rec_type
    AND f.database_id      = f2.database_id
    AND f.parent_object_id = f2.parent_object_id
@@ -14544,7 +14437,7 @@ SELECT COUNT(1)
    AND f.type             = f2.type
   LEFT OUTER
   JOIN tempdb.dbo.SQLXL_Index_Metrics AS f3
-    ON r.Level_3          = f3.metric
+    ON r.LEVEL_3          = f3.metric
    AND f.rec_type         = f3.rec_type
    AND f.database_id      = f3.database_id
    AND f.parent_object_id = f3.parent_object_id
@@ -14578,6 +14471,12 @@ SELECT COUNT(1)
    AND f.object_id        = f6.object_id
    AND f.index_id         = f6.index_id
    AND f.type             = f6.type
+ WHERE f1.metric_AMT > 0.0
+    OR f2.metric_amt > 0.0
+    OR f3.metric_amt > 0.0
+    OR f4.metric_amt > 0.0 
+    OR f5.metric_amt > 0.0
+    OR f6.metric_amt > 0.0
  ORDER BY
        f.database_id
       ,f.parent_object_id
@@ -14605,157 +14504,20 @@ CREATE UNIQUE CLUSTERED
      )
 WITH (DATA_COMPRESSION = PAGE);
 
-IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Indexed tempdb.dbo.SQLXL_Index_Diagnostics'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
-   SET @debug_DTTM = GETDATE();
-END
-
-/******************************************************************************************************************************************/
--- Computed values and ratios
--- Index
-/******************************************************************************************************************************************/
-UPDATE tgt
-   SET
-/*** LOCAL TESTING ***
-SELECT tgt.object_id,tgt.index_id,p.rec_type,
---*/
- ius_scans_to_read_PCT            = IIF(    tgt.type NOT IN (N'5',N'6')
-                                        AND tgt.ius_user_read_CNT > 0
-                                       ,100.0 * tgt.ius_user_scans_CNT / tgt.ius_user_read_CNT
-                                       ,0) -- no columnstore
-,ops_scans_to_read_PCT            = IIF(    tgt.type NOT IN (N'5',N'6') 
-                                        AND tgt.ops_Total_read_CNT > 0
-                                       ,100.0 * tgt.ops_Total_scan_cnt / tgt.ops_Total_read_CNT
-                                       ,0) -- no columnstore
-,ius_scans_to_seeks_RAT           = IIF(tgt.ius_user_seeks_CNT > 0
-                                       ,  1.0 * tgt.ius_user_scans_CNT / tgt.ius_user_seeks_CNT
-                                       ,0)
-,ius_read_to_write_RAT            = IIF(p.ius_user_updates_CNT > 0
-                                       ,  1.0 * tgt.ius_user_read_CNT / p.ius_user_updates_CNT
-                                       ,0)
-,ius_read_to_parent_RAT           = IIF(p.ius_user_read_CNT > 0
-                                       ,  1.0 * tgt.ius_user_read_CNT / p.ius_user_read_CNT
-                                       ,0)
-,ius_lookups_to_read_PCT          = IIF(tgt.ius_user_read_CNT > 0
-                                       ,100.0 * tgt.ius_user_lookups_CNT / tgt.ius_user_read_CNT
-                                       ,0)
-,ios_singleton_lookup_to_read_PCT = IIF(tgt.ops_Total_read_CNT > 0
-                                       ,100.0 * tgt.ios_singleton_lookup_CNT / tgt.ops_Total_read_CNT
-                                       ,0)
-,ios_page_compression_fail_PCT    = IIF(tgt.ios_page_compression_attempt_CNT > 0
-                                      ,100.0 * tgt.ios_page_compression_fail_CNT / tgt.ios_page_compression_attempt_CNT
-                                      ,0)
-,ios_read_to_write_RAT            = IIF(tgt.ops_Total_write_CNT > 0
-                                       ,  1.0 * tgt.ops_Total_read_CNT / tgt.ops_Total_write_CNT
-                                       ,0)
-,ios_read_to_parent_RAT           = IIF(p.ops_Total_read_CNT > 0
-                                       ,  1.0 * tgt.ops_Total_read_CNT / p.ops_Total_read_CNT
-                                       ,0)
-,used_pages_in_buffer_PCT         = IIF(tgt.reserved_page_CNT > 0
-                                       ,100.0 * tgt.buffer_Total_KB_CNT / (tgt.reserved_page_CNT * 8.0)
-                                       ,0)
-,page_lock_to_row_lock_RAT        = IIF(tgt.ios_row_lock_CNT > 0
-                                       ,  1.0 * tgt.ios_page_lock_CNT / tgt.ios_row_lock_CNT
-                                       ,0)
-,page_splits_to_write_PCT         = IIF((tgt.ops_Total_insert_CNT + tgt.ops_Total_update_CNT) > 0
-                                       ,100.0 * (tgt.ops_Total_page_split_CNT + tgt.ios_column_value_push_off_row_CNT)
-                                              / (tgt.ops_Total_insert_CNT + tgt.ops_Total_update_CNT)
-                                       ,0)
-,page_merge_to_write_PCT          = IIF(tgt.ops_Total_write_CNT > 0
-                                        ,100.0 * (tgt.ops_Total_page_merge_CNT + tgt.ios_column_value_push_off_row_CNT)
-                                               / tgt.ops_Total_write_CNT
-                                        ,0)
-  FROM (SELECT *
-          FROM tempdb.dbo.SQLXL_Index_Compilation
-         WHERE rec_type = N'I'
-       ) AS tgt
-  JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_Index_Compilation
-         WHERE rec_type IN (N'H',N'P')
-       ) AS p
-    ON tgt.database_id           = p.database_id
-   AND tgt.parent_object_id      = p.parent_object_id
- WHERE tgt.type NOT IN (N'F') -- uncovered Foreign Key Constraints get candidate covering missing index total but don't get ratios computed
-OPTION (MAXDOP 1);
+CREATE UNIQUE CLUSTERED
+ INDEX ixuc_SQLXL_Index_Metrics_Summary
+    ON tempdb.dbo.SQLXL_Index_Metrics_Summary
+      (database_id
+      ,object_id
+      ,index_id
+      ,type
+      ,diagnostic_ID
+     )
+WITH (DATA_COMPRESSION = PAGE);
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Computed values and ratios - Index'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
-   SET @debug_DTTM = GETDATE();
-END
-
---------------------------------------------------------------------------------------------------------------------------------------------
--- Table/Parent
-UPDATE tgt
-   SET
-/*** LOCAL TESTING ***
-SELECT database_id,parent_object_id,object_id,index_id,type,
---*/
- ius_scans_to_read_PCT            = IIF(    tgt.type NOT IN (N'5',N'6') -- no columnstore
-                                        AND tgt.ius_user_read_CNT > 0  
-                                        ,100.0 * tgt.ius_user_scans_CNT / tgt.ius_user_read_CNT
-                                        ,0)
-,ius_scans_to_seeks_RAT           = IIF(tgt.ius_user_seeks_CNT > 0
-                                       ,  1.0 * tgt.ius_user_scans_CNT/tgt.ius_user_seeks_CNT
-                                       ,0)
-,ius_read_to_write_RAT            = CASE WHEN tgt.ius_user_read_CNT    > 0 
-                                          AND tgt.ius_user_updates_CNT > 0
-                                         THEN 1.0 * tgt.ius_user_read_CNT / tgt.ius_user_updates_CNT
-                                         WHEN tgt.ius_user_updates_CNT > 0
-                                         THEN 0
-                                         ELSE NULL
-                                    END
-,ius_write_to_instance_RAT        = IIF(a.ius_user_updates_CNT > 0
-                                       ,  1.0 * tgt.ius_user_updates_CNT / a.ius_user_updates_CNT
-                                       ,0)
-,ius_lookups_to_read_PCT          = IIF(tgt.ius_user_read_CNT > 0
-                                       ,100.0 * tgt.ius_user_lookups_CNT / tgt.ius_user_read_CNT
-                                       ,0)
-,ios_singleton_lookup_to_read_PCT = IIF(tgt.ops_Total_read_CNT > 0
-                                       ,100.0 * tgt.ios_singleton_lookup_CNT / tgt.ops_Total_read_CNT
-                                       ,0)
-,ios_page_compression_fail_PCT    = IIF(tgt.ios_page_compression_attempt_CNT > 0
-                                       ,100.0 * tgt.ios_page_compression_fail_CNT / tgt.ios_page_compression_attempt_CNT
-                                       ,0)
-,ios_read_to_write_RAT            = CASE WHEN tgt.ops_Total_read_CNT  > 0 
-                                          AND tgt.ops_Total_write_CNT > 0
-                                         THEN 1.0 * tgt.ops_Total_read_CNT / tgt.ops_Total_write_CNT
-                                         WHEN tgt.ops_Total_write_CNT > 0 THEN 0
-                                         ELSE NULL
-                                    END
-,ios_write_to_instance_RAT        = IIF(a.ops_Total_write_CNT > 0
-                                       ,  1.0 * tgt.ops_Total_write_CNT / a.ops_Total_write_CNT
-                                       ,0)
-,used_pages_in_buffer_PCT         = IIF(    tgt.buffer_Total_KB_CNT > 0
-                                        AND tgt.reserved_page_CNT   > 0
-                                       ,100.0 * tgt.buffer_Total_KB_CNT / (tgt.reserved_page_CNT * 8.0)
-                                       ,0)
-,page_lock_to_row_lock_RAT        = IIF(tgt.ios_row_lock_CNT> 0
-                                       ,  1.0 * tgt.ios_page_lock_CNT / tgt.ios_row_lock_CNT
-                                       ,0)
-,page_splits_to_write_PCT         = IIF(tgt.ops_Total_insert_CNT + tgt.ops_Total_update_CNT > 0
-                                       ,100.0 * (tgt.ops_Total_page_split_CNT + tgt.ios_column_value_push_off_row_CNT)
-                                              / (tgt.ops_Total_insert_CNT + tgt.ops_Total_update_CNT)
-                                       ,0)
-,page_merge_to_write_PCT      =    IIF(tgt.ops_Total_write_CNT > 0
-                                       ,100.0 * (tgt.ops_Total_page_merge_CNT + tgt.ios_column_value_push_off_row_CNT)
-                                              / tgt.ops_Total_write_CNT
-                                       ,0)
-  FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt
- CROSS
-  JOIN (SELECT *
-          FROM tempdb.dbo.SQLXL_Index_Compilation
-         WHERE rec_type = N'A'
-       ) AS a
- WHERE tgt.rec_type NOT IN (N'A',N'D',N'I')
-OPTION (MAXDOP 1);
-
-IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Computed values and ratios - Table/Parent'
+               +N' Indexed tempdb.dbo.SQLXL_Index_Diagnostics & Metrics'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
@@ -14774,6 +14536,7 @@ SELECT c.name
          OR (t.name    = 'DATETIME' AND c.name LIKE N'%_DTTM')
          OR (t.name LIKE N'%INT'    AND c.name LIKE N'%_days_ago%')
          OR (t.name    = 'float'       AND c.name LIKE N'%_AVG')
+         OR (t.name    = 'float'       AND c.name LIKE N'%_RAT')
          OR c.name    IN (N'row_CNT',N'is_activity_for_period')
         )
 EXCEPT
@@ -14788,9 +14551,12 @@ SELECT Level_6 FROM tempdb.dbo.SQLXL_Index_Metric_Rollup
 ORDER BY 1
 */
 
+
+/* TO DO
+"- add more included col?" - not if clustered index, e.g. Lookup %Reads: OPS 201K (99.8%) - add more included col?
+*/
 /*** LOCAL TESTING ***
 UPDATE tempdb.dbo.SQLXL_Index_Compilation SET Diagnostics = NULL;
-DELETE FROM tempdb.dbo.SQLXL_Index_Diagnostics WHERE diagnostic_type_id < 10;
 
 -- Change to tempdb NOTE: tempdb must be lower case if server installed with CASE SENSITIVE collation
 USE tempdb
@@ -14842,19 +14608,16 @@ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
 END
 
 /* Format & Priorities of Diagnostics
-(rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+(rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 0-Critical,2-Warning,4-Performance,6-nonDefault,8-Information,10-execution metrics; FUTURE:12-footprint metrics
 */
 
 /******************************************************************************************************************************************\
 ***INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE***
 \******************************************************************************************************************************************/
-----------------------------------------------------------------------------------------------------
--- Critical = 0
-----------------------------------------------------------------------------------------------------
 -- Diagnostic - Instance - Columnstore indexes in use and Trace Flag 834 found (BI72)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 0
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A'
       ,diagnostic = 'Trace Flag 834 (large-page allocations for the buffer pool) in use with Columnstore indexes - not a good thing! See:'
                   + NCHAR(10)
                   + N'https://docs.microsoft.com/en-US/troubleshoot/sql/admin/performance-issues-using-columstore-indexes-large-pages (BI72)'
@@ -14866,14 +14629,11 @@ SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,ty
    AND    0 < (SELECT COUNT(1)
                  FROM tempdb.dbo.SQLXL_Index_Compilation
                 WHERE type IN (N'5',N'6')
-              );
+              )
 
-----------------------------------------------------------------------------------------------------
--- Warning = 2
-----------------------------------------------------------------------------------------------------
--- Diagnostic - Instance - Good to know - Instance and server cofiguration information
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 2
+UNION ALL
+-- Diagnostic - Instance - Good to know - SQL version Instance and server key hardware & OS cofiguration information
+SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A'
       ,diagnostic = COALESCE(REPLACE(LEFT(i.run_value,CHARINDEX(NCHAR(09),i.run_value) - 3),N'MICROSOFT ',N'')
                             ,N'<Configuration @@VERSION not found>'
                             )
@@ -14907,9 +14667,10 @@ SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,ty
           FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters
        ) AS sp;
 
-----------------------------------------------------------------------------------------------------
-;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 2)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+
+;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A')
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+-- Diagnostic - Server & SQL instance memory, percent used
 SELECT cte.*,src.diagnostic
   FROM cte
  CROSS
@@ -14947,6 +14708,7 @@ SELECT  N'RAM OS:'    + tempdb.dbo.SQLXL_3SD(MemSrv,N'KB')
                                 )
        ) e
 
+-- Diagnostic - Server CPU count, SQL MAXDOP
 UNION ALL
 SELECT COALESCE((SELECT N'CPU ' + QUOTENAME(run_value)
                    FROM tempdb.dbo.SQLXL_Index_sys_instance
@@ -14956,7 +14718,7 @@ SELECT COALESCE((SELECT N'CPU ' + QUOTENAME(run_value)
                ,N'<dm_os_sys_info cpu_count not found>'
                )
 -- Diagnostic - Instance - non-default - max degree of parallelism
-      +COALESCE((SELECT N' MAXDOP ' + QUOTENAME(run_value) + IIF(run_value <> N'0',N', default 0 (all processors)',N'')
+      +COALESCE((SELECT N', MAXDOP ' + QUOTENAME(run_value) + IIF(run_value <> N'0',N', default 0 (all processors)',N'')
                    FROM tempdb.dbo.SQLXL_Index_sys_instance
                   WHERE source         = N'sp_configure'
                     AND name           = N'max degree of parallelism'
@@ -14964,6 +14726,7 @@ SELECT COALESCE((SELECT N'CPU ' + QUOTENAME(run_value)
                ,N'<sp_configure max degree of parallelism not found>'
                )
 
+-- Diagnostic - Server sockets, cores, SoftNUMA
 UNION ALL
 SELECT IIF(version_major < 13 --2016
           ,N'CPU Info not captured for SQL version'
@@ -14999,20 +14762,23 @@ SELECT IIF(version_major < 13 --2016
  FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters
 ) src(diagnostic);
 
-----------------------------------------------------------------------------------------------------
--- Performance = 4
-----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Instance performance aggregates
+--------------------------------------------------------------------------------------------------------------------------------------------
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 -- Diagnostic - Instance - Missing index count across instance
-SELECT rec_type = 'A',a.database_id,a.parent_object_id,a.object_id,a.index_id,a.type,diagnostic_type_id = 4,diagnostic =
+SELECT rec_type = 'A',a.database_id,a.parent_object_id,a.object_id,a.index_id,a.type,diagnostic =
        COALESCE(N'Missing indexes: ' + CAST(ISNULL(a.Missing_index_CNT,0) AS NVARCHAR(20)) + N' out of 600 possible'
                ,N'< Missing index count not found>'
                )
   FROM tempdb.dbo.SQLXL_Index_Compilation AS a
  WHERE a.rec_type = N'A';
 
-;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 4)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+----------------------------------------------------------------------------------------------------
+-- Instance settings
+----------------------------------------------------------------------------------------------------
+;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A')
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT cte.*
       ,src.diagnostic
   FROM cte
@@ -15034,7 +14800,7 @@ SELECT CASE WHEN 8192 <= (SELECT CAST(run_value AS INT)               -- Large P
                           OR run_value LIKE N'DEVELOPER%'
                          )
                  ) IS NOT NULL
-            THEN N'SQL Memory ' + run_value
+            THEN N'SQL Memory Model ' + run_value
                 + IIF(run_value = N'LOCK_PAGES',N', use "LARGE_PAGES?"',N', use "LOCK_PAGES/LARGE_PAGES?"')
                 + CASE WHEN (SELECT version_major FROM tempdb.dbo.SQLXL_Index_sys_Startup_Parameters) >= 15
                        THEN CASE WHEN 876 NOT IN (SELECT name FROM tempdb.dbo.SQLXL_Index_sys_instance WHERE source = N'TRACESTATUS')
@@ -15112,12 +14878,11 @@ SELECT IIF(i.run_value IS NULL AND (SELECT version_major FROM tempdb.dbo.SQLXL_I
 ) src(diagnostic)
  WHERE src.diagnostic IS NOT NULL;
 
-----------------------------------------------------------------------------------------------------
--- Non-Default = 6
--- Omitting "default full-text language" since will vary based on language
-----------------------------------------------------------------------------------------------------
-;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 6)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Non-Default Instance settings
+--------------------------------------------------------------------------------------------------------------------------------------------
+;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A')
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT cte.*
       ,src.diagnostic
   FROM cte
@@ -15130,11 +14895,11 @@ SELECT cte.*
              AND run_value NOT IN (N'5')
 
 -- Diagnostic - Instance - non-default - blocked process threshold <> 5
-UNION ALL SELECT name + N' ' + QUOTENAME(run_value) + N', default 5 (seconds)'
+UNION ALL SELECT N'Blocked process threshold ' + QUOTENAME(run_value) + N', default 5 (seconds)'
             FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source = N'sp_configure'
              AND name   = N'blocked process threshold (s)'
-             AND run_value NOT IN (N'5')
+             AND run_value NOT IN (N'0',N'5')
 
 -- Diagnostic - Instance - non-default - index create memory (KB) <> 0
 UNION ALL SELECT name + N' ' + QUOTENAME(run_value) + N', default 0'
@@ -15178,10 +14943,10 @@ UNION ALL SELECT N'Query waits for resources ' + QUOTENAME(run_value) + N' (sec)
              AND name      = N'query wait (s)'
              AND run_value > 0
 
-------------------------------------------------------------
--- FULLTEXT
-------------------------------------------------------------
--- Diagnostic - Instance - non-default - Full Text is Installed
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- FULLTEXT. Omitting "default full-text language" since will vary based on language
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Diagnostic - Instance - non-default - Full Text indexing is Installed
 UNION ALL SELECT N'Fulltext feature [INSTALLED]'
             FROM tempdb.dbo.SQLXL_Index_sys_instance
            WHERE source     = N'SERVERPROPERTY'
@@ -15236,7 +15001,9 @@ UNION ALL SELECT N'> Fulltext Crawl Range MAX = ' + QUOTENAME(run_value) + N', d
              AND name   = N'max full-text crawl range'
              AND run_value NOT IN (N'4')
 
-------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Other Services installed
+--------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Instance - non-default - Advanced Analytics is Installed
 UNION ALL SELECT N'Advanced Analytics [INSTALLED]'
             FROM tempdb.dbo.SQLXL_Index_sys_instance
@@ -15272,7 +15039,9 @@ UNION ALL SELECT N'XTP In-memory tables [SUPPORTED]'
              AND name   = N'IsXTPSupported'
              AND run_value     IN (N'1')
 
-------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Instance non-default settings
+--------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Instance - non-default - tempdb Is Metadata Memory Optimized
 UNION ALL SELECT N'tempdb Metadata Memory Optimized [ENABLED]'
             FROM tempdb.dbo.SQLXL_Index_sys_instance
@@ -15324,7 +15093,8 @@ UNION ALL SELECT N'Instance in [SINGLE USER] mode'
            WHERE source = N'SERVERPROPERTY'
              AND name   = N'IsSingleUser'
              AND run_value     IN (N'1')
-) src(diagnostic);
+) src(diagnostic)
+ WHERE src.diagnostic IS NOT NULL;
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -15338,65 +15108,19 @@ END
 /******************************************************************************************************************************************\
 ***DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE***
 \******************************************************************************************************************************************/
--- For SQL 2016, create reference table of all DATABASE SCOPED CONFIGURATIONS and their DEFAULT VALUES to compare against actual settings
--- SQL 2017 introduced new column [is_value_default] to simplify matters going forwardS
--- SQL 2019 changed some of the names as reflected below
-
-IF (OBJECT_ID(N'tempdb..#database_scoped_configurations') IS NOT NULL) DROP TABLE #database_scoped_configurations;
-
-SELECT TOP 0
-       name          = CAST(NULL AS SYSNAME)      COLLATE DATABASE_DEFAULT
-      ,default_value = CAST(NULL AS VARCHAR(100)) COLLATE DATABASE_DEFAULT
-  INTO #database_scoped_configurations;
-
-INSERT
-  INTO #database_scoped_configurations (name,default_value)
-VALUES -- default values for database scoped configurations
- ('ACCELERATED_PLAN_FORCING',N'1')
-,('ASYNC_STATS_UPDATE_WAIT_AT_LOW_PRIORITY',N'OFF')
-,('CE_FEEDBACK',N'1')
-,('DISABLE_BATCH_MODE_ADAPTIVE_JOINS',N'0'),('BATCH_MODE_ADAPTIVE_JOINS',N'1')               -- Name change 2019+
-,('DISABLE_BATCH_MODE_MEMORY_GRANT_FEEDBACK',N'0'),('BATCH_MODE_MEMORY_GRANT_FEEDBACK',N'1') -- Name change 2019+
-,('BATCH_MODE_ON_ROWSTORE',N'1')
-,('DEFERRED_COMPILATION_TV',N'1')
-,('DOP_FEEDBACK',N'0')
-,('DW_COMPATIBILITY_LEVEL',N'AUTO')                                                         -- Azure Synapse Analytics only
-,('ELEVATE_ONLINE',N'OFF')
-,('ELEVATE_RESUMABLE',N'OFF')
-,('EXEC_QUERY_STATS_FOR_SCALAR_FUNCTIONS',N'ON')
-,('GLOBAL_TEMPORARY_TABLE_AUTO_DROP',N'1')
-,('IDENTITY_CACHE',N'1')
-,('INTERLEAVED_EXECUTION_TVF',N'1'),('DISABLE_INTERLEAVED_EXECUTION_TVF',N'1')               -- Name change 2019+
-,('ISOLATE_SECURITY_POLICY_CARDINALITY',N'0')
-,('LAST_QUERY_PLAN_STATS',N'0')
-,('LEDGER_DIGEST_STORAGE_ENDPOINT',N'0')
-,('LEGACY_CARDINALITY_ESTIMATION',N'0')
-,('LIGHTWEIGHT_QUERY_PROFILING',N'1')
-,('MAXDOP',N'0')
-,('MEMORY_GRANT_FEEDBACK_PERCENTILE',N'0')
-,('MEMORY_GRANT_FEEDBACK_PERSISTENCE',N'1')
-,('OPTIMIZE_FOR_AD_HOC_WORKLOADS',N'0')
-,('OPTIMIZED_PLAN_FORCING',N'1')
-,('PARAMETER_SENSITIVE_PLAN_OPTIMIZATION',N'1')
-,('PARAMETER_SNIFFING',N'1')
-,('PAUSED_RESUMABLE_INDEX_ABORT_DURATION_MINUTES',N'1440')
-,('QUERY_OPTIMIZER_HOTFIXES',N'0')
-,('ROW_MODE_MEMORY_GRANT_FEEDBACK',N'1')
-,('TSQL_SCALAR_UDF_INLINING',N'1')
-,('VERBOSE_TRUNCATION_WARNINGS',N'1')
-,('XTP_PROCEDURE_EXECUTION_STATISTICS',N'0')
-,('XTP_QUERY_EXECUTION_STATISTICS',N'0');
-
 SET ANSI_WARNINGS ON; -- Needed for "FOR XML PATH"
 
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT * FROM (
-----------------------------------------------------------------------------------------------------
--- Critical = 0 - tempdb.dbo.SQLXL_Index_sys_databases
-----------------------------------------------------------------------------------------------------
-SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
-      ,diagnostic_type_id=0
-      ,diagnostic=STUFF(
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- tempdb.dbo.SQLXL_Index_sys_databases
+--------------------------------------------------------------------------------------------------------------------------------------------
+SELECT rec_type='D'
+      ,database_id      = d.database_id
+      ,parent_object_id = d.database_id
+      ,object_id        = d.database_id
+      ,index_id         = d.database_id
+      ,type             = 'DB'
+      ,diagnostic       = STUFF(
 -- Diagnostic - DB - non-default - Database State is not not ONLINE
  IIF(d.state <> 0,NCHAR(10) + N'State: ' +d.state_desc,N'')
 
@@ -15420,27 +15144,8 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
      AND d.is_auto_close_on = 1
     ,NCHAR(10) + N'[NOT] cleanly shut down'
     ,N'')
-
-,1,1,N'')
-/*** LOCAL TESTING ***
-SELECT d.name,ar.replica_id,rs.replica_id
---*/
-  FROM tempdb.dbo.SQLXL_Index_sys_databases                           AS d
-  LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_Index_sys_availability_replicas               AS ar
-    ON d.replica_id                                               = ar.replica_id
-  LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states AS rs
-    ON d.replica_id                                               = rs.replica_id
-----------------------------------------------------------------------------------------------------
--- Warning = 2 - tempdb.dbo.SQLXL_Index_sys_databases
-----------------------------------------------------------------------------------------------------
-UNION ALL
-SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
-      ,diagnostic_type_id=2
-      ,diagnostic=STUFF(
 -- Diagnostic - DB - non-default - Database in READ ONLY mode
- IIF(d.is_read_only > 0,NCHAR(10) + N'Database in [READ ONLY] mode',N'')
++IIF(d.is_read_only > 0,NCHAR(10) + N'Database in [READ ONLY] mode',N'')
 
 -- Diagnostic - DB - non-default - Recovery model is not FULL
 +IIF(d.recovery_model > 1,NCHAR(10) + N'Recovery model ' + QUOTENAME(d.recovery_model_desc),N'')
@@ -15464,16 +15169,8 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
                    + N' seconds, affects CHECKPOINT frequency'
         ,N'')
     )
-,1,1,N'')
-  FROM tempdb.dbo.SQLXL_Index_sys_databases AS d
-----------------------------------------------------------------------------------------------------
--- Performance = 4 - tempdb.dbo.SQLXL_Index_sys_databases
-----------------------------------------------------------------------------------------------------
-UNION ALL
-SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
-      ,diagnostic_type_id=4,diagnostic=STUFF(
 -- Diagnostic - DB - non-default - Database compatibility <> Instance Product Major Version
- IIF(d.compatibility_level <> 10 * mv.ProductMajorVersion
++IIF(d.compatibility_level <> 10 * mv.ProductMajorVersion
     ,NCHAR(10) + N'DB compatibility '
                + QUOTENAME(d.compatibility_level)
                + N' <> server '
@@ -15489,9 +15186,7 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
 -- Diagnostic - DB - non-default - Database is Always On
 +IIF(d.replica_id IS NOT NULL OR d.group_database_id IS NOT NULL,NCHAR(10) + N'Always On database',N'')
 
-------------------------------------------------------------
 -- Database Statistics settings
-------------------------------------------------------------
 +IIF(   d.is_auto_create_stats_on             = 0
      OR d.is_auto_create_stats_incremental_on = 0
      OR d.is_auto_update_stats_on             = 0
@@ -15516,9 +15211,6 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
                     ,1,1,N'')
     ,N'')
 
-------------------------------------------------------------
--- database settings
-------------------------------------------------------------
 -- Diagnostic - DB - non-default - Query parameterization FORCED
 +IIF(d.is_parameterization_forced = 1,NCHAR(10) + N'Query parameterization [FORCED]',N'')
 
@@ -15546,18 +15238,15 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
 -- Diagnostic - DB - non-default - Change Feed ENABLED
 +IIF(d.is_change_feed_enabled > 0,NCHAR(10) + N'Change Feed [ENABLED]',N'')
 
-------------------------------------------------------------
--- Query store
-------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Query Store
+--------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - Good to know - Query Store Status & Properties
--- Diagnostic - DB - non-default - Query Store Readonly - Reason
-/*** LOCAL TESTING ***
-SELECT database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB',STUFF(
---*/
-+IIF(mv.ProductMajorVersion >= 13 AND qso.actual_state >= 0 -- only show if SQL Server version 2016+ and data collected for that database
++IIF(mv.ProductMajorVersion >= 13 -- only show if SQL Server version 2016+
     ,NCHAR(10)
-    +N'Query Store Status ' + QUOTENAME(qso.actual_state_desc)
-    ---------------------------------------------------------
+    +N'Query Store ' + QUOTENAME(qso.actual_state_desc)
+
+-- Diagnostic - DB - non-default - Query Store Readonly - Reason
     +IIF(qso.readonly_reason > 0
         ,N' Reason: '
         +CASE qso.readonly_reason
@@ -15571,111 +15260,84 @@ SELECT database_id=d.database_id,parent_object_id=d.database_id,object_id=d.data
               WHEN 524288 THEN N'DB OUT OF SPACE'
               ELSE N'*NOT FOUND*'
          END
-        ,N'')
+        ,N'') -- IIF(qso.readonly_reason > 0
 
--- Diagnostic - DB - Query Store settings and properties
-    +IIF(qso.actual_state_additional_info > N''
-        ,NCHAR(10) + N'> State Info: ' +qso.actual_state_additional_info
-        ,N'')
-    ---------------------------------------------------------
     +IIF(qso.actual_state > 0
-        -----------------------------------------------------
-        ,NCHAR(10) +N'> Size - Max: ' + tempdb.dbo.SQLXL_3SD(qso.max_storage_size_mb    ,N'MB')
-                   +N' Used: '        + tempdb.dbo.SQLXL_3SD(qso.current_storage_size_mb,N'MB')
-                   +IIF(qso.max_storage_size_mb > 0
-                       ,N' (' + tempdb.dbo.SQLXL_3SD(1.0 * qso.current_storage_size_mb / qso.max_storage_size_mb,N'%') + N')'
-                       ,N'')
-        +NCHAR(10) +N'> Cleanup '   + QUOTENAME(qso.size_based_cleanup_mode_desc)
-                   +N', Stale '     + QUOTENAME(qso.stale_query_threshold_days) + N' days'
+        ,NCHAR(10) + N'> Size - Max: ' + tempdb.dbo.SQLXL_3SD(qso.max_storage_size_mb    ,N'MB')
+                   + N' Used: '        + tempdb.dbo.SQLXL_3SD(qso.current_storage_size_mb,N'MB')
+                   + IIF(qso.max_storage_size_mb > 0
+                        ,N' (' + tempdb.dbo.SQLXL_3SD(1.0 * qso.current_storage_size_mb / qso.max_storage_size_mb,N'%') + N')'
+                        ,N'')
+                   + N' Aggregation interval: ' + tempdb.dbo.SQLXL_3SD(qso.interval_length_minutes,N'I') + N'min'
+                   + N' Flush interval: ' + tempdb.dbo.SQLXL_3SD(qso.flush_interval_seconds,N'S')
+                   + N' Max Plans: '      + tempdb.dbo.SQLXL_3SD(qso.max_plans_per_query   ,N'I')
+
         -----------------------------------------------------
         +NCHAR(10) +N'> Capture mode ' + QUOTENAME(ISNULL(qso.query_capture_mode_desc,N'ALL')) -- default for 2016 is ALL
+                   +N' Size cleanup '       + QUOTENAME(qso.size_based_cleanup_mode_desc)
+                   +N' Stale threshold: ' + tempdb.dbo.SQLXL_3SD(qso.stale_query_threshold_days,N'I') + N' days'
                    +IIF(mv.ProductMajorVersion >= 14  -- 2017+
-                       ,N', Waits '   +IIF(qso.wait_stats_capture_mode = 1,N'[ON]',N'[OFF]')
+                       ,N' Wait stats ' + QUOTENAME(qso.wait_stats_capture_mode_desc)
                        ,N'')
                    +IIF(mv.ProductMajorVersion >= 15  -- 2019+
-                       ,IIF(qso.capture_policy_execution_count >= 0,N', Exec CNT ' +QUOTENAME(qso.capture_policy_execution_count),N'')
-                       +IIF(qso.capture_policy_Total_compile_cpu_time_ms   >= 0
-                           ,N', Compile Time: ' + tempdb.dbo.SQLXL_3SD(qso.capture_policy_Total_compile_cpu_time_ms  ,N'M')
+                       ,IIF(qso.capture_policy_execution_count >= 0,N', Exec CNT: ' +QUOTENAME(qso.capture_policy_execution_count),N'')
+                       +IIF(qso.capture_policy_total_compile_cpu_time_ms   >= 0
+                           ,N', Compile Time: ' + tempdb.dbo.SQLXL_3SD(qso.capture_policy_total_compile_cpu_time_ms,N'ms')
                            ,N'')
-                       +IIF(qso.capture_policy_Total_execution_cpu_time_ms >= 0
-                           ,N', Execution Time: ' + tempdb.dbo.SQLXL_3SD(qso.capture_policy_Total_execution_cpu_time_ms,N'M')
+                       +IIF(qso.capture_policy_total_execution_cpu_time_ms >= 0
+                           ,N', Execution Time: ' + tempdb.dbo.SQLXL_3SD(qso.capture_policy_total_execution_cpu_time_ms,N'ms')
                            ,N'')
                        +IIF(qso.capture_policy_stale_threshold_hours       >= 0
                            ,N', Stale: '   + CAST(qso.capture_policy_stale_threshold_hours AS NVARCHAR(20)) + N'hrs'
                            ,N'')
                        ,N'')
-        -----------------------------------------------------
-        +NCHAR(10) +N'> Flush interval ' + CAST(qso.flush_interval_seconds  AS NVARCHAR(20)) + N'sec'
-                   +N', Max Plans '      + CAST(qso.max_plans_per_query     AS NVARCHAR(20))
-        -----------------------------------------------------
-        +NCHAR(10) +N'> Aggregation interval ' + CAST(qso.interval_length_minutes AS NVARCHAR(20)) + N'min'
-    ---------------------------------------------------------
-    -- Automatic Tuning
-    ---------------------------------------------------------
-        +IIF(mv.ProductMajorVersion >= 14
--- Diagnostic - DB - non-default - Query Store Auto Tune
-            ,IIF(ato.name IS NOT NULL
-                ,NCHAR(10) + N'Auto Tune: ' + ato.name + N' is ' + ato.actual_state_desc
-                           + IIF(ato.desired_state <> ato.actual_state
-                                ,NCHAR(10) + N'> Reason: ' +ato.reason_desc
-                                ,N'') -- IIF(ato.desired_state <> ato.actual_state
-                ,N'')                 -- IIF(ato.name IS NOT NULL
-            ,N'')                     -- IIF(mv.ProductMajorVersion >= 14
-        ,N'')                         -- IIF(qso.actual_state > 0
-    ,N'')                             -- IIF(mv.ProductMajorVersion >= 13
-,1,1,N'')
-  FROM tempdb.dbo.SQLXL_Index_sys_databases                         AS d
-  LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_Index_sys_database_automatic_tuning_options AS ato
-    ON d.database_id                                               = ato.database_id
-  LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_Index_sys_database_query_store_options      AS qso
-    ON d.database_id                                               = qso.database_id
- CROSS
-  JOIN (SELECT collation = run_value
-         FROM tempdb.dbo.SQLXL_Index_sys_instance
-        WHERE source = N'SERVERPROPERTY'
-          AND name   = N'COLLATION'
-      ) AS i
- CROSS
-  JOIN (SELECT ProductMajorVersion = TRY_CAST(run_value AS INT)
-         FROM tempdb.dbo.SQLXL_Index_sys_instance
-        WHERE source = N'SERVERPROPERTY'
-          AND name   = N'ProductMajorVersion'
-      ) AS mv
+        ,N'') -- IIF(qso.actual_state > 0
 
-----------------------------------------------------------------------------------------------------
--- Non-Default = 6 - tempdb.dbo.SQLXL_Index_sys_databases
-----------------------------------------------------------------------------------------------------
-UNION ALL
-SELECT rec_type='D',database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
-      ,diagnostic_type_id=6
-      ,diagnostic=STUFF(
--- Diagnostic - DB - non-default - ANSI STANDARD is ON: ansi_null_default
--- Diagnostic - DB - non-default - ANSI STANDARD is ON: ansi_nulls
--- Diagnostic - DB - non-default - ANSI STANDARD is ON: ansi_padding
--- Diagnostic - DB - non-default - ANSI STANDARD is ON: ansi_warnings
- IIF(   d.is_ansi_null_default_on = 1
+-- Diagnostic - DB - Query Store settings and properties, actual_state_additional_info
+    +IIF(qso.actual_state_additional_info > N''
+        ,NCHAR(10) + N'> State Info: ' +qso.actual_state_additional_info
+        ,N'')
+
+        -----------------------------------------------------
+    +IIF(mv.ProductMajorVersion >= 14
+-- Diagnostic - DB - non-default - Query Store Auto Tune states
+        ,IIF(ato.name IS NOT NULL
+            ,NCHAR(10) + N'Auto Tune: ' + ato.name + N' is ' + ato.actual_state_desc
+                       + IIF(ato.desired_state <> ato.actual_state
+                            ,NCHAR(10) + N'> Reason: ' + ato.reason_desc
+                            ,N'') -- IIF(ato.desired_state <> ato.actual_state
+            ,N'')                 -- IIF(ato.name IS NOT NULL
+        ,N'')                     -- IIF(mv.ProductMajorVersion >= 14
+    ,N'')                         -- IIF(mv.ProductMajorVersion >= 13
+
+
++IIF(   d.is_ansi_null_default_on = 1
      OR d.is_ansi_nulls_on        = 1
      OR d.is_ansi_padding_on      = 1
      OR d.is_ansi_warnings_on     = 1
-    ,NCHAR(10) + N'ANSI STANDARDS ON: ' + STUFF(IIF(d.is_ansi_null_default_on = 1,N', NULL DEFAULT',N'')
+    ,NCHAR(10) + N'ANSI STANDARDS ON: ' + STUFF(
+-- Diagnostic - DB - non-default - ANSI STANDARD is ON: ansi_null_default
+                                                IIF(d.is_ansi_null_default_on = 1,N', NULL DEFAULT',N'')
+-- Diagnostic - DB - non-default - ANSI STANDARD is ON: ansi_nulls
                                                +IIF(d.is_ansi_nulls_on        = 1,N', NULLS'  ,N'')
+-- Diagnostic - DB - non-default - ANSI STANDARD is ON: ansi_padding
                                                +IIF(d.is_ansi_padding_on      = 1,N', PADDING',N'')
+-- Diagnostic - DB - non-default - ANSI STANDARD is ON: ansi_warnings
                                                +IIF(d.is_ansi_warnings_on     = 1,N', WARNNGS',N'')
                                                ,1,2,N'')
     ,N'')
 
--- Diagnostic - DB - non-default - ANSI STANDARD is ON: concat_null_yields_null
--- Diagnostic - DB - non-default - ANSI STANDARD is ON: cursor_close_on_commit
--- Diagnostic - DB - non-default - ANSI STANDARD is ON: arithabort
 +IIF(   d.is_cursor_close_on_commit_on  = 1
      OR d.is_arithabort_on              = 1
      OR d.is_concat_null_yields_null_on = 1
-    ,NCHAR(10) + N'ANSI STANDARDS ON: ' + STUFF( IIF(d.is_cursor_close_on_commit_on  = 1,N', Cursor close on commit' ,N'')
-                                              +IIF(d.is_arithabort_on                = 1,N', Arithabort'             ,N'')
-                                              +IIF(d.is_concat_null_yields_null_on   = 1,N', Concat null yields null',N'')
-                                             ,1,2,N'')
+    ,NCHAR(10) + N'ANSI STANDARDS ON: ' + STUFF(
+-- Diagnostic - DB - non-default - ANSI STANDARD is ON: concat_null_yields_null
+                                                IIF(d.is_cursor_close_on_commit_on  = 1,N', Cursor close on commit' ,N'')
+-- Diagnostic - DB - non-default - ANSI STANDARD is ON: cursor_close_on_commit
+                                               +IIF(d.is_arithabort_on              = 1,N', Arithabort'             ,N'')
+-- Diagnostic - DB - non-default - ANSI STANDARD is ON: arithabort
+                                               +IIF(d.is_concat_null_yields_null_on = 1,N', Concat null yields null',N'')
+                                               ,1,2,N'')
     ,N'')
 
 -- Diagnostic - DB - non-default - ANSI Quoted identifier ON
@@ -15751,18 +15413,9 @@ SELECT rec_type='D',database_id,parent_object_id=d.database_id,object_id=d.datab
 
 -- Diagnostic - DB - non-default - Memory optimized tables elevate to SNAPSHOT is OFF
 +IIF(d.is_memory_optimized_elevate_to_snapshot_on = 0,NCHAR(10) + N'XTP Memory optimized elevate to SNAPSHOT [OFF]',N'')
-,1,1,N'')
-  FROM tempdb.dbo.SQLXL_Index_sys_databases d
 
-----------------------------------------------------------------------------------------------------
--- Information = 8 - tempdb.dbo.SQLXL_Index_sys_databases
-----------------------------------------------------------------------------------------------------
-UNION ALL
-SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
-      ,diagnostic_type_id=6
-      ,diagnostic=STUFF(
 -- Diagnostic - DB - non-default - Snapshot source database
- IIF(d.source_database_id > 0
++IIF(d.source_database_id > 0
     ,NCHAR(10) + N'Snapshot source DB '
                + QUOTENAME((SELECT name
                               FROM tempdb.dbo.SQLXL_Index_sys_databases x
@@ -15775,9 +15428,6 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
     ,NCHAR(10) + N'Physical database name ' + QUOTENAME(d.physical_database_name)
     ,N'')
 
-------------------------------------------------------------
--- Contained database
-------------------------------------------------------------
 -- Diagnostic - DB - non-default - Contained database status PARTIAL
 +IIF(d.containment > 0 ,NCHAR(10) + N'Contained database status ' +d.containment_desc,N'')
 
@@ -15798,7 +15448,6 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
 -- Diagnostic - DB - non-default - Contained DB transform noise words ON
 +IIF(d.is_transform_noise_words_on > 0,NCHAR(10) + N'> Contained DB transform noise words [ON]',N'')
 
-------------------------------------------------------------
 -- Diagnostic - DB - non-default - Page verify option not CHECKSUM
 +IIF(d.page_verify_option <> 2,NCHAR(10) + N'Page verify option ' +d.page_verify_option_desc,N'')
 
@@ -15813,77 +15462,170 @@ SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,obj
     ,NCHAR(10) + N'Created/Attached on ' +CONVERT(NVARCHAR(10),d.create_date,2)
                + N' - ' + TRY_CAST(DATEDIFF(DAY,d.create_date,sp.Collection_DTTM) AS VARCHAR(10)) + N' Days'
     ,N'')
-------------------------------------------------------------
-+IIF(sc.diagnostic IS NOT NULL,sc.diagnostic,N'')
+
+--End of STUFF
 ,1,1,N'')
+
+/*** LOCAL TESTING ***
+SELECT d.name,ar.replica_id,rs.replica_id,ato.database_id,qso.database_id
+--*/
+  FROM tempdb.dbo.SQLXL_Index_sys_databases                           AS d
+  LEFT OUTER
+  JOIN tempdb.dbo.SQLXL_Index_sys_availability_replicas               AS ar
+    ON d.replica_id                                                   = ar.replica_id
+  LEFT OUTER
+  JOIN tempdb.dbo.SQLXL_Index_sys_dm_hadr_availability_replica_states AS rs
+    ON d.replica_id                                                    = rs.replica_id
+  LEFT OUTER
+  JOIN tempdb.dbo.SQLXL_Index_sys_database_automatic_tuning_options   AS ato
+    ON d.database_id                                                   = ato.database_id
+  LEFT OUTER                                                           
+  JOIN tempdb.dbo.SQLXL_Index_sys_database_query_store_options        AS qso
+    ON d.database_id                                                   = qso.database_id
+ CROSS
+  JOIN (SELECT collation = run_value
+         FROM tempdb.dbo.SQLXL_Index_sys_instance
+        WHERE source = N'SERVERPROPERTY'
+          AND name   = N'COLLATION'
+      ) AS i
+ CROSS
+  JOIN (SELECT ProductMajorVersion = TRY_CAST(run_value AS INT)
+         FROM tempdb.dbo.SQLXL_Index_sys_instance
+        WHERE source = N'SERVERPROPERTY'
+          AND name   = N'ProductMajorVersion'
+      ) AS mv
+ CROSS
+  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS sp;
+
+----------------------------------------------------------------------------------------------------
+-- Database level parameters
+----------------------------------------------------------------------------------------------------
+-- For SQL 2016, create reference table of all DATABASE SCOPED CONFIGURATIONS and their DEFAULT VALUES to compare against actual settings
+-- SQL 2017 introduced new column [is_value_default] to simplify matters going forwardS
+-- SQL 2019 changed some of the names as reflected below
+
+IF (OBJECT_ID(N'tempdb..#database_scoped_configurations') IS NOT NULL) DROP TABLE #database_scoped_configurations;
+
+SELECT TOP (0)
+       name          = CAST(NULL AS NVARCHAR(60))  COLLATE DATABASE_DEFAULT
+      ,default_value = CAST(NULL AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT
+  INTO #database_scoped_configurations;
+
+INSERT
+  INTO #database_scoped_configurations WITH (TABLOCKX) 
+      (name,default_value)
+  
+VALUES -- default values for database scoped configurations
+ (N'ACCELERATED_PLAN_FORCING',N'1')
+,(N'ASYNC_STATS_UPDATE_WAIT_AT_LOW_PRIORITY',N'0')
+,(N'CE_FEEDBACK',N'1')
+,(N'DISABLE_BATCH_MODE_ADAPTIVE_JOINS',N'0')        -- 2017
+,(N'BATCH_MODE_ADAPTIVE_JOINS',N'1')                -- 2019+
+,(N'DISABLE_BATCH_MODE_MEMORY_GRANT_FEEDBACK',N'0') -- 2017
+,(N'BATCH_MODE_MEMORY_GRANT_FEEDBACK',N'1')         -- 2019+
+,(N'BATCH_MODE_ON_ROWSTORE',N'1')                   
+,(N'DEFERRED_COMPILATION_TV',N'1')                  
+,(N'DOP_FEEDBACK',N'0')                             
+,(N'DW_COMPATIBILITY_LEVEL',N'AUTO')                -- Azure Synapse Analytics only
+,(N'ELEVATE_ONLINE',N'OFF')                         
+,(N'ELEVATE_RESUMABLE',N'OFF')                      
+,(N'EXEC_QUERY_STATS_FOR_SCALAR_FUNCTIONS',N'1')   
+,(N'FORCE_SHOWPLAN_RUNTIME_PARAMETER_COLLECTION',N'0')
+,(N'GLOBAL_TEMPORARY_TABLE_AUTO_DROP',N'1')         
+,(N'IDENTITY_CACHE',N'1')                           
+,(N'INTERLEAVED_EXECUTION_TVF',N'1')                -- 2019+
+,(N'DISABLE_INTERLEAVED_EXECUTION_TVF',N'1')        -- 2017
+,(N'ISOLATE_SECURITY_POLICY_CARDINALITY',N'0')
+,(N'LAST_QUERY_PLAN_STATS',N'0')
+,(N'LEDGER_DIGEST_STORAGE_ENDPOINT',N'OFF')
+,(N'LEGACY_CARDINALITY_ESTIMATION',N'0')
+,(N'LIGHTWEIGHT_QUERY_PROFILING',N'1')
+,(N'MAXDOP',N'0')
+,(N'MEMORY_GRANT_FEEDBACK_PERCENTILE_GRANT',N'1')
+,(N'MEMORY_GRANT_FEEDBACK_PERSISTENCE',N'1')
+,(N'OPTIMIZE_FOR_AD_HOC_WORKLOADS',N'0')
+,(N'OPTIMIZED_PLAN_FORCING',N'1')
+,(N'PARAMETER_SENSITIVE_PLAN_OPTIMIZATION',N'1')
+,(N'PARAMETER_SNIFFING',N'1')
+,(N'PAUSED_RESUMABLE_INDEX_ABORT_DURATION_MINUTES',N'1440')
+,(N'QUERY_OPTIMIZER_HOTFIXES',N'0')
+,(N'ROW_MODE_MEMORY_GRANT_FEEDBACK',N'1')
+,(N'TSQL_SCALAR_UDF_INLINING',N'1')
+,(N'VERBOSE_TRUNCATION_WARNINGS',N'1')
+,(N'XTP_PROCEDURE_EXECUTION_STATISTICS',N'0')
+,(N'XTP_QUERY_EXECUTION_STATISTICS',N'0');
+
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
+,STUFF(IIF(sc.diagnostic IS NOT NULL,sc.diagnostic,N''),1,1,N'')
 /*** LOCAL TESTING ***
 SET ANSI_WARNINGS ON
 SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id
       ,sc.*
 --*/
   FROM tempdb.dbo.SQLXL_Index_sys_databases d
- CROSS
-  JOIN tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS sp
  OUTER
  APPLY (SELECT -- double SELECT to accomodate the ").value('(./text())[1]',N'NVARCHAR(4000)')" below
--- Diagnostic - DB - DB Config non-default - ACCELERATED_PLAN_FORCING
--- Diagnostic - DB - DB Config non-default - ASYNC_STATS_UPDATE_wait_AT_LOW_PRIORITY
--- Diagnostic - DB - DB Config non-default - CE_FEEDBACK
--- Diagnostic - DB - DB Config non-default - DISABLE_BATCH_MODE_ADAPTIVE_JOINS
--- Diagnostic - DB - DB Config non-default - BATCH_MODE_ADAPTIVE_JOINS - Name change 2019+
--- Diagnostic - DB - DB Config non-default - DISABLE_BATCH_MODE_MEMORY_GRANT_FEEDBACK
--- Diagnostic - DB - DB Config non-default - BATCH_MODE_MEMORY_GRANT_FEEDBACK - Name change 2019+
--- Diagnostic - DB - DB Config non-default - BATCH_MODE_ON_ROWSTORE
--- Diagnostic - DB - DB Config non-default - DEFERRED_COMPILATION_TV
--- Diagnostic - DB - DB Config non-default - DOP_FEEDBACK
--- Diagnostic - DB - DB Config non-default - DW_COMPATIBILITY_LEVEL
--- Diagnostic - DB - DB Config non-default - ELEVATE_ONLINE
--- Diagnostic - DB - DB Config non-default - ELEVATE_RESUMABLE
--- Diagnostic - DB - DB Config non-default - EXEC_QUERY_STATS_FOR_SCALAR_FUNCTIONS
--- Diagnostic - DB - DB Config non-default - GLOBAL_TEMPORARY_TABLE_AUTO_DROP
--- Diagnostic - DB - DB Config non-default - IDENTITY_CACHE
--- Diagnostic - DB - DB Config non-default - INTERLEAVED_EXECUTION_TVF
--- Diagnostic - DB - DB Config non-default - DISABLE_INTERLEAVED_EXECUTION_TVF - Name change 2019+
--- Diagnostic - DB - DB Config non-default - ISOLATE_SECURITY_POLICY_CARDINALITY
--- Diagnostic - DB - DB Config non-default - LAST_QUERY_PLAN_STATS
--- Diagnostic - DB - DB Config non-default - LEDGER_DIGEST_STORAGE_ENDPOINT
--- Diagnostic - DB - DB Config non-default - LEGACY_CARDINALITY_ESTIMATION
--- Diagnostic - DB - DB Config non-default - LIGHTWEIGHT_QUERY_PROFILING
--- Diagnostic - DB - DB Config non-default - MAXDOP
--- Diagnostic - DB - DB Config non-default - MEMORY_GRANT_FEEDBACK_PERCENTILE
--- Diagnostic - DB - DB Config non-default - MEMORY_GRANT_FEEDBACK_PERSISTENCE
--- Diagnostic - DB - DB Config non-default - OPTIMIZE_FOR_AD_HOC_WORKLOADS
--- Diagnostic - DB - DB Config non-default - OPTIMIZED_PLAN_FORCING
--- Diagnostic - DB - DB Config non-default - PARAMETER_SENSITIVE_PLAN_OPTIMIZATION
--- Diagnostic - DB - DB Config non-default - PARAMETER_SNIFFING
--- Diagnostic - DB - DB Config non-default - PAUSED_RESUMABLE_INDEX_ABORT_DURATION_MINUTES
--- Diagnostic - DB - DB Config non-default - QUERY_OPTIMIZER_HOTFIXES
--- Diagnostic - DB - DB Config non-default - ROW_MODE_MEMORY_GRANT_FEEDBACK
--- Diagnostic - DB - DB Config non-default - TSQL_SCALAR_UDF_INLINING
--- Diagnostic - DB - DB Config non-default - VERBOSE_TRUNCATION_WARNINGS
--- Diagnostic - DB - DB Config non-default - XTP_PROCEDURE_EXECUTION_STATISTICS
--- Diagnostic - DB - DB Config non-default - XTP_QUERY_EXECUTION_STATISTICS;
-        (SELECT  NCHAR(10) + N'Scoped config ' + src.name
-               + NCHAR(10) + N'> value ' +QUOTENAME(CAST(db.value AS NVARCHAR(100))) + N' is not DEFAULT: ' + QUOTENAME(src.default_value)
-           FROM #database_scoped_configurations                         AS src
-           JOIN tempdb.dbo.SQLXL_Index_sys_database_scoped_configurations AS db
-             ON src.name           = db.name
-            AND (   (    db.is_value_default IS NULL
-                     AND src.default_value <> CAST(db.value AS VARCHAR(100))
-                    )
-                 OR db.is_value_default  = 0
+-- Diagnostic - DB - Configuration non-default - ACCELERATED_PLAN_FORCING is OFF
+-- Diagnostic - DB - Configuration non-default - ASYNC_STATS_UPDATE_WAIT_AT_LOW_PRIORITY is ON
+-- Diagnostic - DB - Configuration non-default - CE_FEEDBACK is OFF
+-- Diagnostic - DB - Configuration non-default - DISABLE_BATCH_MODE_ADAPTIVE_JOINS is ON
+-- Diagnostic - DB - Configuration non-default - BATCH_MODE_ADAPTIVE_JOINS is OFF
+-- Diagnostic - DB - Configuration non-default - DISABLE_BATCH_MODE_MEMORY_GRANT_FEEDBACK is ON
+-- Diagnostic - DB - Configuration non-default - BATCH_MODE_MEMORY_GRANT_FEEDBACK is OFF
+-- Diagnostic - DB - Configuration non-default - BATCH_MODE_ON_ROWSTORE is OFF
+-- Diagnostic - DB - Configuration non-default - DEFERRED_COMPILATION_TV is OFF
+-- Diagnostic - DB - Configuration non-default - DOP_FEEDBACK is ON
+-- Diagnostic - DB - Configuration non-default - DW_COMPATIBILITY_LEVEL is not AUTO
+-- Diagnostic - DB - Configuration non-default - ELEVATE_ONLINE is not OFF
+-- Diagnostic - DB - Configuration non-default - ELEVATE_RESUMABLE is not OFF
+-- Diagnostic - DB - Configuration non-default - EXEC_QUERY_STATS_FOR_SCALAR_FUNCTIONS is OFF
+-- Diagnostic - DB - Configuration non-default - FORCE_SHOWPLAN_RUNTIME_PARAMETER_COLLECTION is ON
+-- Diagnostic - DB - Configuration non-default - GLOBAL_TEMPORARY_TABLE_AUTO_DROP is OFF
+-- Diagnostic - DB - Configuration non-default - IDENTITY_CACHE is OFF
+-- Diagnostic - DB - Configuration non-default - INTERLEAVED_EXECUTION_TVF is OFF
+-- Diagnostic - DB - Configuration non-default - DISABLE_INTERLEAVED_EXECUTION_TVF is OFF
+-- Diagnostic - DB - Configuration non-default - ISOLATE_SECURITY_POLICY_CARDINALITY is ON
+-- Diagnostic - DB - Configuration non-default - LAST_QUERY_PLAN_STATS is ON
+-- Diagnostic - DB - Configuration non-default - LEDGER_DIGEST_STORAGE_ENDPOINT is ON
+-- Diagnostic - DB - Configuration non-default - LEGACY_CARDINALITY_ESTIMATION is not OFF
+-- Diagnostic - DB - Configuration non-default - LIGHTWEIGHT_QUERY_PROFILING is OFF
+-- Diagnostic - DB - Configuration non-default - MAXDOP is not 0 - does not use instance setting
+-- Diagnostic - DB - Configuration non-default - MEMORY_GRANT_FEEDBACK_PERCENTILE_GRANT is OFF
+-- Diagnostic - DB - Configuration non-default - MEMORY_GRANT_FEEDBACK_PERSISTENCE is OFF
+-- Diagnostic - DB - Configuration non-default - OPTIMIZE_FOR_AD_HOC_WORKLOADS is ON
+-- Diagnostic - DB - Configuration non-default - OPTIMIZED_PLAN_FORCING is OFF
+-- Diagnostic - DB - Configuration non-default - PARAMETER_SENSITIVE_PLAN_OPTIMIZATION is OFF
+-- Diagnostic - DB - Configuration non-default - PARAMETER_SNIFFING is OFF
+-- Diagnostic - DB - Configuration non-default - PAUSED_RESUMABLE_INDEX_ABORT_DURATION_MINUTES is not 1 day
+-- Diagnostic - DB - Configuration non-default - QUERY_OPTIMIZER_HOTFIXES is not OFF
+-- Diagnostic - DB - Configuration non-default - ROW_MODE_MEMORY_GRANT_FEEDBACK is OFF
+-- Diagnostic - DB - Configuration non-default - TSQL_SCALAR_UDF_INLINING is OFF
+-- Diagnostic - DB - Configuration non-default - VERBOSE_TRUNCATION_WARNINGS is OFF
+-- Diagnostic - DB - Configuration non-default - XTP_PROCEDURE_EXECUTION_STATISTICS is ON
+-- Diagnostic - DB - Configuration non-default - XTP_QUERY_EXECUTION_STATISTICS is ON
+        (SELECT  NCHAR(10) + N'Scoped config ' + dbsc.name
+               + NCHAR(10) + N'> value ' 
+                           + QUOTENAME(CAST(dbsc.value AS NVARCHAR(100))) 
+                           + N' is not DEFAULT ' 
+                           + QUOTENAME(ISNULL(src.default_value,N'Default value not found'))
+           FROM tempdb.dbo.SQLXL_Index_sys_database_scoped_configurations AS dbsc
+           LEFT OUTER
+           JOIN #database_scoped_configurations                           AS src
+             ON dbsc.name COLLATE DATABASE_DEFAULT = src.name COLLATE DATABASE_DEFAULT
+          WHERE d.database_id      = dbsc.database_id
+            AND (   src.default_value    <> CAST(dbsc.value AS NVARCHAR(100))
+                 OR dbsc.is_value_default = 0
                 )
-          WHERE d.database_id      = db.database_id
             FOR XML PATH(N''),TYPE
         ).value('(./text())[1]',N'NVARCHAR(4000)')
        ) sc(diagnostic)
 
 ----------------------------------------------------------------------------------------------------
--- Metrics = 10 - tempdb.dbo.SQLXL_Index_sys_databases
+-- tempdb.dbo.SQLXL_Index_sys_databases
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT rec_type='D',database_id=d.database_id,parent_object_id=d.database_id,object_id=d.database_id,index_id=d.database_id,type='DB'
-      ,diagnostic_type_id=6
       ,diagnostic=
 -- Diagnostic - DB - > 5% of indexes with writes and no reads (BI21 & 22)
   N'Nonclustered rowstore indexes with writes & no reads - '
@@ -15899,7 +15641,7 @@ SELECT database_id=d.database_id,i.*
 
   FROM tempdb.dbo.SQLXL_Index_sys_databases d
  CROSS
- APPLY (SELECT unused_idx_CNT = SUM(IIF((ISNULL(i.ops_Total_read_CNT,0)+ISNULL(i.ius_User_read_CNT,0)) = 0,1,0))
+ APPLY (SELECT unused_idx_CNT = SUM(IIF((ISNULL(i.ops_total_read_CNT,0)+ISNULL(i.ius_User_read_CNT,0)) = 0,1,0))
               ,idx_CNT        = COUNT(1)
           FROM (SELECT *
                   FROM tempdb.dbo.SQLXL_Index_Compilation
@@ -15908,26 +15650,22 @@ SELECT database_id=d.database_id,i.*
          WHERE i.obj_type    = N'U'
            AND i.type        = N'2'
            AND d.database_id = i.database_id
-           AND (i.ops_Total_write_CNT + i.ius_user_updates_CNT) > 0
+           AND (i.ops_total_write_CNT + i.ius_user_updates_CNT) > 0
        ) i
  WHERE IIF(i.idx_CNT > 0
           ,100.0 * i.unused_idx_CNT / i.idx_CNT
-          ,0.0) > 5.0
-------------------------------------------------------------
-) AS d
- WHERE d.diagnostic IS NOT NULL;
+          ,0.0) > 5.0;
 
 ----------------------------------------------------------------------------------------------------
--- Cleanup temp table created
+-- Cleanup temp table created for database scoped configurations
 ----------------------------------------------------------------------------------------------------
 IF (OBJECT_ID(N'#database_scoped_configurations') IS NOT NULL) DROP TABLE #database_scoped_configurations;
 
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - < 10% of table & view nonclustered rowstore indexes with Included Columns (BI30 & 31)
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
-      ,diagnostic_type_id = 4
       ,diagnostic=N'Included Columns: <10% Indexes - '
               + CAST(i.included_index_CNT AS NVARCHAR(20))
               + N'/'
@@ -15951,9 +15689,8 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - less than 5% of views have indexes (BI32)
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
-      ,diagnostic_type_id=4
       ,diagnostic = N'Views <5% Indexed - Views: '
                    + CAST(i.view_CNT AS NVARCHAR(20))
                    + N' CX: '
@@ -15979,9 +15716,8 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - less than 5% of indexes with Filters (BI32)
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,object_id=i.database_id,index_id=i.database_id,type='DB'
-      ,diagnostic_type_id=4
       ,diagnostic = N'Indexes: <5% Filtered - Index: '
                   + CAST(i.index_CNT AS NVARCHAR(20))
                   + N' Fltrd: '
@@ -16006,10 +15742,10 @@ SELECT rec_type='D',database_id=i.database_id,parent_object_id=i.database_id,obj
 ----------------------------------------------------------------------------------------------------
 -- Change Tracking
 ----------------------------------------------------------------------------------------------------
-;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 4)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+;WITH cte AS (SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A')
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 -- Diagnostic - DB - non-default - Change Tracking Properties
-SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic_type_id = 8,diagnostic =
+SELECT rec_type = 'A',database_id=0,parent_object_id=0,object_id=0,index_id=0,type=N'A',diagnostic =
   N'Change Tracking - Auto Cleanup = ' + IIF(is_auto_cleanup_on = 1,N'[ON]',N'[OFF]')
 + N' Retention = [' + CAST(retention_period AS NVARCHAR(20)) + N' ' + retention_period_units_desc + N']'
   FROM tempdb.dbo.SQLXL_Index_sys_databases d
@@ -16031,12 +15767,12 @@ END
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Table is not a Plain Old Rowstore
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 0,diagnostic = STUFF(
+SELECT i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
 ---------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - is Clustered Columnstore (BI61)
-+IIF(i.tbl_is_clustered_columnstore = 1,NCHAR(10) + N'[CLUSTERED_COLUMNSTORE] (BI61)',N'')
++IIF(i.tbl_is_clustered_columnstore = 1,NCHAR(10) + N'[CLUSTERED_COLUMNSTORE] (BI61), no statistics',N'')
 -- Diagnostic - Table - is HEAP
 +IIF(i.tbl_is_heap                  = 1,NCHAR(10) + QUOTENAME(N'HEAP'),N'')
 ---------------------------------------------------------------------------------------------------
@@ -16142,6 +15878,7 @@ SELECT i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
  WHERE f.diagnostic IS NOT NULL;
 
 --------------------------------------------------------------------------------------------------------------------------------------------
+-- Diagnostic - Table - Identity and Sequence value usage
 -- Diagnostic - Table - Identity and Sequence values - flag if nearing their limits at 50% (BI68)
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH cte AS (
@@ -16168,34 +15905,24 @@ SELECT data_type = N'bigint'
       ,max_value =  9223372036854775807
       ,max_fmt   = tempdb.dbo.SQLXL_3SD(9223372036854775807,N'I')
 )
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
-      ,diagnostic_type_id = IIF(100. * COALESCE(CAST(c.Last_Value AS BIGINT)
-                                               ,CAST(c.seq_current_value AS BIGINT)
-                                               ,0)
-                                     / cte.max_value > 50.0  -- no check for zero, always > 0
-                               ,2
-                               ,8)
-      ,diagnostic =
- CASE WHEN c.increment_value IS NOT NULL
-      THEN  IIF(100.*COALESCE(CAST(c.Last_Value AS BIGINT)
-               ,CAST(c.seq_current_value AS BIGINT),0) / cte.max_value > 50.0,N'*NOTE* ' -- no check for zero, always > 0 from cte
-               ,N'')
-          + N'Identity'
-      ELSE N'Sequence'
- END + N' Column'
-+NCHAR(10) + N'> ' + QUOTENAME(c.name)
-+NCHAR(10) + N'> at ' + CONVERT(NVARCHAR(20)
-                              ,CAST(100.*COALESCE(CAST(c.Last_Value AS BIGINT)
-                                                 ,CAST(c.seq_current_value AS BIGINT)
-                                                 ,0)
-                                        / cte.max_value AS MONEY) -- no check for zero, always > 0 from cte
-                              ,0)
-                      + N'%Total - '
-          +tempdb.dbo.SQLXL_3SD(COALESCE(CAST(c.Last_Value AS BIGINT)
-                                         ,CAST(c.seq_current_value AS BIGINT)
-                                         ,0),N'I')
-          +N'/' + cte.max_fmt + N' (BI68)'
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic =
+ -- Check if Identity or Sequence over 50% used
+ IIF(100.*COALESCE(CAST(c.Last_Value AS BIGINT),CAST(c.seq_current_value AS BIGINT),0) 
+                   / cte.max_value > 50.0
+                  ,N'*NOTE* (BI68) ' -- no check for zero, always > 0 from cte
+                  ,N'')
++ IIF(c.is_identity = 1,N'Identity',N'Sequence')
++ N' ' + CONVERT(NVARCHAR(6)
+                 ,CAST(100.*COALESCE(CAST(c.Last_Value AS BIGINT)
+                                    ,CAST(c.seq_current_value AS BIGINT)
+                                    ,0)
+                      / cte.max_value AS MONEY)) -- no check for zero, always > 0 from cte
+ + N'% Used: ' + tempdb.dbo.SQLXL_3SD(COALESCE(CAST(c.Last_Value AS BIGINT)
+                                             ,CAST(c.seq_current_value AS BIGINT)
+                                             ,0),N'I')
+              + N'/' + cte.max_fmt 
++ N' ' + QUOTENAME(c.name)
   FROM tempdb.dbo.SQLXL_Index_sys_columns AS c
   JOIN tempdb.dbo.SQLXL_Index_sys_types   AS t
     ON c.database_id                     = t.database_id
@@ -16209,9 +15936,9 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
 ----------------------------------------------------------------------------------------------------
 -- Parent - Warning = 2
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 2,diagnostic = STUFF(
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic = STUFF(
 -- Diagnostic - Table - Created without "ANSI NULLS ON"
  IIF(tbl.uses_ansi_nulls = 0
     ,NCHAR(10) + N'Created without "ANSI NULLS ON"'
@@ -16236,7 +15963,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 -- Table - Performance = 4
 ----------------------------------------------------------------------------------------------------
 UNION ALL
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 4,diagnostic = STUFF(
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic = STUFF(
 -- Diagnostic - Table - text stored in row - limit
  IIF(tbl.text_in_row_limit > 0
     ,NCHAR(10) + N'text stored in row - limit ' + CAST(tbl.text_in_row_limit AS NVARCHAR(20)) + N' bytes'
@@ -16264,10 +15991,10 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
     ,N'')
 
 -- Diagnostic - Table - indexes are more than 2X the size of the physical table (index types 0,1,5)
-+IIF(    raw.Reserved_Page_CNT > 0
-     AND (1.0 * (p.Reserved_Page_CNT - raw.Reserved_Page_CNT) / raw.Reserved_Page_CNT) > 2.0
++IIF(    raw.reserved_page_PG_CNT > 0
+     AND (1.0 * (p.reserved_page_PG_CNT - raw.reserved_page_PG_CNT) / raw.reserved_page_PG_CNT) > 2.0
     ,NCHAR(10) + N'Indexes are '
-               + tempdb.dbo.SQLXL_3SD(1.0*(p.Reserved_Page_CNT - raw.Reserved_Page_CNT) / raw.Reserved_Page_CNT,N'N')
+               + tempdb.dbo.SQLXL_3SD(1.0*(p.reserved_page_PG_CNT - raw.reserved_page_PG_CNT) / raw.reserved_page_PG_CNT,N'N')
                + N'X Table size'
     ,N'')
 ----------------------------------------------------------------------------------------------------
@@ -16292,15 +16019,15 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
 -- Parent - Information = 8, usisng SYS.TABLES
 ----------------------------------------------------------------------------------------------------
 UNION ALL
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 8,diagnostic = STUFF(
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic = STUFF(
 -- Diagnostic - Table - Days since Last Read
 -- Diagnostic - Table - Days since Last Write
 -- Diagnostic - Table - Not used since last usage data reset
  IIF(    p.obj_type NOT IN (N'F',N'FT',N'IF',N'TF')
      AND NOT (p.obj_type = N'V' AND p.tbl_is_heap = 1)
     ,IIF(-- Look for signs of any usage
-            p.ius_User_Total_CNT          > 0
-         OR p.ops_Total_contacts_CNT      > 0
+            p.ius_User_total_CNT          > 0
+         OR p.ops_total_contacts_CNT      > 0
          OR p.Stats_Prop_modification_CNT > 0
         -- Usage found
         ,NCHAR(10) + N'Last Used'
@@ -16385,23 +16112,22 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'P'
-       )                        AS p
+       ) AS p
  CROSS JOIN
        tempdb.dbo.SQLXL_Index_sys_Startup_Parameters AS sp
 
 UNION ALL
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 8
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type
 -- Diagnostic - Table - LOB data space name and description
 ,diagnostic = STUFF(CASE WHEN tbl.lob_data_space_id > 0
-                            THEN  NCHAR(10) + N'LOB data space'
-                                + NCHAR(10) + N'> '     + QUOTENAME(lob_ds.data_space_name)
-                                + NCHAR(10) + N'> type ' + QUOTENAME(lob_ds.data_space_type_desc)
+                            THEN NCHAR(10) + N'LOB data space' + QUOTENAME(lob_ds.data_space_name) 
+                                           + N' type ' + QUOTENAME(lob_ds.data_space_type_desc)
                             ELSE N''
                        END COLLATE DATABASE_DEFAULT
 -- Diagnostic - Table - Filestream data space name and description
                       +CASE WHEN tbl.filestream_data_space_id > 0
-                            THEN  NCHAR(10) + N'Filestream data spc ' + QUOTENAME(fs_ds.data_space_name)
-                                + NCHAR(10) + N' type ' + QUOTENAME(fs_ds.data_space_type_desc)
+                            THEN NCHAR(10) + N'Filestream data spc ' + QUOTENAME(fs_ds.data_space_name)
+                                           + N' type ' + QUOTENAME(fs_ds.data_space_type_desc)
                             ELSE N''
                        END COLLATE DATABASE_DEFAULT
                       ,1,1,N'')
@@ -16455,9 +16181,9 @@ OPTION (FORCE ORDER);
 ----------------------------------------------------------------------------------------------------
 SET ANSI_WARNINGS ON -- FOR XML ahead
 
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 -- Diagnostic - Table - Has large data types
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.object_id,type = N'U',diagnostic_type_id = 8
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.object_id,type = N'U'
       ,diagnostic = N'Large datatypes: ' + p.col
   FROM (
         SELECT p.database_id
@@ -16482,7 +16208,7 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
 
 UNION ALL
 -- Diagnostic - Table - Has Deprecated data types
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.object_id,type = N'U',diagnostic_type_id = 8
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.object_id,type = N'U'
       ,diagnostic = N'Deprecated datatypes: ' + p.col
   FROM (
         SELECT p.database_id
@@ -16510,8 +16236,8 @@ SET ANSI_WARNINGS OFF
 -- Parent - Information = 8 Other
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - No PRIMARY KEY
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.object_id,type = N'U',diagnostic_type_id = 8
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.object_id,type = N'U'
       ,diagnostic = 'No Primary Key'
                   + IIF(i.index_id > 0
                        ,N', has ' + IIF(i.is_unique = 1,N'Unique',N'NonUnique') + N' CX'
@@ -16537,65 +16263,48 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,index_id=p.ob
    AND i.type                           IN (N'0',N'1')
 
 ----------------------------------------------------------------------------------------------------
--- Writes but no reads - BOTH Table & Index
+-- Operations Writes but no/low reads - Table & Index
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic =
--- Diagnostic - Table - Total of indexes with writes and no reads (BI22&29)
--- Diagnostic - Index - Hi writes and no reads (BI22&29)
-  N'High WRT No RDS -'
-+ N' USG ' + tempdb.dbo.SQLXL_3SD(w.metric_AMT,N'I') + COALESCE(N' ' + w.diagnostic,N'0 - Rebuilt?')
-+ N' OPS ' + tempdb.dbo.SQLXL_3SD(r.metric_AMT,N'I') + COALESCE(N' ' + r.diagnostic,N'0 - Rebuilt?')
-+ N' (BI22&29)'
-  FROM (--------------------------------------------------------------------------------------------
-        -- Get the significant writers with no reads
-        --------------------------------------------------------------------------------------------
-        SELECT rec_type
-              ,Database_Id
-              ,parent_object_id
-              ,Object_Id
-              ,index_Id
-              ,Type
-          FROM tempdb.Dbo.SQLXL_Index_Metrics
-         WHERE Rec_Type NOT IN (N'A',N'D')
-           AND (   Metric = N'ops_no_read_Total_write_CNT'
-                OR Metric = N'ius_No_Read_User_Updates_CNT'
-               )
-           AND (    Previous_Sum_Pct <= 90.0
-                AND diagnostic_Pct   >= 1.00
-               )
-         GROUP BY
-               rec_type
-              ,Database_Id
-              ,parent_object_id
-              ,Object_Id
-              ,index_Id
-              ,Type
-       ) i
-  LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_Index_Metrics   AS w
-    ON i.rec_type                      = w.rec_type
-   AND i.database_id                   = w.database_id
-   AND i.parent_object_id              = w.parent_object_id
-   AND i.object_id                     = w.object_id
-   AND i.index_id                      = w.index_id
-   AND i.type                          = w.type
-   AND N'ops_no_read_Total_write_CNT' = w.metric
-  LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_Index_Metrics   AS r
-    ON i.rec_type                      = r.rec_type
-   AND i.database_id                   = r.database_id
-   AND i.parent_object_id              = r.parent_object_id
-   AND i.object_id                     = r.object_id
-   AND i.index_id                      = r.index_id
-   AND i.type                          = r.type
-   AND N'ius_no_read_user_updates_CNT' = r.metric;
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+-- Diagnostic - Table - Operations - No reads, High writes (BI22)
+-- Diagnostic - Index - Operations - No reads, High writes (BI22)
+-- Diagnostic - Table - Operations - No reads, Low writes (BI29)
+-- Diagnostic - Index - Operations - No reads, Low writes (BI29)
+-- Diagnostic - Table - Operations - High writes to Read ratio - High writes (BI48)
+-- Diagnostic - Index - Operations - High Writes to Read ratio - High writes (BI48)
+-- Diagnostic - Table - Operations - High writes to Read ratio - Low writes (BI48)
+-- Diagnostic - Index - Operations - High Writes to Read ratio - Low writes (BI48)
+SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic =
+       IIF(i.ops_total_read_CNT = 0
+          ,N'No Reads and '  
+          +IIF(1.0 * i.ops_total_write_CNT/a.ops_total_write_CNT < IIF(i.rec_type = N'I',0.000001,0.00001)
+              ,N'Low # writes (BI29) - '
+              ,N'High # writes (BI22) - ')
+          +N' Writes: ' + tempdb.dbo.SQLXL_3SD(i.ops_total_write_CNT,N'I')
+          ,N'High writes to reads - '
+          +IIF(1.0 * i.ops_total_write_CNT/a.ops_total_write_CNT < IIF(i.rec_type = N'I',0.000001,0.00001)
+              ,N'Low # writes (BI48)'
+              ,N'High # writes (BI48)')
+          +N' Reads '  + tempdb.dbo.SQLXL_3SD(i.ops_total_read_CNT,N'I') 
+          +N' Writes ' + tempdb.dbo.SQLXL_3SD(i.ops_total_write_CNT,N'I')
+          +N' (' + tempdb.dbo.SQLXL_3SD(i.ops_read_to_write_RAT,N'N')+N'x)'
+          )
+  FROM tempdb.dbo.SQLXL_Index_Compilation AS i
+ CROSS
+  JOIN (SELECT * FROM tempdb.dbo.SQLXL_Index_Compilation WHERE rec_type = N'A') AS a
+ WHERE i.rec_type IN (N'I',N'P')
+   AND i.ops_total_write_CNT > 0
+   AND ISNULL(i.ops_total_read_CNT,0)/i.ops_total_write_CNT <= 4.0
+
+----------------------------------------------------------------------------------------------------
+-- Usage Writes but no/low reads - not useful since looking at query-level use not operations
+----------------------------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Wide tables (35+ cols or > 2000 non-LOB bytes) - BI check_id 26
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic =
 -- Diagnostic - Table - has 35 or more columns (BI26)
 -- Diagnostic - Table - has a non-LOB width greater than 2000 bytes (BI26)
 N'Wide table - ' + CAST(c.column_lng AS NVARCHAR(20)) + N' bytes in ' + CAST(c.column_CNT AS NVARCHAR(20)) + N' non-LOB columns (BI26)'
@@ -16618,8 +16327,8 @@ N'Wide table - ' + CAST(c.column_lng AS NVARCHAR(20)) + N' bytes in ' + CAST(c.c
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - String column with non-database collation
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
 -- Diagnostic - Table - has columns with Collation not matching database collation (BI69)
       ,diagnostic = N'String collation not match DB: ' + CAST(COUNT(1) AS NVARCHAR(20)) + N' columns (BI69)'
   FROM tempdb.dbo.SQLXL_Index_sys_columns   AS c
@@ -16635,54 +16344,42 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
       ,c.object_id
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Parent - Table/column check constraint has non-standard property
--- or references a procedure, function, or CLR - (BI94)
+-- Table/column check constraint has non-standard property or references a procedure, function, or CLR - (BI94)
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT DISTINCT
-       rec_type = 'P',cx.database_id,cx.parent_object_id,cx.parent_object_id,cx.parent_object_id,N'U',diagnostic_type_id = 8,diagnostic =
+       rec_type = 'P',cx.database_id,cx.parent_object_id,cx.parent_object_id,cx.parent_object_id,N'U',diagnostic =
 -- Diagnostic - Table - has constraint(s) - see details
-IIF(    ISNULL(cx.uses_sql_proc,0) = 0
-    AND ISNULL(cx.uses_sql_ftn ,0) = 0
-    AND ISNULL(cx.uses_sql_mthd,0) = 0
-    AND cx.is_not_trusted          = 0
-    AND cx.is_not_for_replication  = 1
-    AND cx.is_system_named         = 0
-    AND cx.uses_database_collation = 1
-   ,N'Constraint(s) exist - see details'
-   ,IIF(   ISNULL(cx.uses_sql_proc,0) = 1
-        OR ISNULL(cx.uses_sql_ftn ,0) = 1
-        OR ISNULL(cx.uses_sql_mthd,0) = 1
-        OR cx.is_not_trusted          = 1
-        OR cx.is_not_for_replication  = 0 -- means it's checked by replications too
-        OR cx.is_system_named         = 1
-        OR cx.uses_database_collation = 0
-       , IIF(cx.parent_column_id = 0,N'Parent',N'Column')
-       + N' Constraint:' + NCHAR(10) + N'> ' + QUOTENAME(cx.name)
-       + IIF(cx.parent_column_id > 0,NCHAR(10) + N'> On column ' + QUOTENAME(c.name),N'')
+ N'Constraint(s) exist - see details in column "P" in "Additional Metadata" dropdown'
+  FROM tempdb.dbo.SQLXL_Index_sys_check_constraints AS cx
+
+UNION ALL
+SELECT rec_type = 'P',cx.database_id,cx.parent_object_id,cx.parent_object_id,cx.parent_object_id,N'U',diagnostic =
+       IIF(cx.parent_column_id = 0,N'Table',N'Column')
+      +N' Constraint:' + NCHAR(10) + N'> ' + QUOTENAME(cx.name)
+      +IIF(cx.parent_column_id > 0,NCHAR(10) + N'> On column ' + QUOTENAME(c.name),N'')
 
 -- Diagnostic - Constraint - is NOT TRUSTED
-       +IIF(cx.is_not_trusted         = 1,NCHAR(10) + N'> Is NOT TRUSTED',N'')
+      +IIF(cx.is_not_trusted         = 1,NCHAR(10) + N'> Is NOT TRUSTED',N'')
 
--- Diagnostic - Constraint - is NOT FOR REPLICATION
-       +IIF(cx.is_not_for_replication = 0,NCHAR(10) + N'> Is REPLICATED',N'')
+-- Diagnostic - Constraint - has REPLICATION enabled
+      +IIF(cx.is_not_for_replication = 0,NCHAR(10) + N'> Is REPLICATED - consider "NOT FOR REPLICATION"',N'')
 
 -- Diagnostic - Constraint - is SYSTEM NAMED
-       +IIF(cx.is_system_named        = 1,NCHAR(10) + N'> Is SYSTEM NAMED',N'')
+      +IIF(cx.is_system_named        = 1,NCHAR(10) + N'> Is SYSTEM NAMED',N'')
 
 -- Diagnostic - Constraint - does not use database collation
-       +IIF(cx.uses_database_collation= 0,NCHAR(10) + N'> Does not use DATABASE COLLATION',N'')
+      +IIF(cx.uses_database_collation= 0,NCHAR(10) + N'> Does not use DATABASE COLLATION',N'')
 
 -- Diagnostic - Constraint - uses a SQL procedure - can force serialization (BI94)
-       +IIF(cx.uses_sql_proc          = 1,NCHAR(10) + N'> references a procedure - can force serialization (BI94)' ,N'')
+      +IIF(cx.uses_sql_proc          = 1,NCHAR(10) + N'> references a procedure - can force serialization (BI94)' ,N'')
 
 -- Diagnostic - Constraint - uses a SQL function - can force serialization (BI94)
-       +IIF(cx.uses_sql_ftn           = 1,NCHAR(10) + N'> references a function - can force serialization (BI94)' ,N'')
+      +IIF(cx.uses_sql_ftn           = 1,NCHAR(10) + N'> references a function - can force serialization (BI94)' ,N'')
 
 -- Diagnostic - Constraint - uses a SQL method - can force serialization (BI94)
-       +IIF(cx.uses_sql_mthd          = 1,NCHAR(10) + N'> references a SQL method - can force serialization (BI94)',N'')
-       ,N'')
-   )
+      +IIF(cx.uses_sql_mthd          = 1,NCHAR(10) + N'> references a SQL method - can force serialization (BI94)',N'')
+
 /*** LOCAL TESTING ***
 SELECT *
 --*/
@@ -16692,12 +16389,19 @@ SELECT *
     ON cx.database_id                              = c.database_id
    AND cx.parent_object_id                         = c.object_id
    AND cx.parent_column_id                         = c.column_id
+ WHERE ISNULL(cx.uses_sql_proc,0) = 1
+    OR ISNULL(cx.uses_sql_ftn ,0) = 1
+    OR ISNULL(cx.uses_sql_mthd,0) = 1
+    OR cx.is_not_trusted          = 1
+    OR cx.is_not_for_replication  = 0 -- means it's checked by replications too
+    OR cx.is_system_named         = 1
+    OR cx.uses_database_collation = 0;
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - Computed columns
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 0
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
 -- Diagnostic - Table - Computed Column
       ,diagnostic = N'Computed Column '
                   + NCHAR(10) + N'> ' + QUOTENAME(c.name)
@@ -16716,9 +16420,9 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
     OR c.uses_sql_mthd    = 1
 
 UNION ALL
-SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
+SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic =
 -- Diagnostic - Table - has Computed Columns that are not persisted (BI100) and the indexes they appear in
- N'Computed Column not persisted (BI100)' + NCHAR(10) + N'> ' + QUOTENAME(c.name) + N' '
+ N'Comp Col ' + QUOTENAME(c.name) + N' not persisted (BI100)'
 +ISNULL( NCHAR(10)
         +N'> In Index(s): '
         +STUFF((SELECT N', ' + CAST(index_id AS NVARCHAR(20))
@@ -16741,8 +16445,8 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - Replicated columns - (BI70)
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U'
 -- Diagnostic - Table - has replicated columns & count (not change data capture) (BI70)
       ,diagnostic = N'Replicated columns: '
       +IIF(c.replicated_columns <> c.all_columns
@@ -16771,8 +16475,8 @@ SELECT c.*
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - Tables with filtered statistics
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',s.database_id,s.object_id,s.object_id,s.object_id,N'U',diagnostic_type_id = 8,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',s.database_id,s.object_id,s.object_id,s.object_id,N'U',diagnostic =
 -- Diagnostic - Table - has non-indexed statistics - may indicate more indexes needed
 N'Table has ' + CAST(SUM(IIF(s.has_filter = 1,1,0)) AS NVARCHAR(20)) + N' non-index filtered statistics'
   FROM tempdb.dbo.SQLXL_Index_sys_stats   AS s
@@ -16790,9 +16494,9 @@ HAVING SUM(IIF(s.has_filter = 1,1,0)) > 0;
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - Tables many unused/lightly used indexes
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 -- Diagnostic - Table - has mmany lightly used Nonclustered indexes, no existing nonclustered Columnstore
-SELECT rec_type = 'P',i.database_id,i.parent_object_id,i.parent_object_id,i.parent_object_id,N'U',diagnostic_type_id = 8,diagnostic =
+SELECT rec_type = 'P',i.database_id,i.parent_object_id,i.parent_object_id,i.parent_object_id,N'U',diagnostic =
         CAST(COUNT(1) AS VARCHAR(10))
       + N' low read nonclustered indexes (<2%)'
       + IIF(p.Nonclustered_ColumnStore_CNT = 0,N' - consider NCS?',N'')
@@ -16809,12 +16513,12 @@ SELECT rec_type = 'P',i.database_id,i.parent_object_id,i.parent_object_id,i.pare
    AND i.object_ID        = p.object_ID
  WHERE i.tbl_is_clustered_columnstore = 0
    AND i.type                         = N'2'
-   AND i.ius_User_Total_CNT           > 0                              -- at least some activity
+   AND i.ius_User_total_CNT           > 0                              -- at least some activity
    AND IIF(p.ius_User_read_CNT > 0
           ,100.0 * ISNULL(i.ius_User_read_CNT,0) / p.ius_User_read_CNT
           ,0.0) < 2.0 -- 2 percent
-   AND IIF(p.ops_Total_read_CNT > 0
-          ,100.0 * ISNULL(i.ops_Total_read_CNT,0) / p.ops_Total_read_CNT
+   AND IIF(p.ops_total_read_CNT > 0
+          ,100.0 * ISNULL(i.ops_total_read_CNT,0) / p.ops_total_read_CNT
           ,0.0) < 2.0 -- 2 percent
  GROUP BY
        i.database_id
@@ -16825,8 +16529,8 @@ HAVING COUNT(1) > 1
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - CDC - History File group
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.parent_object_id,p.parent_object_id,N'U',diagnostic_type_id = 8,diagnostic = STUFF(
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.parent_object_id,p.parent_object_id,N'U',diagnostic = STUFF(
 -- Diagnostic - Table - Change data capture filegroup name
  NCHAR(10)+IIF(p.cdc_filegroup_name IS NOT NULL,N'Filegroup Name ' + QUOTENAME(p.cdc_filegroup_name),N'Uses default Filegroup')
 ,1,1,N'')
@@ -16839,12 +16543,14 @@ SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.parent_object_id,p.pare
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Parent - DML Triggers - enabled, non-MS
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',p.database_id,p.object_id,p.object_id,p.object_id,N'U',diagnostic_type_id = 8,diagnostic =
--- Diagnostic - Table - has triggers and count by trigger type
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',p.database_id,p.object_id,p.object_id,p.object_id,N'U',diagnostic =
 N'DML Triggers'
+-- Diagnostic - Table - has CLR trigger(s)
 +IIF(p.tbl_CLR_trigger_CNT           > 0,N' CLR: '        + CAST(p.tbl_CLR_trigger_CNT           AS NVARCHAR(20)),N'')
+-- Diagnostic - Table - has SQL trigger(s)
 +IIF(p.tbl_SQL_trigger_CNT           > 0,N' SQL: '        + CAST(p.tbl_SQL_trigger_CNT           AS NVARCHAR(20)),N'')
+-- Diagnostic - Table - has INSTEAD OF trigger(s)
 +IIF(p.tbl_is_instead_of_trigger_CNT > 0,N' Instead Of: ' + CAST(p.tbl_is_instead_of_trigger_CNT AS NVARCHAR(20)),N'')
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
@@ -16857,8 +16563,8 @@ N'DML Triggers'
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - Identity Columns not using 1 as increment (BI74)
 -- Diagnostic - Table - Identity Columns with negative seed (BI74)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic =
   N'IDN Col ' + QUOTENAME(c.name)
 + IIF(c.increment_value <> 1,N' increment ' + CAST(c.increment_value AS NVARCHAR(20)),N'')
 + IIF(c.seed_value      <  0,N' seed '      + CAST(c.seed_value      AS NVARCHAR(20)),N'')
@@ -16873,8 +16579,8 @@ SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',dia
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Sequences - not using 1 as increment (BI74)
 -- Diagnostic - Sequences - with negative start value (BI74)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic_type_id = 8,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'P',c.database_id,c.object_id,c.object_id,c.object_id,N'U',diagnostic =
   N'Sequence Column ' + QUOTENAME(c.name)
 + IIF(c.seq_increment   <> 1,N' has increment value of ' + CAST(c.seq_increment   AS NVARCHAR(20)),N'')
 + IIF(c.seq_start_value <  0,N' has seed value of '      + CAST(c.seq_start_value AS NVARCHAR(20)),N'')
@@ -16901,9 +16607,9 @@ SET ANSI_WARNINGS ON
 ----------------------------------------------------------------------------------------------------
 -- Index Critical = 1 - non-rowstore/relational index types
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 1,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
  IIF(i.type = N'3'
 
 -- Diagnostic - Index - is XML (BI60)
@@ -16973,9 +16679,9 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------------------------------------------------------------------
 -- Index Warning = 2
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 2,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
 -- Diagnostic - Index - index row locks not allowed
 -- Diagnostic - Index - index page locks not allowed
  CASE WHEN (i.allow_row_locks = 0 OR i.allow_page_locks = 0)              -- locks not allowed
@@ -17006,9 +16712,8 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - Reminder - No statistics created for index types XML,SPT,CCS,NCS,HSH,FTX
 +CASE WHEN i.parent_object_type = N'TF'
       THEN NCHAR(10) + i.parent_object_type_desc + N' doesn''t get statistics'
-      WHEN TRY_CAST(i.type AS INT) = 0 -- Not Heap
-        OR TRY_CAST(i.type AS INT) > 2 -- Not Clustered Rowstore or Nonclustered Rowstore
-      THEN NCHAR(10) + N'Doesn''t get statistics'
+      WHEN i.type IN (N'3',N'4','5',N'6',N'7',N'90',N'M')
+      THEN NCHAR(10) + i.type_desc +N' Doesn''t get statistics'
       ELSE N''
  END
 
@@ -17073,14 +16778,13 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
  WHERE i.diagnostic IS NOT NULL
 
 ----------------------------------------------------------------------------------------------------
--- Index Performance = 4
 -- Filtered indexes - included in Information 8 below
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
 /*** LOCAL TESTING ***
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
 --*/
 
 -- Diagnostic - Index - fill factor - for all non-100% factors (BI40)
@@ -17096,15 +16800,15 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
         ,N'') -- Fill factor < 100, PADDING not enabled
 
 -- Diagnostic - Index - Page Splits > 1% of writes
-    +IIF(i.ops_Total_page_split_CNT > 0
-        , N' Splits ' + tempdb.dbo.SQLXL_3SD(i.ops_Total_page_split_CNT,N'I')
-        + N' (' + tempdb.dbo.SQLXL_3SD(page_splits_to_write_PCT,N'N') + N'% INS+UPD)'
+    +IIF(i.page_splits_to_write_PCT > 1.0
+        , N' Splits ' + tempdb.dbo.SQLXL_3SD(i.ops_total_page_split_CNT,N'I')
+        + N' (' + tempdb.dbo.SQLXL_3SD(i.page_splits_to_write_PCT,N'N') + N'% INS+UPD)'
         , N'')
 
--- Diagnostic - Index - Page s > 1% of writes
-    +IIF(i.ops_Total_page_merge_CNT > 0
-        , N'  ' + tempdb.dbo.SQLXL_3SD(i.ops_Total_page_merge_CNT,N'I')
-        + N' (' + tempdb.dbo.SQLXL_3SD(page_merge_to_write_PCT,N'N') + N'%Writes)'
+-- Diagnostic - Index - Page merges > 1% of writes
+    +IIF(i.page_merge_to_write_PCT > 1.0
+        , N'  ' + tempdb.dbo.SQLXL_3SD(i.ops_total_page_merge_CNT,N'I')
+        + N' (' + tempdb.dbo.SQLXL_3SD(i.page_merge_to_write_PCT,N'N') + N'%Writes)'
         , N'')
 ----------------------------------------
 ,1,1,N'')
@@ -17124,8 +16828,8 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - column constraint is not trusted
 -- Diagnostic - Index - column constraint uses non-database collation
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 4
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type
       ,diagnostic = N'Constraint on column'
                    +NCHAR(10) + N'> ' + QUOTENAME(c.name)
                    +IIF(cx.uses_sql_proc           = 1,NCHAR(10) + N'> references a procedure - can force serialization (BI94)' ,N'')
@@ -17157,8 +16861,8 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 -- Diagnostic - Index - computed column references a function - can force serialization (BI99)
 -- Diagnostic - Index - computed column references a SQL method - can force serialization (BI99)
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 4
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type
       ,diagnostic = N'Computed Column '
                    +NCHAR(10) + N'> ' + QUOTENAME(c.name)
                    +IIF(c.uses_sql_proc = 1,NCHAR(10) + N'> references a procedure - can force serialization (BI99)' ,N'')
@@ -17176,56 +16880,56 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 ----------------------------------------------------------------------------------------------------
 -- Index Performance = 4 -- Writes as a percent of table rows
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4
-      ,diagnostic = N'Writes:'
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
+      ,diagnostic = N'High Writes:'
 
--- Diagnostic - Index - writes counted by Data statistics and % of table statistics rows
+-- Diagnostic - Index - high writes counted by Data statistics and % of table statistics rows
                 +IIF(i.Stats_Prop_modification_CNT > 0
-                    ,N' Stat: '+ tempdb.dbo.SQLXL_3SD(i.Stats_Prop_modification_CNT,N'I')
-                               +IIF(i.stathdr_Rows_CNT > 0
-                                   ,N' ('
-                                   + tempdb.dbo.SQLXL_3SD(1.0 * i.Stats_Prop_modification_CNT / i.stathdr_Rows_CNT,N'%') -- /0 by IIF
-                                   + N')'
-                                   ,N'')
+                    ,N' Stats: '+ tempdb.dbo.SQLXL_3SD(i.Stats_Prop_modification_CNT,N'I')
+                                + IIF(i.stathdr_Rows_CNT > 0
+                                     ,N' ('
+                                     + tempdb.dbo.SQLXL_3SD(1.0 * i.Stats_Prop_modification_CNT / i.stathdr_Rows_CNT,N'%') -- /0 by IIF
+                                     + N')'
+                                     ,N'')
                     ,N'')
 
--- Diagnostic - Index - writes counted by Usage statistics and % of total rows
+-- Diagnostic - Index - high writes counted by Usage statistics and % of total rows
                 +IIF(i.ius_user_updates_CNT > 0
                     ,N' USG: ' + tempdb.dbo.SQLXL_3SD(i.ius_user_updates_CNT,N'I')
-                              +IIF(i.row_CNT > 0
-                                  ,N' ('
-                                  + tempdb.dbo.SQLXL_3SD(1.0 * i.ius_user_updates_CNT / i.row_CNT,N'%') -- /0 by IIF
-                                  + N')'
-                                  ,N'')
+                               + IIF(i.row_CNT > 0
+                                    ,N' ('
+                                    + tempdb.dbo.SQLXL_3SD(1.0 * i.ius_user_updates_CNT / i.row_CNT,N'%') -- /0 by IIF
+                                    + N')'
+                                    ,N'')
                     ,N'')
 
 -- Diagnostic - Index - writes counted by Operational statistics and % of total rows
-                +IIF(i.ops_Total_write_CNT > 0
-                    ,N' OPS: ' + tempdb.dbo.SQLXL_3SD(i.ops_Total_write_CNT,N'I')
-                              +IIF(i.row_CNT > 0
-                                  ,N' ('
-                                  + tempdb.dbo.SQLXL_3SD(1.0 * i.ops_Total_write_CNT / i.row_CNT,N'%') -- /0 by IIF
-                                  + N')'
-                                  ,N'')
+                +IIF(i.ops_total_write_CNT > 0
+                    ,N' OPS: ' + tempdb.dbo.SQLXL_3SD(i.ops_total_write_CNT,N'I')
+                               + IIF(i.row_CNT > 0
+                                    ,N' ('
+                                    + tempdb.dbo.SQLXL_3SD(1.0 * i.ops_total_write_CNT / i.row_CNT,N'%') -- /0 by IIF
+                                    + N')'
+                                    ,N'')
                     ,N'')
 
--- Diagnostic - Index - rowstore clustered writes greater than 10% of rows (over 100), consider enabling STATISTCS NORECOMPUTE
--- Diagnostic - Index - rowstore nonclustered writes greater than 10% of rows (over 100), consider enabling STATISTCS NORECOMPUTE
+-- Diagnostic - Index - high rowstore clustered writes greater than 5% of rows (over 100), consider enabling STATISTCS NORECOMPUTE
+-- Diagnostic - Index - high rowstore nonclustered writes greater than 5% of rows (over 100), consider enabling STATISTCS NORECOMPUTE
                 +IIF(     i.type IN (N'1',N'2')
                      AND (   IIF(i.stathdr_Rows_CNT > 100
-                                ,1.0 * i.Stats_Prop_modification_CNT / i.stathdr_Rows_CNT
-                                ,0) > 0.10 -- 10%
+                                ,100.0 * i.Stats_Prop_modification_CNT / i.stathdr_Rows_CNT
+                                ,0) > 5.0
                           OR IIF(i.row_CNT          > 100
-                                ,1.0 * i.ius_user_updates_CNT        / i.row_CNT     
-                                ,0) > 0.10 -- 10%
+                                ,100.0 * i.ius_user_updates_CNT        / i.row_CNT     
+                                ,0) > 5.0
                           OR IIF(i.row_CNT          > 100
-                                ,1.0 * i.ops_Total_write_CNT         / i.row_CNT     
-                                ,0) > 0.10 -- 10%
+                                ,100.0 * i.ops_total_write_CNT         / i.row_CNT     
+                                ,0) > 5.0
                          )
-                    ,NCHAR(10) + N'> ' + IIF(i.stats_no_recompute = 1
-                                            ,N'STATISTICS NORECOMPUTE enabled (BI92)'
-                                            ,N'Review STATISTICS NORECOMPUTE')
+                    ,N' ' + IIF(i.stats_no_recompute = 1
+                               ,N'STATISTICS NORECOMPUTE enabled (BI92)'
+                               ,N'Review STATISTICS NORECOMPUTE')
 
 -- Diagnostic - Index - STATISTCS NORECOMPUTE enabled (BI92)
                     ,IIF(i.stats_no_recompute = 1
@@ -17236,96 +16940,64 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
          WHERE rec_type = N'I'
        ) AS i
  WHERE i.type                           <> N'0' -- HEAPS handled separately
-   AND (   i.Stats_Prop_modification_CNT > 0
-        OR i.ius_user_updates_CNT        > 0
-        OR i.ops_Total_write_CNT         > 0
+   AND (   CASE WHEN i.stathdr_Rows_CNT > 0 
+                THEN 100.0 * i.Stats_Prop_modification_CNT /  i.stathdr_Rows_CNT
+                ELSE 0.0
+           END > 5.0
+        OR CASE WHEN i.row_CNT > 0 
+               THEN 100.0 * i.ius_user_updates_CNT / i.row_CNT
+               ELSE 0.0
+           END > 5.0
+        OR CASE WHEN i.row_CNT > 0 
+                THEN 100.0 * i.ops_total_write_CNT / i.row_CNT
+                ELSE 0.0
+           END > 5.0
        )
 
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
 
 +IIF(i.obj_type IN (N'FT',N'IF',N'TF')          -- no statistics for table valued functions or views
     ,NCHAR(10) + N'Execution statistics N/A'
     ,N'')
 
--- Diagnostic - Index - Usage Read to Write ratio (BI48)
--- Diagnostic - Index - Operations Read to Write ratio (BI48)
 -- Diagnostic - Index - Usage Last Read Days
 -- Diagnostic - Index - Usage Last Write days
-+CASE WHEN i.obj_type NOT IN (N'F',N'FT',N'IF',N'TF')
-       AND (i.ius_User_Total_CNT > 0 OR i.ops_Total_contacts_CNT > 0 OR i.Stats_Prop_modification_CNT > 0)
-       AND i.type               <> N'0' -- Heap values reported below with Index Heap findings
+------------------------------------------------------------------------------------------
+-- DATES - Statistics on non-empty table, last Read, last IUD (INSERT UPDATE DELETE)
+------------------------------------------------------------------------------------------
++CASE WHEN i.type NOT IN (N'4')     -- SPATIAL has no USAGE metrics
+       AND i.type NOT IN (N'0')     -- HEAPS handled separately
+       AND i.ius_User_total_CNT > 0 -- got activity
       THEN NCHAR(10)
-          +N'R/W OPS ' + CASE WHEN ISNULL(i.ops_Total_read_CNT ,0) = 0
-                               AND ISNULL(i.ops_Total_write_CNT,0) = 0
-                              THEN N'NONE'
-
-                              WHEN ISNULL(i.ops_Total_contacts_CNT,0) = 0
-                               AND ISNULL(i.ius_User_Total_CNT    ,0) > 0
-                              THEN N'NONE, IDX rebuilt?'
-
-                              WHEN i.ops_Total_write_CNT > 0
-                              THEN tempdb.dbo.SQLXL_3SD(ISNULL(i.ios_read_to_write_RAT,0),N'N') + N'x '
-                                  +N'(' + tempdb.dbo.SQLXL_3SD(ISNULL(i.ops_Total_read_CNT,0),N'I')
-                                  +N'/' + tempdb.dbo.SQLXL_3SD(i.ops_Total_write_CNT,N'I') + N')'
-
-                              ELSE N'Read Only '
-                                  +N'(' + tempdb.dbo.SQLXL_3SD(ISNULL(i.ops_Total_read_CNT,0),N'I') + N')'
-                         END
-          +N' USG '    + CASE WHEN ISNULL(i.ius_User_read_CNT   ,0) = 0
-                               AND ISNULL(i.ius_user_updates_CNT,0) = 0
-                              THEN N'NONE'
-
-                              WHEN i.ius_user_updates_CNT > 0
-                              THEN tempdb.dbo.SQLXL_3SD(ISNULL(i.ius_read_to_write_RAT,0),N'N') + N'x '
-                                  +N'(' + tempdb.dbo.SQLXL_3SD(ISNULL(i.ius_User_read_CNT,0),N'I')
-                                  +N'/' + tempdb.dbo.SQLXL_3SD(i.ius_user_updates_CNT,N'I') + N')'
-
-                              ELSE N'Read Only '
-                                  +N'(' + tempdb.dbo.SQLXL_3SD(ISNULL(i.ius_User_read_CNT,0),N'I') + N')'
-                         END
-          +N' (BI48)'
-        ------------------------------------------------------------------------------------------
-        -- DATES - Statistics on non-empty table, last Read, last IUD (INSERT UPDATE DELETE)
-        ------------------------------------------------------------------------------------------
-        +CASE WHEN i.type NOT IN (N'4')     -- SPATIAL has no USAGE metrics
-               AND i.type NOT IN (N'0')     -- HEAPS handled separately
-               AND i.ius_User_Total_CNT > 0 -- got activity
-              THEN NCHAR(10)
-                  +N'Last Used - RDS: ' + ISNULL(CAST(i.ius_last_read_days_ago  AS NVARCHAR(20)) + N' days ago',N'NONE')
-                  +N' WRT: '            + ISNULL(CAST(i.ius_last_write_days_ago AS NVARCHAR(20)) + N' days ago',N'NONE')
-              ELSE N''   -- No usage metrics for SPATIAL
-         END
-
+          +N'Last Used - RDS: ' + ISNULL(CAST(i.ius_last_read_days_ago  AS NVARCHAR(20)) + N' days ago',N'NONE')
+          +N' WRT: '            + ISNULL(CAST(i.ius_last_write_days_ago AS NVARCHAR(20)) + N' days ago',N'NONE')
+      ELSE N''   -- No usage metrics for SPATIAL
+ END
 -- Diagnostic - Objects - objects (Foreign Key Constraint, Table functions, Views) changed within last 90 days
-      WHEN i.type IN (N'F',N'FT',N'IF',N'TF',N'V')
-       AND DATEDIFF(DAY,o.modify_date,sp.collection_DTTM) <= 90
++CASE WHEN DATEDIFF(DAY,o.modify_date,sp.collection_DTTM) <= 90
       THEN NCHAR(10) + N'Dates: Modified '
                      + CONVERT(NVARCHAR(10),o.modify_date,2)
                      + IIF(DATEDIFF(DAY,o.create_date,o.modify_date) > 0,N', Created ' + CONVERT(NVARCHAR(10),o.create_date,2),N'')
-      WHEN i.obj_type IN (N'F',N'FT',N'IF',N'TF')
-      THEN N''
-
-      -- Everybody ELSE
       ELSE N''
  END
 
 -- Diagnostic - Index - High ratio of page locks to row locks
-+IIF(i.page_lock_to_row_lock_RAT >= 0.50 AND i.type NOT IN (N'5',N'6')
-    ,NCHAR(10) + N'High ratio PAGE to ROW locks - '
++IIF(i.page_lock_to_row_lock_RAT < 1.0 AND i.type NOT IN (N'5',N'6')
+    ,NCHAR(10) + N'High ratio ROW to PAGE to  locks - '
                + tempdb.dbo.SQLXL_3SD(100.0 * i.page_lock_to_row_lock_RAT,N'N') + N'x'
     ,N'')
 
--- Diagnostic - Index - Statistics Row count <> Partition Physical Row Count by 0.5% or more
+-- Diagnostic - Index - Statistics Row count <> Partition Physical Row Count by 0.1% or more
 +IIF(    i.type IN (N'1',N'2')
      AND (   IIF(i.row_CNT          > 0
                 ,ABS(100.0 * (i.row_CNT - i.stathdr_Rows_CNT) / i.row_CNT)         
-                ,0) > 0.5
+                ,0) > 0.1
           OR IIF(i.stathdr_Rows_CNT > 0
                 ,ABS(100.0 * (i.stathdr_Rows_CNT - i.row_CNT) / i.stathdr_Rows_CNT)
-                ,0) > 0.5
+                ,0) > 0.1
          )
     ,NCHAR(10) + N'Stats Row Delta: Physical rows '
                + tempdb.dbo.SQLXL_3SD(i.row_CNT,N'I')
@@ -17345,9 +17017,6 @@ SELECT COUNT(1)
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
-           AND obj_type_short_label NOT IN (N'TVF'
-                                           ,N'VW'
-                                           )
        ) AS i
  CROSS JOIN (
              SELECT ProductMajorVersion = TRY_CAST(run_value AS INT)
@@ -17369,9 +17038,9 @@ SELECT COUNT(1)
 -- Index Performance = 4 COLUMNSTORE
 -- Columnstores needing possible REORGANIZE
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,parent_object_id = i.object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
+SELECT rec_type = 'I',i.database_id,parent_object_id = i.object_id,i.object_id,i.index_id,i.type,diagnostic =
 -- Diagnostic - Index - Columnstore has more than 1 partition
 -- Diagnostic - Index - Columnstore has OPEN rowgroups
 -- Diagnostic - Index - Columnstore has RESIDUAL_ROW_GROUP
@@ -17449,8 +17118,8 @@ SELECT rec_type = 'I',i.database_id,parent_object_id = i.object_id,i.object_id,i
 ----------------------------------------------------------------------------------------------------
 -- Index Performance = 4 -- Additional key DENSITY VECTOR
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
 -- Diagnostic - Index - adding another key element doesn't make index much more selective
       ,diagnostic  = i.low_selectivity_additional_keys
   FROM (SELECT *
@@ -17462,9 +17131,9 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------------------------------------------------------------------
 -- Index Non-Default = 6
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 6,diagnostic = STUFF(    -- sys.indexes
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(    -- sys.indexes
 -- Diagnostic - Index - Columnstore compression delay > 0
 +IIF(i.compression_delay_mm > 0
     ,NCHAR(10) + N'Columnstore compression delay '
@@ -17551,9 +17220,9 @@ SELECT *
 -- Index Information = 8
 -- Skipping is_primary_key,is_unique_constraint since covered later
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
 
 -- Diagnostic - Index - Covers Foreign Key(s)
  IIF(i.covered_fkc_IDs IS NOT NULL,NCHAR(10) + N'Covers Foreign Key(s) ' +i.covered_fkc_IDs,N'')
@@ -17580,7 +17249,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - Nonclustered Rowstore - More than 4 Key columns or more than 16 bytes (BI23)
 +IIF(    i.type IN (N'1',N'2')
      AND i.obj_type_short_label NOT IN (N'HST',N'IT')
-     AND (   COALESCE(i.stathdr_Average_Key_Length,i.key_Total_datatype_length_bytes) > 16
+     AND (   COALESCE(i.stathdr_Average_Key_Length,i.key_total_datatype_length_bytes) > 16
           OR (   i.type = N'1' AND i.Key_Columns_CNT > 3
               OR i.type = N'2' AND i.Key_Columns_CNT > 4
              )
@@ -17588,7 +17257,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
    ,NCHAR(10) + N'Big key: '
               + IIF(i.stathdr_Average_Key_Length > 0
                    ,CAST(i.stathdr_Average_Key_Length      AS NVARCHAR(20)) + N' StatHdr bytes'
-                   ,CAST(i.key_Total_datatype_length_bytes AS NVARCHAR(20)) + N' col bytes'
+                   ,CAST(i.key_total_datatype_length_bytes AS NVARCHAR(20)) + N' col bytes'
                    ) + N' (BI24)'
               + N' In ' + CAST(i.Key_Columns_CNT AS NVARCHAR(20)) + N' cols'
               + IIF(i.type <> N'1',N' excl CX',N'')
@@ -17621,7 +17290,8 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
   JOIN tempdb.dbo.SQLXL_Index_column      AS c
     ON i.database_id                     = c.database_id
    AND i.object_id                       = c.object_id
-   AND COALESCE(i.tbl_cx_uniq_ordered_column_ID,i.tbl_possible_uniq_column_id) = c.column_id
+   AND COALESCE(i.tbl_cx_uniq_ordered_column_ID
+               ,i.tbl_possible_uniq_column_id  ) = c.column_id
 ) i
  WHERE i.diagnostic IS NOT NULL
 
@@ -17629,8 +17299,8 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Information = 8
 -- Synergies
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
 -- Diagnostic - Index - Synergies found between indexes, missing indexes, and Foreign Key Constraints (BI1&2)
       ,diagnostic = N'Synergy -'
                 +STUFF( IIF(i.synergy_s > 0,N', Sequence (BI1&2)',N'')
@@ -17675,16 +17345,16 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - Hi Scans to Reads - NOTE: No InMemory since all non-hash reads are scans
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic =
        N'Hi Scan %Reads: '
       + LTRIM(IIF(i.ius_user_scans_CNT > 0
                  , N' USG ' + tempdb.dbo.SQLXL_3SD(i.ius_user_scans_CNT,N'I')
                  + N' ('    + tempdb.dbo.SQLXL_3SD(i.ius_scans_to_read_PCT,N'N') + N'%)'
                  + N' (BI80)'
                  , N'')
-             +IIF(i.ops_Total_scan_cnt > 0
-                 , N' OPS ' + tempdb.dbo.SQLXL_3SD(i.ops_Total_scan_cnt,N'I')
+             +IIF(i.ops_total_scan_CNT > 0
+                 , N' OPS ' + tempdb.dbo.SQLXL_3SD(i.ops_total_scan_CNT,N'I')
                  + N' ('    + tempdb.dbo.SQLXL_3SD(i.ops_scans_to_read_PCT,N'N') + N'%)'
                  + N' (BI81)'
                  , N'')
@@ -17692,7 +17362,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
   FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  CROSS
   JOIN (SELECT ius_user_read_CNT
-              ,ops_Total_read_CNT
+              ,ops_total_read_CNT
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'A'
        ) AS a
@@ -17704,19 +17374,15 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
    AND (   i.ius_scans_to_read_PCT > 5.0
         OR i.ops_scans_to_read_PCT > 5.0
        )
-   AND (   IIF(a.ius_user_read_CNT  > 0
-              ,100.0 * i.ius_user_scans_CNT / a.ius_user_read_CNT
-              ,0) > 0.001 -- > 1/1000 of all read activity
-        OR IIF(a.ops_Total_read_CNT > 0
-              ,100.0 * i.ops_Total_scan_cnt / a.ops_Total_read_CNT
-              ,0) > 0.001 -- > 1/1000 of all read activity
+   AND (   IIF(a.ius_user_read_CNT  > 0,100.0 * i.ius_user_scans_CNT / a.ius_user_read_CNT ,0) > 0.001 -- > 1/1000 of all read activity
+        OR IIF(a.ops_total_read_CNT > 0,100.0 * i.ops_total_scan_CNT / a.ops_total_read_CNT,0) > 0.001 -- > 1/1000 of all read activity
        );
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - High (> 25X) Ratio histogram bucket count Hi to low - candidate for parameter sniffing
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic =
  N'Parameter sniffing candidate - Range '
 +tempdb.dbo.SQLXL_3SD(ssh.param_sniff,N'N')
 +N'x for Key '
@@ -17733,8 +17399,8 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - with Lookups > 5% of total reads
 ----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic =
  N'Lookup %Reads: '
 +LTRIM(IIF(i.ius_user_lookups_CNT > 0
           , N' USG ' + tempdb.dbo.SQLXL_3SD(i.ius_user_lookups_CNT,N'I')
@@ -17754,7 +17420,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
  END
   FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  CROSS
-  JOIN (SELECT ius_user_read_CNT,ops_Total_read_CNT 
+  JOIN (SELECT ius_user_read_CNT,ops_total_read_CNT 
           FROM tempdb.dbo.SQLXL_Index_Compilation 
          WHERE rec_type = N'A'
        ) AS a
@@ -17765,16 +17431,16 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
    AND (   IIF(a.ius_user_read_CNT  > 0
               ,100.0 * i.ius_user_lookups_CNT     / a.ius_user_read_CNT
               ,0) > 0.005
-        OR IIF(a.ops_Total_read_CNT > 0
-              ,100.0 * i.ios_singleton_lookup_CNT / a.ops_Total_read_CNT
+        OR IIF(a.ops_total_read_CNT > 0
+              ,100.0 * i.ios_singleton_lookup_CNT / a.ops_total_read_CNT
               ,0) > 0.005
        );
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - Possible UNIQUEIDENTIFIER not stored as UNIQUEIDENTIFIER data type - name or %char data length (16,29,22,32,36,38,68)
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type
 -- Diagnostic - Table - has what looks like a GUID stored as something else
       ,diagnostic = IIF(ic.is_included_column = 0,N'Key ',N'')
                   + N'Column ' + QUOTENAME(cx.name)
@@ -17826,8 +17492,8 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET ANSI_WARNINGS ON;
 
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,diagnostic =
  N'Index Filtered: ' + STUFF(
 -- Diagnostic - index - has filter on lead key column
 +IIF(ed.lead_key > 0,N' Lead Key',N'')
@@ -17968,8 +17634,8 @@ SELECT x.database_id
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Statistics - Filtered Statistics on key columns (Index, Missing, FKC) NOT on an Index
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic =
  N'Column Filtered Statistics (BI93)'
           +ISNULL((SELECT N' Key '
                          +CAST(cfs.key_column_sequence AS NVARCHAR(20))
@@ -18006,8 +17672,8 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - SPARSE column, potential for filtering
 -- Diagnostic - Index - Ratio hi histogram bucket to low is HIGH, candidate for parameter sniffing
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8,diagnostic =
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic =
  N'Key ' + CAST(ic.key_column_sequence AS NVARCHAR(20)) + N':'
 +CASE WHEN c.data_type = N'BIT'
       THEN N' BIT, '
@@ -18088,8 +17754,8 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - Another key has better lead uniqueness, does not cover foreign key
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',xc.database_id,xc.object_id,xc.object_id,xc.index_id,xc.type,diagnostic_type_id = 8
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',xc.database_id,xc.object_id,xc.object_id,xc.index_id,xc.type
       ,diagnostic = N'Key ' + u.[Column Descriptors] + N' is more unique than key 1'
   FROM (
         SELECT bc.database_id
@@ -18146,8 +17812,8 @@ SELECT rec_type = 'I',xc.database_id,xc.object_id,xc.object_id,xc.index_id,xc.ty
 -- Diagnostic - Index - Rowstore index has more than 5 included columns
 -- Diagnostic - Index - Rowstore index included columns 100 or more bytes
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type,diagnostic_type_id = 8
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.type
       ,diagnostic = N'Bulky includes: '
                 +STUFF(                N', ' + CAST(ic.cnt AS VARCHAR(10)) + N' cols'
                        +IIF(ic.len > 0,N', ' + CAST(ic.len AS VARCHAR(10)) + N' bytes',N'')
@@ -18191,8 +17857,8 @@ SELECT rec_type = 'I',ic.database_id,ic.object_id,ic.object_id,ic.index_id,ic.ty
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - Index - with resumable operations and metrics
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 0
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type
       ,diagnostic = N'[RESUMABLE OPERATION - ' + r.state_desc + N']'
                   +NCHAR(10) + N'> Started: ' + CAST(DATEDIFF(DAY,r.start_time,GETDATE()) AS NVARCHAR(20)) + N' days ago)'
                   +NCHAR(10) + N'> Paused:'  + CONVERT(NVARCHAR(10),r.last_pause_time,11) + N'@' +CONVERT(NVARCHAR(8),r.last_pause_time,114)
@@ -18207,10 +17873,10 @@ SELECT rec_type = 'I',i.database_id,i.object_id,i.object_id,i.index_id,i.type,di
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- LEAD KEY - ALL ELEMENTS
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT *
   FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
 -- Diagnostic - Index - Lead Key - is SEQUENTIAL UNIQUE and index is NOT UNIQUE
 -- Diagnostic - Index - Lead Key - is SEQUENTIAL UNIQUE and optimize_for_sequential_key not enabled (2019+) (BI121)
 +IIF(   i.Lead_Element_is_Identity        = 1
@@ -18310,7 +17976,7 @@ WHERE i.diagnostic IS NOT NULL;
 -- Diagnostic - Index - Count of NULL rows and percent of table
 -- Diagnostic - Index - Key Element is non-standard data type
 -- Diagnostic - Index - Key Element is string or LOB type (BI27)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
 SELECT TOP 100 PERCENT
        i.rec_type
@@ -18319,7 +17985,7 @@ SELECT TOP 100 PERCENT
       ,i.object_id
       ,i.index_id
       ,i.type
-      ,diagnostic_type_id = 8
+      
       ,diagnostic = STUFF(
  IIF(c.is_nullable = 1
     ,NCHAR(10) + N'Key ' + QUOTENAME(ic.key_column_sequence) + N' is NULLable'
@@ -18406,9 +18072,9 @@ END
 /******************************************************************************************************************************************\
 ** INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES INDEX TYPES IN **
 \******************************************************************************************************************************************/
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 2,diagnostic =
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic =
 -----------------------------------------------------------------
 -- Diagnostic - Index - Memory table with query activity. NOTE - Memory base table is a HEAP - index type "0"
      IIF(p.xtp_rows_touched_CNT  > 0,N'Touch: '   + tempdb.dbo.SQLXL_3SD(       p.xtp_rows_touched_CNT    ,N'I'),N' No activity')
@@ -18436,7 +18102,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 
 UNION ALL -- HEAPS WITH ACTIVITY
 SELECT * FROM (
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 2,diagnostic =
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic =
  N'Heap '
 +STUFF(
 +IIF(   ip.is_primary_key       = 1
@@ -18465,7 +18131,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 +IIF(   p.row_CNT            > 0
      OR p.index_CNT          > 0
      OR p.Missing_index_CNT  > 0
-     OR p.ius_User_Total_CNT > 0
+     OR p.ius_User_total_CNT > 0
 
 -- Diagnostic - Index - Heap - Number of data rows or empty
     ,NCHAR(10)
@@ -18488,16 +18154,16 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 -- Diagnostic - Index - Heap - with query operations - Reads
 -- Diagnostic - Index - Heap - with query operations - Writes (BI44-46)
 -- Diagnostic - Index - Heap - with query operations - Deletes (BI49)
-    +N' RDS: ' +IIF(p.ops_Total_read_CNT   > 0,tempdb.dbo.SQLXL_3SD(p.ops_Total_read_CNT  ,N'I'),N'0')
-    +N' WRT: ' +IIF(p.ops_Total_write_CNT  > 0,tempdb.dbo.SQLXL_3SD(p.ops_Total_write_CNT ,N'I'),N'0') + N' (BI44-46)'
-    +N' DEL: ' +IIF(p.ops_Total_delete_CNT > 0,tempdb.dbo.SQLXL_3SD(p.ops_Total_delete_CNT,N'I'),N'0') + N' (BI49)'
+    +N' RDS: ' +IIF(p.ops_total_read_CNT   > 0,tempdb.dbo.SQLXL_3SD(p.ops_total_read_CNT  ,N'I'),N'0')
+    +N' WRT: ' +IIF(p.ops_total_write_CNT  > 0,tempdb.dbo.SQLXL_3SD(p.ops_total_write_CNT ,N'I'),N'0') + N' (BI44-46)'
+    +N' DEL: ' +IIF(p.ops_total_delete_CNT > 0,tempdb.dbo.SQLXL_3SD(p.ops_total_delete_CNT,N'I'),N'0') + N' (BI49)'
 ------------------------------------------------------------
     +NCHAR(10)
     +N'> Read to Write ratio:'
 -- Diagnostic - Index - Heap - Usage read to write ratio
 -- Diagnostic - Index - Heap - Operations read to write ratio
     +N' USG ' + tempdb.dbo.SQLXL_3SD(ISNULL(i.ius_read_to_write_RAT,0),N'N') + N'x '
-    +N' OPS ' + tempdb.dbo.SQLXL_3SD(ISNULL(i.ios_read_to_write_RAT,0),N'N') + N'x '
+    +N' OPS ' + tempdb.dbo.SQLXL_3SD(ISNULL(i.ops_read_to_write_RAT,0),N'N') + N'x '
 ------------------------------------------------------------
 +IIF(p.ios_forwarded_fetch_CNT > 0
     ,NCHAR(10)
@@ -18562,7 +18228,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,p.
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT * FROM ( -- pairs with "WHERE i.diagnostic IS NOT NULL" below
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
  -- 1   Clustered - ignore System Versioned Temporal Tables as appropriate -------------------------
 +IIF(i.type = N'1'
 -- Diagnostic - Index - Clustered Rowstore - index Not Unique (BI28)
@@ -18581,9 +18247,9 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 
 -- Diagnostic - Index - Clustered Rowstore index - lots of range scans (> 20%)
     +IIF(    i.obj_type_short_label NOT IN (N'HST',N'IT')          -- don't care about history tables, internal tables
-         AND i.ops_Total_read_CNT     > 0                          -- gotta been read
-        ,IIF(100.0 * i.ops_Total_scan_cnt / i.ops_Total_read_CNT > 20.0 -- range scans > 20% of total reads
-            ,NCHAR(10) + N'OPS  CX Scans are ' + tempdb.dbo.SQLXL_3SD(1.0 * I.ops_Total_scan_cnt / i.ops_Total_read_CNT,N'%')
+         AND i.ops_total_read_CNT     > 0                          -- gotta been read
+        ,IIF(100.0 * i.ops_total_scan_CNT / i.ops_total_read_CNT > 20.0 -- range scans > 20% of total reads
+            ,NCHAR(10) + N'OPS  CX Scans are ' + tempdb.dbo.SQLXL_3SD(1.0 * I.ops_total_scan_CNT / i.ops_total_read_CNT,N'%')
                        + N' of RDS - more indexes?'
             ,N'')
         ,N'')
@@ -18640,7 +18306,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
            AND ic.cnt                                                 = dv.Row_ID
        ) iu
  WHERE i.obj_type_short_label NOT IN (N'DRP',N'HST',N'IT',N'TVF',N'VW')
-   AND i.reserved_page_CNT      > 32 -- size bigger than 256KB (8KBx32Pages)
+   AND i.reserved_page_PG_CNT   > 32 -- size bigger than 256KB (8KBx32Pages)
    AND i.type                  IN (N'1',N'2')
 ) AS i WHERE i.diagnostic > N''
 
@@ -18649,7 +18315,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 ----------------------------------------------------------------------------------------------------
 UNION ALL
 SELECT * FROM ( -- pairs with "WHERE i.diagnostic IS NOT NULL" below
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic = STUFF(
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic = STUFF(
 
  IIF(i.type = N'2' AND i.partition_CNT > 1 AND i.tbl_is_heap = 1
 -- Diagnostic - Index - Partitioned Nonclustered index found on Heap
@@ -18731,10 +18397,10 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
 /******************************************************************************************************************************************\
 -- Index Compression, Type_ID = 8
 \******************************************************************************************************************************************/
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT i.* FROM (
 -- Diagnostic - Index - Compression - count of compressed Partitions (BI63)
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8,diagnostic =
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic =
   N'Compression: '
 + CASE WHEN i.rec_type = N'I'
         AND (   i.Partition_none_compress_CNT                    > 1
@@ -18818,7 +18484,7 @@ END
 -- NOTE: fk.is_not_trusted & fk.is_disabled are covered by index Diagnostics
 SET ANSI_WARNINGS ON; -- Needed for FOR XML PATH
 
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
 -- Diagnostic - Foreign Key Constraint - Self Referencing
 SELECT rec_type          = N'I'
@@ -18827,7 +18493,6 @@ SELECT rec_type          = N'I'
       ,fk.object_id
       ,index_id          = fk.object_id
       ,type              = N'F'
-      ,diagnostic_type_id   = 0
       ,diagnostic           = QUOTENAME(N'Self referencing FKC')
   FROM tempdb.dbo.SQLXL_Index_sys_foreign_keys AS fk
  WHERE fk.parent_object_id = fk.referenced_object_id
@@ -18843,7 +18508,6 @@ SELECT rec_type           = N'I'
       ,fk.object_id
       ,index_id           = fk.object_id
       ,type               = N'F'
-      ,diagnostic_type_id = 2
       ,diagnostic         = STUFF(IIF(fk.is_disabled                = 1,N' *DISABLED*',N'')
                                  +IIF(fk.is_not_trusted             = 1,N' *NOT TRUSTED*',N'')
                                  +IIF(fk.fkc_is_not_for_replication = 1 AND fk.tbl_is_replicated = 1,N' *NOT ENABLED FOR REPLICATION*',N'')
@@ -18868,7 +18532,6 @@ SELECT DISTINCT
       ,object_id         = o.l_index_id
       ,index_id          = o.l_index_id
       ,type              = N'F'
-      ,diagnostic_type_id   = 2
       ,diagnostic           = N'*Duplicate FKC*'
   FROM tempdb.dbo.SQLXL_Index_Synergies AS o
  WHERE o.l_type     = N'F'
@@ -18885,7 +18548,6 @@ SELECT DISTINCT
       ,object_id         = o.l_index_id
       ,index_id          = o.l_index_id
       ,type              = N'F'
-      ,diagnostic_type_id   = 2
       ,diagnostic           = N'*Included FKC*'
   FROM tempdb.dbo.SQLXL_Index_Synergies AS o
  WHERE o.l_type     = N'F'
@@ -18902,7 +18564,6 @@ SELECT DISTINCT
       ,object_id         = o.l_index_id
       ,index_id          = o.l_index_id
       ,type              = N'F'
-      ,diagnostic_type_id   = 2
       ,diagnostic           = N'*Overlapping FKC*'
   FROM tempdb.dbo.SQLXL_Index_Synergies AS o
  WHERE o.l_type     = N'F'
@@ -18919,7 +18580,6 @@ SELECT DISTINCT
       ,object_id         = o.l_index_id
       ,index_id          = o.l_index_id
       ,type              = N'F'
-      ,diagnostic_type_id   = 2
       ,diagnostic           = N'*Contained FKC*'
   FROM tempdb.dbo.SQLXL_Index_Synergies AS o
  WHERE o.l_type     = N'F'
@@ -18936,7 +18596,7 @@ SELECT rec_type           = N'I'
       ,fk.object_id
       ,index_id           = fk.object_id
       ,type               = N'F'
-      ,diagnostic_type_id = 4
+      
       ,diagnostic         = N'FKC Action:'
                            +N' Delete ' + fk.delete_referential_action_desc
                            +N' Update ' + fk.update_referential_action_desc
@@ -18954,21 +18614,21 @@ SELECT rec_type           = N'I'
 -- are there missing indexes found? See "Update Foreign Key Constraints" for rules
 -- Note: as of Mar 2023 BlitzIndex refers to 2 CHECK_ID 72's - Woo!
 --------------------------------------------------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
-SELECT rec_type= N'I',i.database_id,i.parent_object_id,i.object_id,index_id=i.object_id,type=N'F',diagnostic_type_id=4,diagnostic =
+SELECT rec_type= N'I',i.database_id,i.parent_object_id,i.object_id,index_id=i.object_id,type=N'F',diagnostic =
 -- Diagnostic - Foreign Key Constraint - No covering index lead key element (BI72)
- N'No covering IDX (BI72)'
+ N'Uncovered FKC (BI72)'
 +IIF(i.fkc_Missing_index_CNT > 0 -- candidate missing indexes found
 -- Diagnostic - Foreign Key Constraint - elements found in Missing indexes
-    ,NCHAR(10) + N'> In ' + CAST(i.fkc_Missing_index_CNT AS NVARCHAR(20)) + N' MIX '
+    ,NCHAR(10) +N'> In '    + CAST(i.fkc_Missing_index_CNT AS NVARCHAR(20)) + N' MIX Candidate(s) '
                +N' Adv: '   + IIF(a.mix_Advantage_AMT > 0
                                  ,tempdb.dbo.SQLXL_3SD(1.0 * ISNULL(i.mix_Advantage_AMT,0) / a.mix_Advantage_AMT,N'%')
                                  ,N'')
                ---------------------------------
-               +N' Cost: '  + IIF((a.mix_avg_Total_user_cost_AMT + a.mix_avg_Total_system_cost_AMT) > 0
-                                 ,tempdb.dbo.SQLXL_3SD(1.0 * ISNULL((i.mix_avg_Total_user_cost_AMT + i.mix_avg_Total_system_cost_AMT),0)
-                                                           / (a.mix_avg_Total_user_cost_AMT + a.mix_avg_Total_system_cost_AMT)
+               +N' Cost: '  + IIF((a.mix_avg_total_user_cost_AMT + a.mix_avg_total_system_cost_AMT) > 0
+                                 ,tempdb.dbo.SQLXL_3SD(1.0 * ISNULL((i.mix_avg_total_user_cost_AMT + i.mix_avg_total_system_cost_AMT),0)
+                                                           / (a.mix_avg_total_user_cost_AMT + a.mix_avg_total_system_cost_AMT)
                                                       ,N'%')
                                  ,N'')
                ---------------------------------
@@ -18977,13 +18637,13 @@ SELECT rec_type= N'I',i.database_id,i.parent_object_id,i.object_id,index_id=i.ob
                                                            / (a.mix_avg_user_impact_AMT + a.mix_avg_system_impact_AMT)
                                                       ,N'%')
                                  ,N'')
-    +NCHAR(10) + N'> MIX Compiles: ' + tempdb.dbo.SQLXL_3SD(ISNULL(i.mix_unique_compiles_CNT,0),N'I')
-               +N' Usage: '          + tempdb.dbo.SQLXL_3SD(ISNULL(i.ius_User_Total_CNT     ,0),N'I')
-                                     + IIF(p.ius_User_Total_CNT > 0
-                                          , N' ('
-                                          + tempdb.dbo.SQLXL_3SD(1.0 * ISNULL(i.ius_User_Total_CNT,0) / p.ius_User_Total_CNT,N'%')
-                                          + N')'
-                                          ,N'')
+    +NCHAR(10) +N'> MIX Compiles: ' + tempdb.dbo.SQLXL_3SD(ISNULL(i.mix_unique_compiles_CNT,0),N'I')
+               +N' Usage: '         + tempdb.dbo.SQLXL_3SD(ISNULL(i.ius_User_total_CNT     ,0),N'I')
+                                    + IIF(p.ius_User_total_CNT > 0
+                                         , N' ('
+                                         + tempdb.dbo.SQLXL_3SD(1.0 * ISNULL(i.ius_User_total_CNT,0) / p.ius_User_total_CNT,N'%')
+                                         + N')'
+                                         ,N'')
                +N' Last: '   + ISNULL(CONVERT(NVARCHAR(10),(SELECT MAX(dt)
                                                               FROM (VALUES (i.ius_last_user_seek_DTTM)
                                                                           ,(i.ius_last_user_scan_DTTM)
@@ -19019,7 +18679,7 @@ SELECT COUNT(1)
 
 -- Diagnostic - Foreign Key Constraint - count of referring FKC to this reference
 UNION ALL
-SELECT rec_type   = N'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id= 8
+SELECT rec_type   = N'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
       ,diagnostic = N'FKC References - ' + QUOTENAME(CAST(i.rk_referencing_fkc_CNT AS NVARCHAR(20)))
   FROM tempdb.dbo.SQLXL_Index_Compilation AS i
  WHERE i.rec_type               = N'I'
@@ -19027,7 +18687,7 @@ SELECT rec_type   = N'I',i.database_id,i.parent_object_id,i.object_id,i.index_id
 
 -- Diagnostic - Foreign Key Constraint - indexes with lead key(s) covering this FKC, in size order
 UNION ALL
-SELECT rec_type = N'I',fk.database_id,fk.parent_object_id,fk.object_id,index_id=fk.object_id,type=N'F',diagnostic_type_id=8
+SELECT rec_type = N'I',fk.database_id,fk.parent_object_id,fk.object_id,index_id=fk.object_id,type=N'F'
       ,diagnostic = N'Covered by index ID(s) ' + fk.fkc_covered_by_idx_IDS
   FROM tempdb.dbo.SQLXL_Index_Compilation AS fk
  WHERE fk.rec_type                = N'I'
@@ -19046,37 +18706,16 @@ END
 /******************************************************************************************************************************************\
 ** MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING INDEXES MISSING**
 \******************************************************************************************************************************************/
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT * FROM (
 SELECT -- Index level
-       rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 4,diagnostic =
-
--- Diagnostic - Index - High Missing Index Advantage (BI50)
--- Diagnostic - Index - High Missing Index Count (BI50)
--- Diagnostic - Index - High Missing Index Compiles (BI50)
-       N'MIX Adv %Table ' + ISNULL(m.diagnostic + N' (BI50)',N'<Metric not found>')
-      +N' RDS: '          + ISNULL(tempdb.dbo.SQLXL_3SD(i.ius_User_read_CNT,N'I')
-                                  + N' (' + tempdb.dbo.SQLXL_3SD(ius_read_to_parent_RAT,N'%') + N')'
-                                  ,N'<NONE>'
-                                  )
-      +N' Compiles: '     + ISNULL(tempdb.dbo.SQLXL_3SD(i.mix_unique_compiles_CNT,N'I'),N'<NONE>')
-      +ISNULL(N' Last '   + TRY_CAST(i.ius_last_read_days_ago AS NVARCHAR(20)) + N' days ago',N'<NEVER>')
-
+       rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic =
 -- Diagnostic - Missing index - candidate to cover foreign key constraint
-      +IIF(mix.fkc_id IS NOT NULL
+       IIF(mix.fkc_id IS NOT NULL
           ,NCHAR(10) + N'> Possible cover for Foreign Key(s) ' + STUFF(mix.fkc_id,1,1,N'')
           ,N'')
   FROM tempdb.dbo.SQLXL_Index_Compilation AS i
- LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_Index_Metrics     AS m
-    ON i.database_id                     = m.database_id
-   AND i.parent_object_id                = m.parent_object_id
-   AND i.object_ID                       = m.object_id
-
-   AND i.index_ID                        = m.index_id
-   AND i.type                            = m.type
-   AND N'mix_Advantage_AMT'              = m.metric
- OUTER APPLY
+ CROSS APPLY
        (SELECT N',N' + CAST(syn.l_index_id AS VARCHAR(10))
           FROM tempdb.dbo.SQLXL_Index_Synergies   AS syn
                -- uncovered Foreign Key Constraints ------------------------------------
@@ -19092,13 +18731,17 @@ SELECT -- Index level
            AND i.index_ID          = syn.r_index_ID
            AND i.type              = syn.r_type -- Missing index type = 'M'
            AND N'I'                = fkc.type
+           AND TRY_CAST(syn.l_index_id AS INT) IS NOT NULL
            FOR XML PATH(N'')
        ) mix(fkc_id)
  WHERE i.rec_type = N'I'
    AND i.type     = N'M'
+) AS i
+ WHERE LTRIM(RTRIM(diagnostic)) > N'';
 
-UNION ALL -- Index Level
-SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 8
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT * FROM (
+SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
 
 -- Diagnostic - Missing index - table is Clustered Columnstore or has Nonclustered Columnstore
       ,diagnostic = N'> Table '
@@ -19115,7 +18758,7 @@ SELECT rec_type = 'I',i.database_id,i.parent_object_id,i.object_id,i.index_id,i.
        )
 
 UNION ALL -- Table Level
-SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type,diagnostic_type_id = 4
+SELECT rec_type = 'P',p.database_id,p.parent_object_id,p.object_id,p.index_id,p.type
 
 -- Diagnostic - Table - candidate for Nonclustered Columnstore due to missing index count
       ,diagnostic = N'Missing index CNT: ' + CAST(p.Missing_index_CNT AS VARCHAR(10))
@@ -19171,7 +18814,7 @@ END
 ** OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS OTHER ELEMENTS **
 \******************************************************************************************************************************************/
 -- Diagnostic - Object - possible temporary object based on name
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
 SELECT DISTINCT
        c.rec_type
       ,c.database_id
@@ -19179,7 +18822,6 @@ SELECT DISTINCT
       ,c.object_ID
       ,c.index_ID
       ,c.type
-      ,diagnostic_type_id = 1
       ,diagnostic         = N'[POTENTIAL TEMPORARY OBJECT]'
   FROM (
         SELECT c.rec_type,c.database_id,c.parent_object_id,c.object_id,c.index_id,c.type,diagnostic=
@@ -19569,12 +19211,12 @@ END
 
 ----------------------------------------------------------------------------------------------------
 -- RETAIN - Required by others: Foreign Key Constraint reference
--- RETAIN - Required by others: Change Data Capture (CDC)
--- RETAIN - Required by others: Temporal (SVN)
--- RETAIN - Required by others: Ledger (LDG)
--- RETAIN - Required by others: XML
--- RETAIN - Required by others: Spatial (SPT)
--- RETAIN - Required by others: Full Text (FTX)
+-- RETAIN - Required by others: Change Data Capture (CDC) Table
+-- RETAIN - Required by others: Temporal (SVN) Table
+-- RETAIN - Required by others: Ledger (LDG) Table
+-- RETAIN - Required by others: XML Index
+-- RETAIN - Required by others: Spatial (SPT) Index
+-- RETAIN - Required by others: Full Text (FTX)  Index
 -- RETAIN - Required by others: Constraints - Primary Key - NOTE: does not filter out NOCHECKS
 -- RETAIN - Required by others: Constraints - Unique Key - NOTE: does not filter out NOCHECKS
 ----------------------------------------------------------------------------------------------------
@@ -19903,8 +19545,8 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request'
    AND i.tbl_is_memory_optimized    = 0    -- Memory-optimized tables don't have CLUSTERED INDEXES, just HEAPS
    AND i.tbl_cx_uniq_ordered_column_TYP IS NOT NULL
    ---------------------------------------------------------
-   AND (   p.ius_User_Total_CNT     > 0    -- gotta hafta be used
-        OR p.ops_Total_contacts_CNT > 0    -- gotta hafta be used
+   AND (   p.ius_User_total_CNT     > 0    -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
        );
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
@@ -19946,8 +19588,8 @@ SELECT i.database_id,tgt.parent_object_id,i.object_id,i.index_id,i.type,
     ON N'P'                                    = p.rec_type
    AND i.database_id                           = p.database_id
    AND i.object_id                             = p.object_id
- WHERE (   p.ius_User_Total_CNT     > 0    -- gotta hafta be used
-        OR p.ops_Total_contacts_CNT > 0    -- gotta hafta be used
+ WHERE (   p.ius_User_total_CNT     > 0    -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
        );
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
@@ -20024,8 +19666,8 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request'
    AND i.type                    = N'0'
    AND i.tbl_is_memory_optimized = 0       -- Memory-optimized tables don't have CLUSTERED INDEXES
    ---------------------------------------------------------
-   AND (   p.ius_User_Total_CNT     > 0    -- gotta hafta be used
-        OR p.ops_Total_contacts_CNT > 0    -- gotta hafta be used
+   AND (   p.ius_User_total_CNT     > 0    -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
        )
    ---------------------------------------------------------
    AND i.tbl_smallest_uniq_Nonclustered_idx IS NOT NULL
@@ -20070,8 +19712,8 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request'
    AND i.type                       = N'0'
    AND i.tbl_is_memory_optimized    = 0     -- Memory-optimized tables don't have CLUSTERED INDEXES
    ---------------------------------------------------------
-   AND (   p.ius_User_Total_CNT     > 0     -- gotta hafta be used
-        OR p.ops_Total_contacts_CNT > 0    -- gotta hafta be used
+   AND (   p.ius_User_total_CNT     > 0     -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
        )
    ---------------------------------------------------------
    AND a.type                     IS NULL  -- not already flagged above
@@ -20118,8 +19760,8 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,N'Request'
    AND i.type                      = N'0'
    AND i.tbl_is_memory_optimized   = 0     -- Memory-optimized tables don't have CLUSTERED INDEXES
    ---------------------------------------------------------
-   AND (   p.ius_User_Total_CNT     > 0    -- gotta hafta be used
-        OR p.ops_Total_contacts_CNT > 0    -- gotta hafta be used
+   AND (   p.ius_User_total_CNT     > 0    -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
        )
    ---------------------------------------------------------
    AND a.type                     IS NULL -- not already flagged above
@@ -20314,10 +19956,10 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
                             WHEN i.cdc_index_name  = i.name   THEN 1
                             ELSE 0
                        END AS TINYINT)
-      ,ius      = i.ius_read_to_parent_RAT
+      ,ius      = i.ius_read_to_parent_PCT
       ,rtw      = i.ius_read_to_write_RAT
-      ,ios      = i.ios_read_to_parent_RAT
-      ,stw      = i.ios_read_to_write_RAT
+      ,ios      = i.ops_read_to_parent_PCT
+      ,stw      = i.ops_read_to_write_RAT
   INTO #Candidate_indexes_for_NCS
 /*** LOCAL TESTING ***
 SELECT i.database_id,i.object_id,i.index_id,i.type
@@ -20325,10 +19967,10 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
                             WHEN i.cdc_index_name  = i.name   THEN 1
                             ELSE 0
                        END AS TINYINT)
-      ,ius      = i.ius_read_to_parent_RAT
+      ,ius      = i.ius_read_to_parent_PCT
       ,rtw      = i.ius_read_to_write_RAT
-      ,ios      = i.ios_read_to_parent_RAT
-      ,stw      = i.ios_read_to_write_RAT
+      ,ios      = i.ops_read_to_parent_PCT
+      ,stw      = i.ops_read_to_write_RAT
 --*/
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
@@ -20358,16 +20000,16 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
              )
    --------------------------------------------------------
    AND obj_type_short_label                    NOT IN (N'HST',N'IT') -- Not a system maintained history or internal table
-   AND ISNULL(i.Nonclustered_ColumnStore_CNT,0)  = 0              -- Nonclustered columnstore doesn't alreay exist on table
-   AND x.index_id                               IS NULL           -- all index key columns are eligible to be in Nonclustered columnstore
+   AND ISNULL(i.Nonclustered_ColumnStore_CNT,0)  = 0    -- Nonclustered columnstore doesn't alreay exist on table
+   AND x.index_id                               IS NULL -- all index key columns are eligible to be in Nonclustered columnstore
    --------------------------------------------------------
-   AND (   (    i.type                           = N'2'           -- Nonclustered indexes
-            AND (   i.ios_read_to_parent_RAT     < 0.02           -- Read Usage < 2% of all reads on this table/view
-                 OR i.ios_read_to_write_RAT      < 4.0            -- Reads/Writes < 4 Usage stats - writes = 4: memory lock, memory, index, log
+   AND (   (    i.type                           = N'2' -- Nonclustered indexes
+            AND (   i.ops_read_to_parent_PCT     < 2.0  -- Read Usage < 2% of all reads on this table/view
+                 OR i.ops_read_to_write_RAT      < 4.0  -- Reads/Writes < 4 Usage stats - writes = 4: memory lock, memory, index, log
                 )
            )
-        OR (    i.type                           = N'M'           -- missing indexes
-            AND i.ios_read_to_parent_RAT         < 0.02           -- MIX Usage > 2.0% of all reads on this table/view
+        OR (    i.type                           = N'M' -- missing indexes
+            AND i.ops_read_to_parent_PCT         < 2.0  -- MIX Usage > 2.0% of all reads on this table/view
            )
        )
    AND ISNULL(i.prescription,N'') NOT LIKE N'Remove%'  -- not flagged above
@@ -20520,9 +20162,9 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
              )
-   AND x.index_id                              IS NULL            -- Index keys data types are allowed in Nonclustered columnstore
-   AND (   ISNULL(i.ius_read_to_parent_RAT,0.0) < 0.01            -- not used too much
-        OR i.type = N'M'                                          -- include all Missing indexes
+   AND x.index_id                              IS NULL -- Index keys data types are allowed in Nonclustered columnstore
+   AND (   ISNULL(i.ius_read_to_parent_PCT,0.0) < 1.0  -- not used too much
+        OR i.type = N'M'                               -- include all Missing indexes
        )
    -- Index hasn't been called out before for action
    AND ISNULL(i.prescription,N'') NOT LIKE N'Remove%'  -- not flagged above
@@ -20557,7 +20199,7 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
            AND mix_Advantage_AMT > 0
        ) AS ins
  WHERE i.type                      = N'M'                     -- Missing index
-   AND (  100.0 * i.ius_read_to_parent_RAT                    -- percent of READS if this index were created on the table
+   AND (    1.0 * i.ius_read_to_parent_PCT                    -- percent of READS if this index were created on the table
         + 100.0 * i.mix_Advantage_AMT / ins.mix_Advantage_AMT -- /zero handled by WHERE clause above
                                                               -- percent of total benefit across instance for this missing index
        ) > 4.0                                                -- seems like a good enough number to include all reasonable missings
@@ -20629,11 +20271,11 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
                                                  -- il.is_primary_key                  DESC -- PRIMARY KEY already retained above
                                                  -- il.is_unique_constraint            DESC -- UNIQUE CONSTRAINT already retained above
                                                     il.is_unique                       DESC -- is UNIQUE
-                                                   ,il.ius_read_to_parent_RAT          DESC -- most used
+                                                   ,il.ius_read_to_parent_PCT          DESC -- most used
                                                    ,il.stathdr_Average_Key_Length      DESC -- biggest
                                                    ,il.Key_Columns_CNT                 DESC -- most key elements
-                                                   ,il.key_Total_datatype_length_bytes DESC -- widest key
-                                                   ,il.inc_Total_datatype_length_bytes      -- fewest included columns
+                                                   ,il.key_total_datatype_length_bytes DESC -- widest key
+                                                   ,il.inc_total_datatype_length_bytes      -- fewest included columns
                                                    ,il.index_id
                                       )
                ,seq.database_id
@@ -20779,10 +20421,10 @@ SELECT o.database_id
       ,o.matching_sequence_all_density
       ,o.l_index_id
       ,o.l_type
-      ,l_reads = (ISNULL(l.ops_Total_read_CNT,0) + ISNULL(l.ius_User_read_CNT,0))
+      ,l_reads = (ISNULL(l.ops_total_read_CNT,0) + ISNULL(l.ius_User_read_CNT,0))
       ,o.r_index_id
       ,o.r_type
-      ,r_reads = (ISNULL(r.ops_Total_read_CNT,0) + ISNULL(r.ius_User_read_CNT,0))
+      ,r_reads = (ISNULL(r.ops_total_read_CNT,0) + ISNULL(r.ius_User_read_CNT,0))
   FROM tempdb.dbo.SQLXL_Index_Synergies AS o
   JOIN (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
@@ -20808,7 +20450,7 @@ SELECT o.database_id
    AND l.prescription                  IS NULL
    AND r.prescription                  IS NULL
    -----------------------------------------------
-   AND (l.ops_Total_read_CNT + l.ius_User_read_CNT) < (r.ops_Total_read_CNT + r.ius_User_read_CNT)
+   AND (l.ops_total_read_CNT + l.ius_User_read_CNT) < (r.ops_total_read_CNT + r.ius_User_read_CNT)
 )
 UPDATE i
    SET
@@ -20857,15 +20499,15 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
    AND i.obj_type                   = N'U'
    AND i.type                       = N'2' -- Nonclustered index
    AND i.tbl_is_heap                = 0
-   AND (   p.ius_User_Total_CNT     > 0    -- gotta hafta be used
-        OR p.ops_Total_contacts_CNT > 0    -- gotta hafta be used
+   AND (   p.ius_User_total_CNT     > 0    -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
        )
    AND i.row_CNT                    > 0
    ---------------------------------------------------------
    AND ISNULL(i.ius_read_to_write_RAT,0.0)  < 4.0
-   AND ISNULL(i.ios_read_to_write_RAT,0.0)  < 4.0
-   AND ISNULL(i.ius_read_to_parent_RAT,0.0) < 0.02
-   AND ISNULL(i.ios_read_to_parent_RAT,0.0) < 0.02;
+   AND ISNULL(i.ops_read_to_write_RAT,0.0)  < 4.0
+   AND ISNULL(i.ius_read_to_parent_PCT,0.0) < 2.0
+   AND ISNULL(i.ops_read_to_parent_PCT,0.0) < 2.0;
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -20899,13 +20541,13 @@ SELECT i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,
    AND i.obj_type                   = N'U'
    AND i.type                       = N'2' -- Nonclustered index
    AND i.tbl_is_heap                = 0
-   AND (   p.ius_User_Total_CNT     > 0    -- gotta hafta be used
-        OR p.ops_Total_contacts_CNT > 0    -- gotta hafta be used
+   AND (   p.ius_User_total_CNT     > 0    -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
        )
    AND i.row_CNT                    > 0
    ---------------------------------------------------------
-   AND ISNULL(i.ius_read_to_parent_RAT,0) < 0.005
-   AND ISNULL(i.ios_read_to_parent_RAT,0) < 0.005;
+   AND ISNULL(i.ius_read_to_parent_PCT,0) < 0.50
+   AND ISNULL(i.ops_read_to_parent_PCT,0) < 0.50;
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -21140,7 +20782,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
  WHERE obj_type_short_label   NOT IN (N'HST',N'IT')   -- Not a system maintained history or internal table
    AND fill_factor                          < 100.0
    AND ISNULL(page_splits_to_write_PCT,0.0) BETWEEN 0.0 AND 2.0
-   AND reserved_page_CNT                    > 0
+   AND reserved_page_PG_CNT                 > 0
    ---------------------------------------------------------
    AND prescription   LIKE N'Retain%'   -- NOTE: no leading "%"
 
@@ -21316,7 +20958,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Refactor',@srt
        ) AS i
  WHERE i.obj_type_short_label   NOT IN (N'HST',N'IT')       -- Not a system maintained history or internal table
    ---------------------------------------------------------
-   AND inc_Total_datatype_length_bytes >= 128
+   AND inc_total_datatype_length_bytes >= 128
    ---------------------------------------------------------
    AND prescription   LIKE N'Retain%';           -- NOTE: no leading "%"
 
@@ -21683,7 +21325,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
                                ,N' Empty IDX'
                                ,N'')
                            +IIF(    type NOT IN (N'4',N'F')          -- no Foreign Key or SPATIAL
-                                AND ISNULL(ius_User_Total_CNT,0) = 0 -- no Usage activity
+                                AND ISNULL(ius_User_total_CNT,0) = 0 -- no Usage activity
                                ,N' No activity'
                                ,N'')
                            ,1,1,N'')
@@ -21704,8 +21346,8 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Review',@srt
    AND (  TRY_CAST(type AS INT)        >= 0
         OR type                         = N'M'
        )
-   AND (   (    ISNULL(ius_User_Total_CNT    ,0) = 0
-            AND ISNULL(ops_Total_contacts_CNT,0) = 0
+   AND (   (    ISNULL(ius_User_total_CNT    ,0) = 0
+            AND ISNULL(ops_total_contacts_CNT,0) = 0
            )
         OR ISNULL(row_CNT           ,0) = 0
        )
@@ -22179,7 +21821,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Rebuild',@srt
        ) AS i
  WHERE 1 = 1
    AND prescription  LIKE N'Retain%'              -- NOTE: no leading "%", filters out MISSING indexes
-   AND i.buffer_Total_KB_CNT > (i.reserved_page_CNT * 8.0)
+   AND i.buffer_total_KB_CNT > (i.reserved_page_PG_CNT * 8.0)
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -22203,9 +21845,9 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Rebuild',@srt
   FROM tempdb.dbo.SQLXL_Index_Compilation
  WHERE rec_type = N'I'
    AND tbl_is_memory_optimized = 0 -- exclude memoryoptimized
-   AND buffer_Total_KB_CNT > 0.0
+   AND buffer_total_KB_CNT > 0.0
    AND prescription  LIKE N'Retain%' -- NOTE: no leading "%", filters out MISSING indexes
-   AND 100.0 * buffer_free_KB_CNT / buffer_Total_KB_CNT > 20.0; -- /zero handled by WHERE clause element above
+   AND 100.0 * buffer_free_KB_CNT / buffer_total_KB_CNT > 20.0; -- /zero handled by WHERE clause element above
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
@@ -22314,7 +21956,7 @@ SELECT database_id,parent_object_id,object_id,index_id,type,N'Rebuild',@srt
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'I'
        ) AS i
- WHERE TRY_CAST(type AS INT)    BETWEEN 1 AND 4             -- no HEAPS, Clustered ColStore, NonClus ColStore, FulltText
+ WHERE TRY_CAST(type AS INT)    BETWEEN 1 AND 3             -- no HEAPS, Spatial, Clustered ColStore, NonClustered ColStore, FulltText
    AND obj_type_short_label NOT IN (N'HST',N'IT',N'TVF')    -- Not a system maintained history table or table valued function
    ---------------------------------------------------------
    AND stathdr_Statistics_age_days    IS NULL
@@ -22428,64 +22070,114 @@ END
 UPDATE p
    SET
 /*** LOCAL TESTING ***
+DECLARE @Prio_wait_time                   SMALLINT = 100
+       ,@Prio_wait_count                  SMALLINT =  50
+       ,@Prio_locks                       SMALLINT =  20
+       ,@Prio_lock_promotions             SMALLINT =  60
+       ,@Prio_lock_promotion_fails        SMALLINT =  80
+       ,@Prio_page_splits                 SMALLINT =  30
+       ,@Prio_page_merges                 SMALLINT =  30
+       ,@Prio_OPS_forwarded_fetches       SMALLINT =  30
+       ,@Prio_missing_indexes             SMALLINT =  80
+       ,@Prio_OPS_writes                  SMALLINT =  30
+       ,@Prio_USG_writes                  SMALLINT =  40
+       ,@Prio_buffer_cache_used           SMALLINT =  80
+       ,@Prio_OPS_read_write_ratio        SMALLINT =  15 -- Note: starts with 4X as the "zero" value and works backwards from there
+       ,@Prio_USG_read_write_ratio        SMALLINT =  15 -- Note: starts with 4X as the "zero" value and works backwards from there
+       ,@Prio_reads                       SMALLINT =  10
+       ,@Prio_scans                       SMALLINT =  40
+       ,@Prio_lookups                     SMALLINT =  60
+       ,@Prio_LOB                         SMALLINT =  80
+       ,@xtp_Priority_deflator            SMALLINT =  50
+
 SELECT p.database_id,p.parent_object_id,p.object_id,p.obj_type,p.obj_name,
-*/
+--*/
        tbl_priority_metric =
 -- Waiting -------------------------------------------------
- IIF(a.ios_Total_wait_MS_CNT       > 0,1.0 * ISNULL(p.ios_Total_wait_MS_CNT      ,0) / a.ios_Total_wait_MS_CNT      ,0) * @Prio_wait_time
-+IIF(a.ios_Total_wait_CNT          > 0,1.0 * ISNULL(p.ios_Total_wait_CNT         ,0) / a.ios_Total_wait_CNT         ,0) * @Prio_wait_count
+ IIF(a.ops_total_wait_MS_CNT       > 0,1.0 * ISNULL(p.ops_total_wait_MS_CNT      ,0) / a.ops_total_wait_MS_CNT      ,0) * @Prio_wait_time
++IIF(a.ops_total_wait_CNT          > 0,1.0 * ISNULL(p.ops_total_wait_CNT         ,0) / a.ops_total_wait_CNT         ,0) * @Prio_wait_count
 
 -- Locking -------------------------------------------------
-+IIF(a.ios_Total_Lock_CNT          > 0,1.0 * ISNULL(p.ios_Total_Lock_CNT         ,0) / a.ios_Total_Lock_CNT         ,0) * @Prio_locks
++IIF(a.ops_total_lock_CNT          > 0,1.0 * ISNULL(p.ops_total_lock_CNT         ,0) / a.ops_total_lock_CNT         ,0) * @Prio_locks
 +IIF(a.ios_lock_promotion_CNT      > 0,1.0 * ISNULL(p.ios_lock_promotion_CNT     ,0) / a.ios_lock_promotion_CNT     ,0) * @Prio_lock_promotions
 +IIF(a.ios_lock_promotion_fail_CNT > 0,1.0 * ISNULL(p.ios_lock_promotion_fail_CNT,0) / a.ios_lock_promotion_fail_CNT,0) * @Prio_lock_promotion_fails
 
--- Splits, s, Heap Forwarded Fetches ------------------
-+IIF(a.ops_Total_page_split_CNT    > 0,1.0 * ISNULL(p.ops_Total_page_split_CNT   ,0) / a.ops_Total_page_split_CNT   ,0) * @Prio_page_splits
-+IIF(a.ops_Total_page_merge_CNT    > 0,1.0 * ISNULL(p.ops_Total_page_merge_CNT   ,0) / a.ops_Total_page_merge_CNT   ,0) * @Prio_page_merges
-+IIF(a.ios_forwarded_fetch_CNT     > 0,1.0 * ISNULL(p.ios_forwarded_fetch_CNT    ,0) / a.ios_forwarded_fetch_CNT    ,0) * @Prio_OPS_forwarded_fetches
+-- Splits, merges, Heap Forwarded Fetches ------------------
++IIF(a.ops_total_page_split_CNT > 0,1.0 * ISNULL(p.ios_leaf_alloc_page_split_CNT    ,0) / a.ops_total_page_split_CNT,0) * @Prio_page_splits
++IIF(a.ops_total_page_split_CNT > 0,1.0 * ISNULL(p.ios_nonleaf_alloc_page_split_CNT ,0) / a.ops_total_page_split_CNT,0) * @Prio_page_splits
++IIF(a.ops_total_page_split_CNT > 0,1.0 * ISNULL(p.ios_column_value_push_off_row_CNT,0) / a.ops_total_page_split_CNT,0) * @Prio_page_splits
+-- InMemory
++IIF(a.ops_total_page_split_CNT > 0,1.0 * ISNULL(p.xtp_page_split_CNT               ,0) / a.ops_total_page_split_CNT,0) * @Prio_page_splits/@xtp_Priority_deflator
++IIF(a.ops_total_page_split_CNT > 0,1.0 * ISNULL(p.xtp_key_split_CNT                ,0) / a.ops_total_page_split_CNT,0) * @Prio_page_splits/@xtp_Priority_deflator
+                                
++IIF(a.ops_total_page_merge_CNT > 0,1.0 * ISNULL(p.ios_leaf_page_merge_CNT          ,0) / a.ops_total_page_merge_CNT,0) * @Prio_page_merges
++IIF(a.ops_total_page_merge_CNT > 0,1.0 * ISNULL(p.ios_nonleaf_page_merge_CNT       ,0) / a.ops_total_page_merge_CNT,0) * @Prio_page_merges
++IIF(a.ops_total_page_merge_CNT > 0,1.0 * ISNULL(p.ios_column_value_pull_in_row_CNT ,0) / a.ops_total_page_merge_CNT,0) * @Prio_page_merges
+-- InMemory
++IIF(a.ops_total_page_merge_CNT > 0,1.0 * ISNULL(p.xtp_page_merge_CNT               ,0) / a.ops_total_page_merge_CNT,0) * @Prio_page_merges/@xtp_Priority_deflator
++IIF(a.ops_total_page_merge_CNT > 0,1.0 * ISNULL(p.xtp_key_merge_CNT                ,0) / a.ops_total_page_merge_CNT,0) * @Prio_page_merges/@xtp_Priority_deflator
 
 -- Missing index Advantage Weighted ------------------------
-+IIF(a.mix_Advantage_weighted_AMT  > 0,1.0 * ISNULL(p.mix_Advantage_weighted_AMT ,0) / a.mix_Advantage_weighted_AMT ,0) * @Prio_missing_indexes
++IIF(a.mix_Advantage_weighted_AMT  > 0,1.0 * ISNULL(p.mix_Advantage_weighted_AMT ,0) / a.mix_Advantage_weighted_AMT,0) * @Prio_missing_indexes
 
 -- Table Total Writes percent ------------------------------
-+IIF(a.ops_Total_write_CNT         > 0,1.0 * ISNULL(p.ops_Total_write_CNT        ,0) / a.ops_Total_write_CNT        ,0) * @Prio_OPS_writes
-+IIF(a.ius_user_updates_CNT        > 0,1.0 * ISNULL(p.ius_user_updates_CNT       ,0) / a.ius_user_updates_CNT       ,0) * @Prio_USG_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_leaf_insert_CNT              ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_leaf_delete_CNT              ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_leaf_update_CNT              ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_leaf_ghost_CNT               ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_nonleaf_insert_CNT           ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_nonleaf_delete_CNT           ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_nonleaf_update_CNT           ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_lob_orphan_create_CNT        ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_column_value_push_off_row_CNT,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.ios_column_value_pull_in_row_CNT ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.xtp_page_update_CNT              ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes/@xtp_Priority_deflator
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.xtp_page_consolidation_CNT       ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes/@xtp_Priority_deflator
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.xtp_page_split_CNT               ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes/@xtp_Priority_deflator
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.xtp_key_split_CNT                ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes/@xtp_Priority_deflator
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.xtp_page_merge_CNT               ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes/@xtp_Priority_deflator
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.xtp_key_merge_CNT                ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes/@xtp_Priority_deflator
++IIF(a.ops_total_write_CNT > 0,1.0 * ISNULL(p.cs_row_group_lock_CNT            ,0) / a.ops_total_write_CNT  ,0) * @Prio_OPS_writes
 
--- Hi buffer cache usage percent - omit XTP InMemory/Memory Optimized ---------------------------
++IIF(a.ius_user_updates_CNT > 0,1.0 * ISNULL(p.ius_user_updates_CNT ,0) / a.ius_user_updates_CNT ,0) * @Prio_USG_writes
+
+-- Buffer cache usage percent - omit XTP InMemory/Memory Optimized ---------------------------
 +IIF(    p.tbl_is_memory_optimized = 0
-     AND p.buffer_Total_KB_CNT     > 64
-     AND p.reserved_page_CNT       > 9
+     AND p.buffer_total_KB_CNT     > 64
+     AND p.reserved_page_PG_CNT    > 9
      AND m.SQLmem                  > 0
     ,IIF(    p.tbl_is_memory_optimized = 1
-        ,IIF(1.0 * p.buffer_Total_KB_CNT / (p.reserved_page_CNT * 8.0) <= 1.0
+        ,IIF(1.0 * p.buffer_total_KB_CNT / (p.reserved_page_PG_CNT * 8.0) <= 1.0
             -- 2% of total buffer = 100% of priority, so (100/2)*100 for value
-            ,5000.0 * p.buffer_Total_KB_CNT / m.SQLmem / (p.reserved_page_CNT * 8.0) -- /zero handled by WHERE clause above
+            ,5000.0 * p.buffer_total_KB_CNT / m.SQLmem / (p.reserved_page_PG_CNT * 8.0) -- /zero handled by WHERE clause above
             ,1.0)
-        ,100.0 * p.buffer_Total_KB_CNT / m.SQLmem)
+        ,100.0 * p.buffer_total_KB_CNT / m.SQLmem)
     ,0)                                                                                  * @Prio_buffer_cache_used
 
 -- Read to Write Ratio -------------------------------------
-+IIF(ISNULL(p.ios_read_to_write_RAT,0) < 4.0
-    ,(4.0 - ISNULL(p.ios_read_to_write_RAT,0)) * ISNULL(p.ios_write_to_instance_RAT,0)
++IIF(ISNULL(p.ops_read_to_write_RAT,0) < 4.0
+    ,(4.0 - ISNULL(p.ops_read_to_write_RAT,0)) * ISNULL(p.ops_write_to_instance_PCT,0)
     ,0.0)                                                                                * @Prio_OPS_read_write_ratio
 +IIF(ISNULL(p.ius_read_to_write_RAT,0) < 4.0
-    ,(4.0 - ISNULL(p.ius_read_to_write_RAT,0)) * ISNULL(p.ius_write_to_instance_RAT,0)
+    ,(4.0 - ISNULL(p.ius_read_to_write_RAT,0)) * ISNULL(p.ius_write_to_instance_PCT,0)
     ,0.0)                                                                                * @Prio_USG_read_write_ratio
 
 -- Reads, Scans, and Lookups -------------------------------
-+IIF(      (ISNULL(a.ius_user_read_CNT,0) + ISNULL(a.ops_Total_read_CNT,0))> 0
-    ,1.0 * (ISNULL(p.ius_user_read_CNT,0) + ISNULL(p.ops_Total_read_CNT,0))
-         / (ISNULL(a.ius_user_read_CNT,0) + ISNULL(a.ops_Total_read_CNT,0))
-    ,0)                                                                                  * @Prio_reads
-+IIF(      (ISNULL(a.ius_user_scans_CNT,0) + ISNULL(a.ops_Total_scan_cnt,0))> 0
-    ,1.0 * (ISNULL(p.ius_user_scans_CNT,0) + ISNULL(p.ops_Total_scan_cnt,0))
-         / (ISNULL(a.ius_user_scans_CNT,0) + ISNULL(a.ops_Total_scan_cnt,0))
-    ,0)                                                                                  * @Prio_scans
-+IIF(      (ISNULL(a.ius_user_lookups_CNT,0) + ISNULL(a.ios_singleton_lookup_CNT,0))> 0
-    ,1.0 * (ISNULL(p.ius_user_lookups_CNT,0) + ISNULL(p.ios_singleton_lookup_CNT,0))
-         / (ISNULL(a.ius_user_lookups_CNT,0) + ISNULL(a.ios_singleton_lookup_CNT,0))
-    ,0)                                                                                  * @Prio_lookups
++IIF(a.ops_total_read_CNT > 0, 1.0 * ISNULL(p.ios_range_scan_CNT       ,0) / a.ops_total_read_CNT, 0) * @Prio_reads
++IIF(a.ops_total_read_CNT > 0, 1.0 * ISNULL(p.ios_singleton_lookup_CNT ,0) / a.ops_total_read_CNT, 0) * @Prio_reads
++IIF(a.ops_total_read_CNT > 0, 1.0 * ISNULL(p.ios_forwarded_fetch_CNT  ,0) / a.ops_total_read_CNT, 0) * @Prio_reads
++IIF(a.ops_total_read_CNT > 0, 1.0 * ISNULL(p.ios_lob_fetch_pages_CNT  ,0) / a.ops_total_read_CNT, 0) * @Prio_reads
++IIF(a.ops_total_read_CNT > 0, 1.0 * ISNULL(p.xtp_scans_started_CNT    ,0) / a.ops_total_read_CNT, 0) * @Prio_reads/@xtp_Priority_deflator
++IIF(a.ops_total_read_CNT > 0, 1.0 * ISNULL(p.cs_index_scan_CNT        ,0) / a.ops_total_read_CNT, 0) * @Prio_reads
++IIF(a.ops_total_read_CNT > 0, 1.0 * ISNULL(p.cs_scan_CNT              ,0) / a.ops_total_read_CNT, 0) * @Prio_reads
++IIF(a.ops_total_read_CNT > 0, 1.0 * ISNULL(p.cs_delete_buffer_scan_CNT,0) / a.ops_total_read_CNT, 0) * @Prio_reads
+
++IIF(a.ius_user_scans_CNT   > 0, 1.0 * ISNULL(p.ius_user_scans_CNT  ,0) / a.ius_user_scans_CNT  , 0) * @Prio_scans
++IIF(a.ius_user_lookups_CNT > 0, 1.0 * ISNULL(p.ius_user_lookups_CNT,0) / a.ius_user_lookups_CNT, 0) * @Prio_lookups
+
++IIF(a.ios_forwarded_fetch_CNT     > 0
+    ,1.0 * ISNULL(p.ios_forwarded_fetch_CNT,0) 
+         / a.ios_forwarded_fetch_CNT       ,0)                                           * @Prio_OPS_forwarded_fetches
 
 -- LOB data ------------------------------------------------
 +IIF(    (ISNULL(a.ios_lob_fetch_pages_CNT            ,0)
@@ -22512,7 +22204,7 @@ SELECT p.database_id,p.parent_object_id,p.object_id,p.obj_type,p.obj_name,
 +IIF(CHARINDEX(N'Request new NCS',p.prescription) > 0,50.0,0)  -- NOTE: keep in synch with above ACTION codes
   FROM (SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
-         WHERE rec_type IN (N'H',N'P')
+         WHERE rec_type = N'P'
            AND (   type IN (N'IT',N'U')
                 OR index_cnt > 1
                )
@@ -22537,162 +22229,52 @@ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
 END
 
 /******************************************************************************************************************************************/
--- Add significant Metric diagnostics to Parent. Added here to make sure they end up on the bottom of the diagnostics
---<BS> confirm rec_types below
-/******************************************************************************************************************************************/
-----------------------------------------------------------------------------------------------------
--- Parent - Priorities = 9
-----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 9
-      ,diagnostic = i.diagnostic
-  FROM tempdb.dbo.SQLXL_Index_Diagnostics AS i
- WHERE rec_type IN (N'P',N'H',N'S')
-   AND (
--- Diagnostic - Table - High Wait ms
--- Diagnostic - Table - High Wait CNT
-           CHARINDEX(N'OPS Wait Tm'       ,i.diagnostic) = 1
--- Diagnostic - Table - High Locks
--- Diagnostic - Table - High Successful Lock Promotion Attempts
-        OR CHARINDEX(N'OPS Locks'         ,i.diagnostic) = 1
--- Diagnostic - Table - High Lock Promotion Attempts
--- Diagnostic - Table - High Failed Lock Promotion Attempts
-        OR CHARINDEX(N'OPS Lock Promo Att',i.diagnostic) = 1
--- Diagnostic - Table - High Missing Index Advantage
--- Diagnostic - Table - High Missing Index Count
--- Diagnostic - Table - High Missing Index Compiles
-        OR CHARINDEX(N'MIX Adv'           ,i.diagnostic) = 1
--- Diagnostic - Table - High Operations Page Splits Total
--- Diagnostic - Table - High Operations Page Splits Leaf level
--- Diagnostic - Table - High Operations Page Splits NonLeaf level
-        OR CHARINDEX(N'OPS Split CNT'     ,i.diagnostic) = 1
--- Diagnostic - Table - High Operations Page  Total
--- Diagnostic - Table - High Operations Page  Leaf level
--- Diagnostic - Table - High Operations Page  NonLeaf level
-        OR CHARINDEX(N'OPS  CNT'     ,i.diagnostic) = 1
--- Diagnostic - Table - High Operations Page Splits InMemory
--- Diagnostic - Table - High Operations Page  InMemory
-        OR CHARINDEX(N'XTP Splits'        ,i.diagnostic) = 1
--- Diagnostic - Table - High Operations Reads
--- Diagnostic - Table - High Operations Scans
--- Diagnostic - Table - High Operations Lookups
-        OR CHARINDEX(N'OPS Reads'         ,i.diagnostic) = 1
--- Diagnostic - Table - High Operations Writes
--- Diagnostic - Table - High Operations Inserts
--- Diagnostic - Table - High Operations Updates
--- Diagnostic - Table - High Operations Deletes
-        OR CHARINDEX(N'OPS Writes'        ,i.diagnostic) = 1
--- Diagnostic - Table - High Usage Total
--- Diagnostic - Table - High Usage Read
--- Diagnostic - Table - High Usage Write
-        OR CHARINDEX(N'USG Total'         ,i.diagnostic) = 1
--- Diagnostic - Table - High Usage Scan
--- Diagnostic - Table - High Usage Lookup
--- Diagnostic - Table - High Operations Forwarded Fetches
-        OR CHARINDEX(N'USG Scans'         ,i.diagnostic) = 1
--- Diagnostic - Table - High Operations LOB Fetch
--- Diagnostic - Table - High Operations Orphan Create
--- Diagnostic - Table - High Operations Orphan Insert
-        OR CHARINDEX(N'OPS LOB Fetch'     ,i.diagnostic) = 1
--- Diagnostic - Table - High Operations Overflow Fetch
--- Diagnostic - Table - High Operations Pull In Row
--- Diagnostic - Table - High Operations Push Off Row
-        OR CHARINDEX(N'OPS Overflow Fetch',i.diagnostic) = 1
-       )
-
-IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
-   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Added significant metrics diagnostic records to Parent'
-   RAISERROR(@debug,0,0) WITH NOWAIT;
-   SET @debug_DTTM = GETDATE();
-END
-
-/******************************************************************************************************************************************/
 -- Add Priority Metric computations to Parent & Indexes - Buffer Cache
 /******************************************************************************************************************************************/
 -- Diagnostic - Table - Hi buffer cache usage (> 4MB reserved size, > 20% in buffer cache)
 -- Diagnostic - Index - Hi buffer cache usage (> 2MB reserved size, > 20% in buffer cache)
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 9
-      ,diagnostic =
-  N'BUF Cache: '+ tempdb.dbo.SQLXL_3SD(i.buffer_Total_KB_CNT,N'KB')
-+ N' ('+ tempdb.dbo.SQLXL_3SD(1.0 * i.buffer_Total_KB_CNT / (i.reserved_page_CNT * 8.0),N'%') + N')' -- /0 handled in WHERE clause below
-+ N' Reserve: '  + tempdb.dbo.SQLXL_3SD(i.reserved_page_CNT,N'P')
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
+      ,diagnostic = N'High buffer cache usage ' + tempdb.dbo.SQLXL_3SD(1.0 * i.buffer_total_KB_CNT / (i.reserved_page_PG_CNT * 8.0),N'%')
    FROM tempdb.dbo.SQLXL_Index_Compilation AS i
   WHERE i.rec_type           NOT IN (N'A',N'D')
     AND i.tbl_is_memory_optimized = 0
-    AND (   (i.rec_type = N'I' AND i.reserved_page_CNT > 256) -- 2MB
-         OR (i.rec_type = N'H' AND i.reserved_page_CNT > 512) -- 4MB
-         OR (i.rec_type = N'P' AND i.reserved_page_CNT > 512) -- 4MB
-         OR (i.rec_type = N'S' AND i.reserved_page_CNT > 512) -- 4MB
+    AND i.reserved_page_PG_CNT    > 0
+    AND (   (i.rec_type = N'I' AND i.reserved_page_PG_CNT > 256) -- 2MB
+         OR (i.rec_type = N'H' AND i.reserved_page_PG_CNT > 512) -- 4MB
+         OR (i.rec_type = N'P' AND i.reserved_page_PG_CNT > 512) -- 4MB
+         OR (i.rec_type = N'S' AND i.reserved_page_PG_CNT > 512) -- 4MB
         )
-    AND i.buffer_Total_KB_CNT > (8.0 * i.reserved_page_CNT * 0.20); -- 8.0 to convert PAGE to KB
+    AND i.buffer_total_KB_CNT > (8.0 * i.reserved_page_PG_CNT * 0.20); -- 8.0 to convert PAGE to KB
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Added Buffer Cache metric diagnostic records to Parent'
    RAISERROR(@debug,0,0) WITH NOWAIT;
-   RAISERROR(N'          Start significant index metrics diagnostic records',0,0) WITH NOWAIT;
+--<BS>    RAISERROR(N'          Start significant index metrics diagnostic records',0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
 END
 
 /******************************************************************************************************************************************/
--- Add Priority Metric computations to Index
+-- Add Priority Metric computations to Index diagnostics
 -- Checking not performed of denominators since any value in any index should mean that the Instance value is also non-zero
 /******************************************************************************************************************************************/
-----------------------------------------------------------------------------------------------------
--- Index - Priorities = 9
-----------------------------------------------------------------------------------------------------
-INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic_type_id,diagnostic)
-SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type,diagnostic_type_id = 9
+INSERT INTO tempdb.dbo.SQLXL_Index_Diagnostics (rec_type,database_id,parent_object_id,object_id,index_id,type,diagnostic)
+SELECT rec_type = i.rec_type,i.database_id,i.parent_object_id,i.object_id,i.index_id,i.type
       ,diagnostic = i.diagnostic
-  FROM tempdb.dbo.SQLXL_Index_Diagnostics AS i
- WHERE rec_type IN (N'I')
+  FROM tempdb.dbo.SQLXL_Index_Metrics_Summary AS i
+ WHERE rec_type IN (N'I',N'P')
    AND (
--- Diagnostic - Index - High Wait ms
--- Diagnostic - Index - High Wait CNT
-           CHARINDEX(N'OPS Wait Tm'       ,i.diagnostic) = 1
--- Diagnostic - Index - High Locks
--- Diagnostic - Index - High Lock Promotion Attempts
--- Diagnostic - Index - High Failed Lock Promotion Attempts
--- Diagnostic - Index - High Successful Lock Promotion Attempts
-        OR CHARINDEX(N'OPS Locks'         ,i.diagnostic) = 1
--- Diagnostic - Index - High Operations Page Splits Total
--- Diagnostic - Index - High Operations Page Splits Leaf level
--- Diagnostic - Index - High Operations Page Splits NonLeaf level
-        OR CHARINDEX(N'OPS Split CNT'     ,i.diagnostic) = 1
--- Diagnostic - Index - High Operations Page  Total
--- Diagnostic - Index - High Operations Page  Leaf level
--- Diagnostic - Index - High Operations Page  NonLeaf level
-        OR CHARINDEX(N'OPS  CNT'     ,i.diagnostic) = 1
--- Diagnostic - Index - High Operations Page Splits InMemory
--- Diagnostic - Index - High Operations Page  InMemory
-        OR CHARINDEX(N'XTP Splits'        ,i.diagnostic) = 1
--- Diagnostic - Index - High Operations Reads
--- Diagnostic - Index - High Operations Scans
--- Diagnostic - Index - High Operations Lookups
-        OR CHARINDEX(N'OPS Reads'         ,i.diagnostic) = 1
--- Diagnostic - Index - High Operations Writes
--- Diagnostic - Index - High Operations Inserts
--- Diagnostic - Index - High Operations Updates
--- Diagnostic - Index - High Operations Deletes
-        OR CHARINDEX(N'OPS Writes'        ,i.diagnostic) = 1
--- Diagnostic - Index - High Usage Total
--- Diagnostic - Index - High Usage Read
--- Diagnostic - Index - High Usage Write
-        OR CHARINDEX(N'USG Total'         ,i.diagnostic) = 1
--- Diagnostic - Index - High Usage Scan
--- Diagnostic - Index - High Usage Lookup
--- Diagnostic - Index - High Operations Forwarded Fetches
-        OR CHARINDEX(N'USG Scans'         ,i.diagnostic) = 1
--- Diagnostic - Index - High Operations LOB Fetch
--- Diagnostic - Index - High Operations Orphan Create
--- Diagnostic - Index - High Operations Orphan Insert
-        OR CHARINDEX(N'OPS LOB Fetch'     ,i.diagnostic) = 1
--- Diagnostic - Index - High Operations Overflow Fetch
--- Diagnostic - Index - High Operations Pull In Row
--- Diagnostic - Index - High Operations Push Off Row
-        OR CHARINDEX(N'OPS Overflow Fetch',i.diagnostic) = 1
+           CHARINDEX(N'PRIO Waits:'       ,i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO Locks:'       ,i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO Page Splits:' ,i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO Page Merges:' ,i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO MIX Advantage',i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO Writes:'      ,i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO Buffer:'      ,i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO Touches:'     ,i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO Read Detail:' ,i.diagnostic) = 1
+        OR CHARINDEX(N'PRIO LOB:'         ,i.diagnostic) = 1
        )
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
@@ -22721,36 +22303,32 @@ SELECT parent_object_id,object_id,index_id,
                                           AND tgt.object_id        = f.object_id
                                           AND tgt.index_id         = f.index_id
                                           AND tgt.type             = f.type                 -- COLLATE DATABASE_DEFAULT
-                                          AND 10                   > f.diagnostic_type_id   -- 10+ are metrics
                                           AND f.diagnostic        IS NOT NULL
-                                        ORDER BY f.diagnostic_type_id
-                                                ,f.diagnostic_ID
+                                        ORDER BY f.diagnostic_ID
                                                 ,f.diagnostic DESC
                                           FOR XML PATH(N''), TYPE
                                       ).value('(./text())[1]', 'NVARCHAR(MAX)')
                                       ,1,1,N''
                                      )
-      ,Diagnostics_metrics = STUFF((SELECT NCHAR(10) + f.diagnostic
-                                      FROM tempdb.dbo.SQLXL_Index_Diagnostics AS f WITH (READUNCOMMITTED)
-                                     WHERE tgt.database_id      = f.database_id
-                                       AND tgt.parent_object_id = f.parent_object_id
-                                       AND tgt.object_id        = f.object_id
-                                       AND tgt.index_id         = f.index_id
-                                       AND tgt.type             = f.type                 -- COLLATE DATABASE_DEFAULT
-                                       AND 10                  <= f.diagnostic_type_id   -- 10+ are metrics
-                                       AND f.diagnostic        IS NOT NULL
-                                     ORDER BY f.diagnostic_type_id
-                                             ,f.diagnostic_ID
-                                             ,f.diagnostic_max_pct DESC
-                                       FOR XML PATH(N''), TYPE
-                                   ).value('(./text())[1]', 'NVARCHAR(MAX)')
-                                   ,1,1,N''
-                                  )
+--<BS>       ,Diagnostics_metrics = STUFF((SELECT NCHAR(10) + f.diagnostic
+--<BS>                                       FROM tempdb.dbo.SQLXL_Index_Metrics_Summary AS f WITH (READUNCOMMITTED)
+--<BS>                                      WHERE tgt.database_id      = f.database_id
+--<BS>                                        AND tgt.parent_object_id = f.parent_object_id
+--<BS>                                        AND tgt.object_id        = f.object_id
+--<BS>                                        AND tgt.index_id         = f.index_id
+--<BS>                                        AND tgt.type             = f.type                 -- COLLATE DATABASE_DEFAULT
+--<BS>                                        AND f.diagnostic        IS NOT NULL
+--<BS>                                      ORDER BY f.diagnostic_ID
+--<BS>                                              ,f.diagnostic_max_pct DESC
+--<BS>                                        FOR XML PATH(N''), TYPE
+--<BS>                                    ).value('(./text())[1]', 'NVARCHAR(MAX)')
+--<BS>                                    ,1,1,N''
+--<BS>                                   )
   FROM tempdb.dbo.SQLXL_Index_Compilation AS tgt;
 
 IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
-               +N' Added Buffer Cache index metric diagnostic records'
+               +N' Added diagnostic records'
    RAISERROR(@debug,0,0) WITH NOWAIT;
 END
 
@@ -22761,20 +22339,75 @@ RAISERROR ('Creating procedure tempdb.dbo.SQLXL_Index_Present ...',0,0) WITH NOW
 /******************************************************************************************************************************************/
 -- Session Environment settings
 /******************************************************************************************************************************************/
-SET ANSI_NULL_DFLT_ON,ANSI_NULLS,ANSI_PADDING,ARITHABORT,CONCAT_NULL_YIELDS_NULL,CURSOR_CLOSE_ON_COMMIT,NOCOUNT,QUOTED_IDENTIFIER ON;
-SET ANSI_WARNINGS,ARITHIGNORE,FMTONLY,FORCEPLAN,IMPLICIT_TRANSACTIONS,NOEXEC,NUMERIC_ROUNDABORT,XACT_ABORT OFF;
+SET ANSI_DEFAULTS ON; -- enables ISO settings: ANSI_NULLS, CURSOR_CLOSE_ON_COMMIT, ANSI_NULL_DFLT_ON, IMPLICIT_TRANSACTIONS, ANSI_PADDING
+                      -- QUOTED_IDENTIFIER, ANSI_WARNINGS
+
+SET ARITHABORT,CONCAT_NULL_YIELDS_NULL ON; -- required for indexes on computed columns and indexed views
+SET NUMERIC_ROUNDABORT OFF;                -- required for indexes on computed columns and indexed views
+
+SET CURSOR_CLOSE_ON_COMMIT,NOCOUNT,XACT_ABORT ON;
+SET ARITHIGNORE,IMPLICIT_TRANSACTIONS,NUMERIC_ROUNDABORT OFF;
+
+SET NOEXEC OFF; -- used to compile function and procedure below even if sourcing objects not available 
+
 SET STATISTICS IO,PROFILE,TIME,XML OFF;
 SET DATEFORMAT                  YMD;
 SET DEADLOCK_PRIORITY           -10;  -- Lowest priority
-SET LOCK_TIMEOUT              10000;  -- in milliseconds
-SET QUERY_GOVERNOR_COST_LIMIT     0;  -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
+SET LOCK_TIMEOUT              30000;  -- in milliseconds
 SET TEXTSIZE             2147483647;  -- Use 32767 on export to Excel - cell maximum
+SET QUERY_GOVERNOR_COST_LIMIT     0;  -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 -- Change to tempdb NOTE: tempdb must be lower case if server installed with CASE SENSITIVE collation
 USE tempdb;
 
-IF OBJECT_ID('dbo.SQLXL_Index_Present') IS NULL EXEC ('CREATE PROCEDURE dbo.SQLXL_Index_Present AS RETURN 0;');
+IF (OBJECT_ID(N'tempdb.dbo.SQLXL_Index_Metrics') IS NULL)
+   CREATE TABLE tempdb.dbo.SQLXL_Index_Metrics
+   (rec_type         NCHAR(1)       COLLATE DATABASE_DEFAULT NOT NULL  -- D-Database,P-Parent,I-index
+   ,database_id      SMALLINT                                NOT NULL
+   ,parent_object_id INT                                     NOT NULL
+   ,object_id        INT                                     NOT NULL
+   ,index_id         INT                                     NOT NULL
+   ,type             NVARCHAR(2)    COLLATE DATABASE_DEFAULT NOT NULL
+   ,metric           SYSNAME        COLLATE DATABASE_DEFAULT NOT NULL
+   ,metric_AMT       FLOAT                                       NULL
+   ,metric_FMT       NVARCHAR(7)    COLLATE DATABASE_DEFAULT     NULL
+   ,diagnostic_PCT   FLOAT                                       NULL
+   -----------------------------
+   ,diagnostic       NVARCHAR(1000) COLLATE DATABASE_DEFAULT     NULL
+   ,diagnostic_RANK  INT                                         NULL
+   ,previous_sum_PCT FLOAT                                       NULL
+   );
+
+IF OBJECT_ID('dbo.SQLXL_Index_Metric_tvf',N'IF') IS NULL 
+   EXEC ('CREATE FUNCTION dbo.SQLXL_Index_Metric_tvf() RETURNS TABLE AS RETURN SELECT col = NULL');
+GO
+
+ALTER FUNCTION dbo.SQLXL_Index_Metric_tvf
+     (@rec_type         NCHAR(1)  
+     ,@database_id      SMALLINT 
+     ,@parent_object_id INT      
+     ,@object_id        INT      
+     ,@index_id         INT      
+     ,@type             NVARCHAR(2)  
+     ,@metric           SYSNAME  
+)
+RETURNS TABLE
+AS
+RETURN
+    SELECT metric_val = metric_FMT + COALESCE(N' ' + diagnostic,N'')
+      FROM tempdb.dbo.SQLXL_Index_Metrics
+     WHERE @rec_type         = rec_type        
+       AND @database_id      = database_id     
+       AND @parent_object_id = parent_object_id
+       AND @object_id        = object_id       
+       AND @index_id         = index_id        
+       AND @type             = type            
+       AND @metric           = metric;          
+GO
+
+IF OBJECT_ID('dbo.SQLXL_Index_Present') IS NULL 
+   EXEC ('CREATE PROCEDURE dbo.SQLXL_Index_Present AS RETURN 0;');
 GO
 
 /*******************************************************************************************************************************************
@@ -22808,13 +22441,30 @@ AS
 /*** LOCAL TESTING
 DECLARE @show_fulltext_internals TINYINT = 0
 --*/
+
+/******************************************************************************************************************************************/
+-- Procedure Environment settings
+/******************************************************************************************************************************************/
+SET ANSI_NULLS ON
+SET ANSI_NULL_DFLT_ON,ANSI_NULLS,ANSI_PADDING,ARITHABORT,CONCAT_NULL_YIELDS_NULL,CURSOR_CLOSE_ON_COMMIT,NOCOUNT ON;
+SET ANSI_WARNINGS,ARITHIGNORE,IMPLICIT_TRANSACTIONS,NOEXEC,NUMERIC_ROUNDABORT,XACT_ABORT OFF;
+SET STATISTICS IO,PROFILE,TIME,XML OFF;
+SET DATEFORMAT                  YMD;
+SET DEADLOCK_PRIORITY           -10;  -- Lowest priority
+SET LOCK_TIMEOUT              30000;  -- in milliseconds
 SET TEXTSIZE                  32767;  -- Max length of Excel cell contents
+SET QUERY_GOVERNOR_COST_LIMIT     0;  -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
---     TOP (3)
-/******************************************************************************************************************************************/
---
-/******************************************************************************************************************************************/
+/******************************************************************************************************************************************\
+Return data formatted for excel:
+- wrap column labels where appropriate
+- column format controls:
+  - "|"
+  - "\"
+
+\******************************************************************************************************************************************/
  [Priority\B|N0]          = IIF(i.rec_type IN (N'P'),i.tbl_priority_metric,NULL)
 ,[FLT *DRILL DOWN >>>|NW] =
                            -- Top Level
@@ -22905,7 +22555,7 @@ SELECT
 -- Line 2 - Parent Object (and Object if History or Internal Table)
 --------------------------------------------------------------------------------------------------------------------------------------------
 +IIF(i.obj_type_short_label = N'HST'
-    ,NCHAR(10) + N'PAR ' + QUOTENAME(op.schema_name)+N'.'+QUOTENAME(op.obj_name)
+    ,NCHAR(10) + N'PAR ' + QUOTENAME(hst_src.schema_name)+N'.'+QUOTENAME(hst_src.obj_name)
     ,N'')
 +IIF(i.obj_type_short_label = N'IT'
     ,NCHAR(10) + N'PAR ' + QUOTENAME(i.parent_schema_name)+N'.'+QUOTENAME(i.parent_object_name)
@@ -22932,7 +22582,7 @@ SELECT
          OR (i.type = N'1' AND i.is_unique = 0)
          OR i.has_filter = 1
          OR i.type IN (N'3',N'4')
-         OR i.internal_type_desc IS NOT NULL
+         OR i.internal_type IS NOT NULL -- indexes on internal tables
         ,NCHAR(10)
         +STUFF(IIF(i.is_primary_key = 1
                  ,N' PRIMARY KEY'
@@ -22946,7 +22596,9 @@ SELECT
                          )
                      )
                  )
-              +IIF(i.internal_type_desc IS NOT NULL,N' ' + i.internal_type_desc,N'')
+              +IIF(i.internal_type IS NOT NULL
+                  ,N' ' + ISNULL(i.internal_type_desc,N' Internal Type ' + RIGHT(N'00' + CAST(i.internal_type AS NVARCHAR(3)),3))
+                  ,N'')
               +IIF(i.has_filter = 1,N' FILTERED',N'')                     -- index filter
               +IIF(i.TYPE = N'3'                                          -- XML
                   ,N' '+ ISNULL(i.sub_type_desc,N'<sub_type_desc>')
@@ -22973,7 +22625,7 @@ SELECT
         ,N'')
     ,N'')
 +IIF(i.rec_type NOT IN (N'A',N'D')
-    ,IIF(i.obj_type_hdr NOT IN (N'TBL FKC')
+    ,IIF(CHARINDEX(N'TBL FKC',i.obj_type_hdr) = 0
         ,ISNULL(N' ' + i.obj_type_short_label + N' ',N' <OSTL> ') + ISNULL(QUOTENAME(i.object_id),N'<object_id?>')
         ,N' TBL '                                                 + ISNULL(QUOTENAME(i.parent_object_id),N'<parent_object_id?>')
         )
@@ -23030,18 +22682,18 @@ SELECT
       THEN N'KEY '
           + tempdb.dbo.SQLXL_3SD(i.Key_Columns_CNT ,N'I')
           +N' LEN '
-          +tempdb.dbo.SQLXL_3SD(i.key_Total_datatype_length_bytes,N'I') + N'B'
+          +tempdb.dbo.SQLXL_3SD(i.key_total_datatype_length_bytes,N'I') + N'B'
 
       WHEN i.type = N'M'
       THEN N'KEY '
           +tempdb.dbo.SQLXL_3SD(i.Key_Columns_CNT,N'I')
           +N' LEN '
-          +tempdb.dbo.SQLXL_3SD(i.key_Total_datatype_length_bytes,N'I') + N'B'
+          +tempdb.dbo.SQLXL_3SD(i.key_total_datatype_length_bytes,N'I') + N'B'
           +NCHAR(10)
           +N'INC '
           +tempdb.dbo.SQLXL_3SD(i.Included_Columns_CNT,N'I')
           +N' LEN '
-          +tempdb.dbo.SQLXL_3SD(i.inc_Total_datatype_length_bytes,N'I') + N'B'
+          +tempdb.dbo.SQLXL_3SD(i.inc_total_datatype_length_bytes,N'I') + N'B'
 
       ELSE -- Table, index Reserved size
            N'RSZ '
@@ -23051,17 +22703,13 @@ SELECT
                     THEN N' ('+tempdb.dbo.SQLXL_3SD(1.0 * i.xtp_allocated_bytes_CNT / p.xtp_allocated_bytes_CNT,N'%')+N')'
                     ELSE N''
                END
-              ,tempdb.dbo.SQLXL_3SD(ISNULL(i.reserved_page_CNT,0),N'P')  -- for TABLE PARENT level includes indexes & INTENRAL TABLES
-              +CASE WHEN i.rec_type = N'I' 
-                     AND raw.reserved_page_CNT > 0
-                    THEN N' ('+tempdb.dbo.SQLXL_3SD(1.0 * i.reserved_page_CNT / raw.reserved_page_CNT,N'%')+N')'
-                    ELSE N''
-               END)
+              ,COALESCE((SELECT * FROM dbo.SQLXL_Index_Metric_tvf(i.rec_type,i.database_ID,i.parent_object_ID,i.object_id,i.index_ID,i.type,N'reserved_page_PG_CNT')),N'')
+              )
            --------------------------------------------------------------------------------------------------------------
           +NCHAR(10)
-          +N'BSZ ' + tempdb.dbo.SQLXL_3SD(ISNULL(i.buffer_Total_KB_CNT,0),N'KB')
-          +CASE WHEN i.reserved_page_CNT > 0
-                THEN N' ('+tempdb.dbo.SQLXL_3SD(ISNULL(1.0 * i.buffer_Total_KB_CNT / (i.reserved_page_CNT*8.0),0),N'%')+N')'
+          +N'BSZ ' + tempdb.dbo.SQLXL_3SD(ISNULL(i.buffer_total_KB_CNT,0),N'KB')
+          +CASE WHEN i.reserved_page_PG_CNT > 0
+                THEN N' ('+tempdb.dbo.SQLXL_3SD(ISNULL(1.0 * i.buffer_total_KB_CNT / (i.reserved_page_PG_CNT*8.0),0),N'%')+N')'
                 ELSE N''
            END
            --------------------------------------------------------------------------------------------------------------
@@ -23073,10 +22721,10 @@ SELECT
            --------------------------------------------------------------------------------------------------------------
           +IIF(i.rec_type = N'I'
               ,NCHAR(10) + N'KEY '  + tempdb.dbo.SQLXL_3SD(i.Key_Columns_CNT ,N'I')
-                         + N' LEN ' + tempdb.dbo.SQLXL_3SD(i.key_Total_datatype_length_bytes,N'I') + N'B'
+                         + N' LEN ' + tempdb.dbo.SQLXL_3SD(i.key_total_datatype_length_bytes,N'I') + N'B'
               +NCHAR(10) + N'INC '  + tempdb.dbo.SQLXL_3SD(i.Included_Columns_CNT,N'I')
                                     + IIF(i.Included_Columns_CNT > 0
-                                         ,N' LEN '+tempdb.dbo.SQLXL_3SD(i.inc_Total_datatype_length_bytes,N'I') + N'B'
+                                         ,N' LEN '+tempdb.dbo.SQLXL_3SD(i.inc_total_datatype_length_bytes,N'I') + N'B'
                                          ,N'')
                --------------------------------------------------------------------------------------------------------------
               +NCHAR(10) +N'FCT ' + CASE WHEN i.TYPE = N'0' THEN N'HEAP'
@@ -23088,163 +22736,28 @@ SELECT
               ,N'')
  END
 
-/******************************************************************************************************************************************/
---
-/******************************************************************************************************************************************/
+/******************************************************************************************************************************************\
+
+\******************************************************************************************************************************************/
 ,[Total Use (%Nxt Lvl)~OPS/CMP TOT CNT~USR USG Contact TOT CNT~R/W OPS & USG Read/Write~WTC Wait CNT~WTS Wait SEC~LCK Lock CNT]
-=CASE WHEN i.obj_type = N'V' AND i.type = N'0'              -- views without indexes don't record any usage stats other than in PLAN CACHE
-      THEN N'View Heap'  + NCHAR(10) + N'No data'
-      WHEN i.obj_type = N'F'                   THEN N'Foreign Key'+NCHAR(10) +N'No data'
-      ELSE N'OPS '                                                       -- everything else
-          +tempdb.dbo.SQLXL_3SD(ISNULL(i.ops_Total_contacts_CNT,0),'I')
-          +CASE WHEN CASE i.rec_type WHEN N'P' THEN d.ops_Total_contacts_CNT
-                                     WHEN N'H' THEN d.ops_Total_contacts_CNT
-                                     WHEN N'S' THEN d.ops_Total_contacts_CNT
-                                     WHEN N'I' THEN p.ops_Total_contacts_CNT
-                                     ELSE           a.ops_Total_contacts_CNT
-                     END > 0
-                 AND i.ops_Total_contacts_CNT > 0
-                THEN N' '
-                    +N'('+tempdb.dbo.SQLXL_3SD(1.0 * i.ops_Total_contacts_CNT / CASE i.rec_type
-                                                                                     WHEN N'P' THEN d.ops_Total_contacts_CNT
-                                                                                     WHEN N'H' THEN d.ops_Total_contacts_CNT
-                                                                                     WHEN N'S' THEN d.ops_Total_contacts_CNT
-                                                                                     WHEN N'I' THEN p.ops_Total_contacts_CNT
-                                                                                     ELSE           a.ops_Total_contacts_CNT
-                                                                                END,N'%')+N')'
-                ELSE N''
-           END
-           --------------------------------------------------------------------------------------------------------------
-          +NCHAR(10)
-          +CASE i.type
-                WHEN N'M'                                                                  -- Missing Index
-                THEN N'MIX '
-                    +tempdb.dbo.SQLXL_3SD(i.mix_unique_compiles_CNT,N'I')
-                    +CASE WHEN CASE i.rec_type WHEN N'P' THEN d.ius_user_total_cnt
-                                               WHEN N'H' THEN d.ius_user_total_cnt
-                                               WHEN N'S' THEN d.ius_user_total_cnt
-                                               WHEN N'I' THEN p.ius_user_total_cnt
-                                               ELSE           a.ius_user_total_cnt
-                               END > 0
-                           AND i.mix_unique_compiles_CNT > 0
-                          THEN N' '
-                              +N'('+tempdb.dbo.SQLXL_3SD(1.0 * i.mix_unique_compiles_CNT / CASE i.rec_type
-                                                                                                WHEN N'P' THEN d.ius_user_total_cnt
-                                                                                                WHEN N'H' THEN d.ius_user_total_cnt
-                                                                                                WHEN N'S' THEN d.ius_user_total_cnt
-                                                                                                WHEN N'I' THEN p.ius_user_total_cnt
-                                                                                                ELSE           a.ius_user_total_cnt
-                                                                                           END,N'%')+N')'
-                          ELSE N''
-                     END
-                ELSE N'USG '
-                    +CASE WHEN i.type = N'F'                        THEN N'N/A'
-                          WHEN i.obj_type = N'V'  AND i.type = N'0' THEN N'N/A'
-                          ELSE tempdb.dbo.SQLXL_3SD(ISNULL(i.ius_user_Total_CNT,0),'I')
-                              +CASE WHEN CASE i.rec_type WHEN N'P' THEN d.ius_user_Total_CNT
-                                                         WHEN N'H' THEN d.ius_user_Total_CNT
-                                                         WHEN N'S' THEN d.ius_user_Total_CNT
-                                                         WHEN N'I' THEN p.ius_user_Total_CNT
-                                                         ELSE           a.ius_user_Total_CNT
-                                         END > 0
-                                     AND i.ius_user_Total_CNT > 0
-                                    THEN N' ('+tempdb.dbo.SQLXL_3SD(1.0 * i.ius_user_Total_CNT / CASE i.rec_type
-                                                                                                      WHEN N'P' THEN d.ius_user_Total_CNT
-                                                                                                      WHEN N'H' THEN d.ius_user_Total_CNT
-                                                                                                      WHEN N'S' THEN d.ius_user_Total_CNT
-                                                                                                      WHEN N'I' THEN p.ius_user_Total_CNT
-                                                                                                      ELSE           a.ius_user_Total_CNT
-                                                                                                 END,N'%')+N')'
-                                    ELSE N''
-                               END
-                     END
-           END
-           --------------------------------------------------------------------------------------------------------------
-          +NCHAR(10)
-          +N'RW OPS '
-          +CASE WHEN i.ops_Total_write_CNT >  0
-                 AND i.ops_Total_read_CNT  >  0
-                THEN tempdb.dbo.SQLXL_3SD(1.0 * i.ops_Total_read_CNT / i.ops_Total_write_CNT,N'N')
-                WHEN i.ops_Total_write_CNT > 0 AND i.ops_Total_read_CNT = 0 THEN N'wrt'
-                WHEN i.ops_Total_write_CNT = 0 AND i.ops_Total_read_CNT > 0 THEN N'rds'
-                ELSE N'ntx'
-           END --COLLATE DATABASE_DEFAULT
-          +N' USG '
-          +CASE WHEN i.ius_user_updates_CNT > 0
-                 AND i.ius_User_read_CNT    > 0
-                THEN tempdb.dbo.SQLXL_3SD(1.0 * i.ius_User_read_CNT / i.ius_user_updates_CNT,N'N')
-                WHEN i.ius_user_updates_CNT > 0 AND i.ius_User_read_CNT = 0 THEN N'wrt'
-                WHEN i.ius_user_updates_CNT = 0 AND i.ius_User_read_CNT > 0 THEN N'rds'
-                ELSE N'ntx'
-           END
-           --------------------------------------------------------------------------------------------------------------
-          +NCHAR(10)
-          +N'WTC '
-          +CASE WHEN i.type IN (N'F',N'M')               THEN N'N/A'
-                WHEN i.obj_type = N'V' AND i.type = N'0' THEN N'N/A'
-                ELSE tempdb.dbo.SQLXL_3SD(i.ios_Total_wait_CNT,'I')
-                    +CASE WHEN CASE i.rec_type WHEN N'I' THEN p.ios_Total_wait_CNT
-                                               WHEN N'D' THEN a.ios_Total_wait_CNT
-                                               ELSE           d.ios_Total_wait_CNT
-                               END > 0
-                           AND i.ios_Total_wait_CNT > 0
-                          THEN N' ('+tempdb.dbo.SQLXL_3SD(1.0 * i.ios_Total_wait_CNT / CASE i.rec_type
-                                                                                           WHEN N'I' THEN p.ios_Total_wait_CNT
-                                                                                           WHEN N'D' THEN a.ios_Total_wait_CNT
-                                                                                           ELSE           d.ios_Total_wait_CNT
-                                                                                       END,N'%')+N')'
-                          ELSE IIF(i.ios_Total_wait_CNT = 0,N'(0.00%)',N'<?>')
-                     END
-           END
-           --------------------------------------------------------------------------------------------------------------
-          +NCHAR(10)
-          +N'WTS '
-          +CASE WHEN i.type IN (N'F',N'M')
-                THEN N'N/A'
-                WHEN i.obj_type = N'V' AND i.type = N'0'
-                THEN N'N/A'
-                ELSE tempdb.dbo.SQLXL_3SD(i.ios_Total_wait_MS_CNT,'ms')
-                    +CASE WHEN CASE i.rec_type WHEN N'P' THEN d.ios_Total_wait_MS_CNT
-                                               WHEN N'H' THEN d.ios_Total_wait_MS_CNT
-                                               WHEN N'S' THEN d.ios_Total_wait_MS_CNT
-                                               WHEN N'I' THEN p.ios_Total_wait_MS_CNT
-                                               ELSE           a.ios_Total_wait_MS_CNT
-                               END > 0
-                           AND i.ios_Total_wait_MS_CNT > 0
-                          THEN N' ('+tempdb.dbo.SQLXL_3SD(1.0 * i.ios_Total_wait_MS_CNT / CASE i.rec_type
-                                                                                               WHEN N'P' THEN d.ios_Total_wait_MS_CNT
-                                                                                               WHEN N'H' THEN d.ios_Total_wait_MS_CNT
-                                                                                               WHEN N'S' THEN d.ios_Total_wait_MS_CNT
-                                                                                               WHEN N'I' THEN p.ios_Total_wait_MS_CNT
-                                                                                               ELSE a.ios_Total_wait_MS_CNT
-                                                                                          END,N'%')+N')'
-                          ELSE IIF(i.ios_Total_wait_MS_CNT = 0,N'(0.00%)',N'<?>')
-                     END
-           END
-           --------------------------------------------------------------------------------------------------------------
-          +NCHAR(10)
-          +N'LCK '
-          +CASE WHEN i.type IN (N'F',N'M')               THEN N'N/A'
-                WHEN i.obj_type = N'V' AND i.type = N'0' THEN N'N/A'
-                ELSE tempdb.dbo.SQLXL_3SD(i.ios_Total_Lock_CNT,'I')
-                    +CASE WHEN CASE i.rec_type WHEN N'P' THEN d.ios_Total_Lock_CNT
-                                               WHEN N'H' THEN d.ios_Total_Lock_CNT
-                                               WHEN N'S' THEN d.ios_Total_Lock_CNT
-                                               WHEN N'I' THEN p.ios_Total_Lock_CNT
-                                               ELSE           a.ios_Total_Lock_CNT
-                               END > 0
-                           AND i.ios_Total_Lock_CNT > 0
-                          THEN N' ('+tempdb.dbo.SQLXL_3SD(1.0 * i.ios_Total_Lock_CNT / CASE i.rec_type
-                                                                                           WHEN N'P' THEN d.ios_Total_Lock_CNT
-                                                                                           WHEN N'H' THEN d.ios_Total_Lock_CNT
-                                                                                           WHEN N'S' THEN d.ios_Total_Lock_CNT
-                                                                                           WHEN N'I' THEN p.ios_Total_Lock_CNT
-                                                                                           ELSE a.ios_Total_Lock_CNT
-                                                                                       END,N'%')+N')'
-                          ELSE IIF(i.ios_Total_Lock_CNT = 0,N'(0.00%)',N'<?>')
-                     END
-           END
- END
+= CASE WHEN i.obj_type = N'V' AND i.type = N'0'              -- views without indexes don't record any usage stats other than in PLAN CACHE
+       THEN N'View Heap'  + NCHAR(10) + N'No data'
+       WHEN i.obj_type = N'F'                   
+       THEN N'Foreign Key'+NCHAR(10) +N'No data'
+       WHEN i.type = N'M'                   
+       THEN             N'RDS ' + COALESCE((SELECT * FROM dbo.SQLXL_Index_Metric_tvf(i.rec_type,i.database_ID,i.parent_object_ID,i.object_id,i.index_ID,i.type,N'ius_user_read_CNT'   )),N'')
+          + NCHAR(10) + N'WRT ' + N'n/a'
+          + NCHAR(10) + N'R/W ' + N'n/a'
+          + NCHAR(10) + N'WTS ' + N'n/a'
+          + NCHAR(10) + N'WTC ' + N'n/a'
+          + NCHAR(10) + N'LCK ' + N'n/a'
+       ELSE             N'RDS ' + COALESCE((SELECT * FROM dbo.SQLXL_Index_Metric_tvf(i.rec_type,i.database_ID,i.parent_object_ID,i.object_id,i.index_ID,i.type,N'ops_total_read_CNT'   )),N'')
+          + NCHAR(10) + N'WRT ' + COALESCE((SELECT * FROM dbo.SQLXL_Index_Metric_tvf(i.rec_type,i.database_ID,i.parent_object_ID,i.object_id,i.index_ID,i.type,N'ops_total_write_CNT'  )),N'')
+          + NCHAR(10) + N'R/W ' + COALESCE((SELECT * FROM dbo.SQLXL_Index_Metric_tvf(i.rec_type,i.database_ID,i.parent_object_ID,i.object_id,i.index_ID,i.type,N'ops_read_to_write_RAT')),N'')
+          + NCHAR(10) + N'WTS ' + COALESCE((SELECT * FROM dbo.SQLXL_Index_Metric_tvf(i.rec_type,i.database_ID,i.parent_object_ID,i.object_id,i.index_ID,i.type,N'ops_total_wait_MS_CNT')),N'')
+          + NCHAR(10) + N'WTC ' + COALESCE((SELECT * FROM dbo.SQLXL_Index_Metric_tvf(i.rec_type,i.database_ID,i.parent_object_ID,i.object_id,i.index_ID,i.type,N'ops_total_wait_CNT'   )),N'')
+          + NCHAR(10) + N'LCK ' + COALESCE((SELECT * FROM dbo.SQLXL_Index_Metric_tvf(i.rec_type,i.database_ID,i.parent_object_ID,i.object_id,i.index_ID,i.type,N'ops_total_lock_CNT'   )),N'')
+  END
 
 /******************************************************************************************************************************************/
 --
@@ -23298,8 +22811,8 @@ SELECT
 
           +NCHAR(10) + N'LEN ' + IIF(i.stathdr_Average_Key_Length > 0
                                     ,CAST(i.stathdr_Average_Key_Length AS NVARCHAR(20))
-                                    ,IIF(i.key_Total_datatype_length_bytes > 0
-                                         ,CAST(i.key_Total_datatype_length_bytes    AS NVARCHAR(20))
+                                    ,IIF(i.key_total_datatype_length_bytes > 0
+                                         ,CAST(i.key_total_datatype_length_bytes    AS NVARCHAR(20))
                                          ,N'<??>'))
                      + N' NUL ' + IIF(CAST(i.type AS INT) IS NOT NULL
                                      ,tempdb.dbo.SQLXL_3SD(i.stathist_null_rows,N'I')
@@ -23392,84 +22905,86 @@ SELECT
 --Table Priority Metrics
 /******************************************************************************************************************************************/
 ,[Table OPS Wait TM!H\B|N0]
-                        = IIF(    i.rec_type IN (N'P',N'H') AND a.ios_Total_wait_MS_CNT > 0
-                             ,100.0 * i.ios_Total_wait_MS_CNT / a.ios_Total_wait_MS_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                        = IIF(    i.rec_type = N'P' AND a.ops_total_wait_MS_CNT > 0
+                             ,100.0 * i.ops_total_wait_MS_CNT / a.ops_total_wait_MS_CNT
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table OPS Wait CNT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')  AND a.ios_Total_wait_CNT > 0
-                             ,100.0 * i.ios_Total_wait_CNT / a.ios_Total_wait_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                        = IIF(i.rec_type = N'P'  AND a.ops_total_wait_CNT > 0
+                             ,100.0 * i.ops_total_wait_CNT / a.ops_total_wait_CNT
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table OPS Locks CNT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')  AND a.ios_Total_Lock_CNT > 0
-                             ,100.0 * i.ios_Total_Lock_CNT / a.ios_Total_Lock_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                        = IIF(i.rec_type = N'P'  AND a.ops_total_lock_CNT > 0
+                             ,100.0 * i.ops_total_lock_CNT / a.ops_total_lock_CNT
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table OPS Lock Promo!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')              AND a.ios_lock_promotion_attempt_CNT > 0
+                        = IIF(i.rec_type = N'P'              AND a.ios_lock_promotion_attempt_CNT > 0
                              ,100.0 * i.ios_lock_promotion_attempt_CNT / a.ios_lock_promotion_attempt_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table OPS Promo Fail!H\B|N0]
-                        = IIF(    i.rec_type IN (N'P',N'H') 
+                        = IIF(    i.rec_type = N'P' 
                               AND a.ios_lock_promotion_attempt_CNT > 0
                              ,100.0 * (i.ios_lock_promotion_attempt_CNT - i.ios_lock_promotion_CNT)
                                     / A.ios_lock_promotion_attempt_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
 ,[Table OPS Page Split!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')        AND a.ops_Total_page_split_CNT > 0
-                             ,100.0 * i.ops_Total_page_split_CNT / a.ops_Total_page_split_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                        = IIF(i.rec_type = N'P'        AND a.ops_total_page_split_CNT > 0
+                             ,100.0 * i.ops_total_page_split_CNT / a.ops_total_page_split_CNT
+                             ,IIF(i.rec_type <> N'P',NULL,0))
+--<BS> review candidate to drop 
 ,[Table OPS Splits to Write PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H') AND i.page_splits_to_write_PCT > 0.0
+                        = IIF(i.rec_type = N'P' AND i.page_splits_to_write_PCT > 0.0
                              ,i.page_splits_to_write_PCT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table OPS Page Merge!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')        AND a.ops_Total_page_merge_CNT > 0
-                             ,100.0 * i.ops_Total_page_merge_CNT / a.ops_Total_page_merge_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                        = IIF(i.rec_type = N'P'        AND a.ops_total_page_merge_CNT > 0
+                             ,100.0 * i.ops_total_page_merge_CNT / a.ops_total_page_merge_CNT
+                             ,IIF(i.rec_type <> N'P',NULL,0))
+--<BS> review candidate to drop
 ,[Table OPS Merge to Write PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H') AND i.page_Merge_to_write_PCT > 0.0
+                        = IIF(i.rec_type = N'P' AND i.page_Merge_to_write_PCT > 0.0
                              ,i.page_Merge_to_write_PCT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
 ,[Table MIX Advantage Weighted!H\G|N0]
-                        = IIF(    i.rec_type IN (N'P',N'H')      AND a.mix_Advantage_weighted_AMT > 0  
+                        = IIF(    i.rec_type = N'P'      AND a.mix_Advantage_weighted_AMT > 0  
                               AND i.mix_Advantage_weighted_AMT > 0
                              ,100.0 * i.mix_Advantage_weighted_AMT / a.mix_Advantage_weighted_AMT
                              ,NULL)
 ,[Table MIX Advantage!H\G|N0]
-                        = IIF(    i.rec_type IN (N'P',N'H') AND a.mix_Advantage_AMT > 0
+                        = IIF(    i.rec_type = N'P' AND a.mix_Advantage_AMT > 0
                               AND i.mix_Advantage_AMT > 0
                              ,100.0 * i.mix_Advantage_AMT / a.mix_Advantage_AMT
                              ,NULL)
 ----------------------------------------------
 ,[Table OPS Writes!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')   AND a.ops_Total_write_CNT > 0
-                             ,100.0 * i.ops_Total_write_CNT / a.ops_Total_write_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                        = IIF(i.rec_type = N'P'   AND a.ops_total_write_CNT > 0
+                             ,100.0 * i.ops_total_write_CNT / a.ops_total_write_CNT
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table USG Writes!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')    AND a.ius_user_updates_CNT > 0
+                        = IIF(i.rec_type = N'P'    AND a.ius_user_updates_CNT > 0
                              ,100.0 * i.ius_user_updates_CNT / a.ius_user_updates_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
 ,[Table BUF Percent in Buffer!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')
-                             ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_Total_KB_CNT > 0.0
+                        = IIF(i.rec_type = N'P'
+                             ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_total_KB_CNT > 0.0
                                    THEN 100
-                                   WHEN i.reserved_page_CNT > 0
-                                   THEN 100.0 * i.buffer_Total_KB_CNT / (i.reserved_page_CNT * 8.0)
+                                   WHEN i.reserved_page_PG_CNT > 0
+                                   THEN 100.0 * i.buffer_total_KB_CNT / (i.reserved_page_PG_CNT * 8.0)
                                    ELSE NULL
                               END
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
 ,[Table OPS R/W Ratio!H\G|N0]
-                        = IIF(    i.rec_type IN (N'P',N'H')
-                              AND i.ops_Total_write_CNT > 0
-                             ,IIF(i.ops_Total_read_CNT / i.ops_Total_write_CNT < 100
-                                 ,1.0 * i.ops_Total_read_CNT / i.ops_Total_write_CNT
+                        = IIF(    i.rec_type = N'P'
+                              AND i.ops_total_write_CNT > 0
+                             ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
+                                 ,1.0 * i.ops_total_read_CNT / i.ops_total_write_CNT
                                  ,99)
                              ,NULL) -- show NULL if no writes found
 ,[Table USG R/W Ratio!H\G|N0]
-                        = IIF(    i.rec_type IN (N'P',N'H')
+                        = IIF(    i.rec_type = N'P'
                               AND i.ius_user_updates_CNT > 0
                              ,IIF(i.ius_User_read_CNT / i.ius_user_updates_CNT < 100
                                  ,1.0 * i.ius_User_read_CNT / i.ius_user_updates_CNT
@@ -23477,37 +22992,37 @@ SELECT
                              ,NULL) -- show NULL if no writes found
 ----------------------------------------------
 ,[Table OPS Reads PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')  AND a.ops_Total_read_CNT > 0
-                             ,100.0 * i.ops_Total_read_CNT / a.ops_Total_read_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                        = IIF(i.rec_type = N'P'  AND a.ops_total_read_CNT > 0
+                             ,100.0 * i.ops_total_read_CNT / a.ops_total_read_CNT
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table OPS Scans PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')  AND a.ops_Total_scan_cnt > 0
-                             ,100.0 * i.ops_Total_scan_cnt / a.ops_Total_scan_cnt
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                        = IIF(i.rec_type = N'P'  AND a.ops_total_scan_CNT > 0
+                             ,100.0 * i.ops_total_scan_CNT / a.ops_total_scan_CNT
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table OPS Lookups PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')        AND a.ios_singleton_lookup_CNT > 0
+                        = IIF(i.rec_type = N'P'        AND a.ios_singleton_lookup_CNT > 0
                              ,100.0 * i.ios_singleton_lookup_CNT / a.ios_singleton_lookup_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table OPS Forwarded Fetch!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')       AND a.ios_forwarded_fetch_CNT > 0
+                        = IIF(i.rec_type = N'P'       AND a.ios_forwarded_fetch_CNT > 0
                              ,100.0 * i.ios_forwarded_fetch_CNT / a.ios_forwarded_fetch_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
 ,[Table USG Reads PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H') AND a.ius_user_read_CNT > 0
+                        = IIF(i.rec_type = N'P' AND a.ius_user_read_CNT > 0
                              ,100.0 * i.ius_User_read_CNT / a.ius_user_read_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table USG Scans PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')  AND a.ius_user_scans_CNT > 0
+                        = IIF(i.rec_type = N'P'  AND a.ius_user_scans_CNT > 0
                              ,100.0 * i.ius_user_scans_CNT / a.ius_user_scans_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ,[Table USG Lookups PCT!H\B|N0]
-                        = IIF(i.rec_type IN (N'P',N'H')    AND a.ius_user_lookups_CNT > 0
+                        = IIF(i.rec_type = N'P'    AND a.ius_user_lookups_CNT > 0
                              ,100.0 * i.ius_user_lookups_CNT / a.ius_user_lookups_CNT
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
 ,[Table OPS LOB Contacts PCT!H\B|N0]
-                        = IIF(    i.rec_type IN (N'P',N'H')
+                        = IIF(    i.rec_type = N'P'
                               AND     ( a.ios_lob_fetch_pages_CNT
                                       + a.ios_lob_orphan_create_CNT
                                       + a.ios_lob_orphan_insert_CNT
@@ -23529,27 +23044,27 @@ SELECT
                                       + a.ios_column_value_pull_in_row_CNT
                                       + a.ios_column_value_push_off_row_CNT
                                       )
-                             ,IIF(i.rec_type NOT IN (N'P',N'H'),NULL,0))
+                             ,IIF(i.rec_type <> N'P',NULL,0))
 
 /******************************************************************************************************************************************/
 --Index Priority Metrics
 /******************************************************************************************************************************************/
 ,[Index OPS Wait TM!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(p.ios_Total_wait_MS_CNT > 0
-                                 ,100.0 * i.ios_Total_wait_MS_CNT / p.ios_Total_wait_MS_CNT
+                             ,IIF(p.ops_total_wait_MS_CNT > 0
+                                 ,100.0 * i.ops_total_wait_MS_CNT / p.ops_total_wait_MS_CNT
                                  ,0)
                              ,NULL)
 ,[Index OPS Wait CNT!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(p.ios_Total_wait_CNT > 0
-                                 ,100.0 * i.ios_Total_wait_CNT / p.ios_Total_wait_CNT
+                             ,IIF(p.ops_total_wait_CNT > 0
+                                 ,100.0 * i.ops_total_wait_CNT / p.ops_total_wait_CNT
                                  ,0)
                              ,NULL)
 ,[Index OPS Locks CNT!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(p.ios_Total_Lock_CNT > 0
-                                 ,100.0 * i.ios_Total_Lock_CNT / p.ios_Total_Lock_CNT
+                             ,IIF(p.ops_total_lock_CNT > 0
+                                 ,100.0 * i.ops_total_lock_CNT / p.ops_total_lock_CNT
                                  ,0)
                              ,NULL)
 ,[Index OPS Lock Promo!H\B|N0]
@@ -23567,25 +23082,25 @@ SELECT
 ----------------------------------------------
 ,[Index OPS Page Split!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(p.ops_Total_page_split_CNT > 0
-                                 ,100.0 * i.ops_Total_page_split_CNT / p.ops_Total_page_split_CNT
+                             ,IIF(p.ops_total_page_split_CNT > 0
+                                 ,100.0 * i.ops_total_page_split_CNT / p.ops_total_page_split_CNT
                                  ,0)
                              ,NULL)
 ,[Index OPS Splits to Write PCT!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(i.ops_Total_write_CNT > 0
+                             ,IIF(i.ops_total_write_CNT > 0
                                  ,i.page_splits_to_write_PCT
                                  ,0)
                              ,NULL)
 ,[Index OPS Page Merge!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(p.ops_Total_page_merge_CNT > 0
-                                 ,100.0 * i.ops_Total_page_merge_CNT / p.ops_Total_page_merge_CNT
+                             ,IIF(p.ops_total_page_merge_CNT > 0
+                                 ,100.0 * i.ops_total_page_merge_CNT / p.ops_total_page_merge_CNT
                                  ,0)
                              ,NULL)
 ,[Index OPS Merges to Write PCT!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(i.ops_Total_write_CNT > 0
+                             ,IIF(i.ops_total_write_CNT > 0
                                  ,i.page_Merge_to_write_PCT
                                  ,0)
                              ,NULL)
@@ -23603,8 +23118,8 @@ SELECT
 ----------------------------------------------
 ,[Index OPS Writes!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(p.ops_Total_write_CNT > 0
-                                 ,100.0 * i.ops_Total_write_CNT / p.ops_Total_write_CNT
+                             ,IIF(p.ops_total_write_CNT > 0
+                                 ,100.0 * i.ops_total_write_CNT / p.ops_total_write_CNT
                                  ,0)
                              ,NULL)
 ,[Index USG Writes!H\B|N0]
@@ -23616,19 +23131,19 @@ SELECT
 ----------------------------------------------
 ,[Index BUF Percent in Buffer!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_Total_KB_CNT > 0.0
+                             ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_total_KB_CNT > 0.0
                                    THEN 100
-                                   WHEN i.reserved_page_CNT > 0
-                                   THEN 100.0 * i.buffer_Total_KB_CNT / (i.reserved_page_CNT * 8.0)
+                                   WHEN i.reserved_page_PG_CNT > 0
+                                   THEN 100.0 * i.buffer_total_KB_CNT / (i.reserved_page_PG_CNT * 8.0)
                                    ELSE NULL
                               END
                              ,NULL)
 ----------------------------------------------
 ,[Index OPS R/W Ratio!H\G|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(i.ops_Total_write_CNT > 0
-                                 ,IIF(i.ops_Total_read_CNT / i.ops_Total_write_CNT < 100
-                                     ,1.0 * i.ops_Total_read_CNT / i.ops_Total_write_CNT
+                             ,IIF(i.ops_total_write_CNT > 0
+                                 ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
+                                     ,1.0 * i.ops_total_read_CNT / i.ops_total_write_CNT
                                      ,99)
                                  ,NULL)
                              ,NULL)
@@ -23643,12 +23158,12 @@ SELECT
 ----------------------------------------------
 ,[Index OPS Reads PCT!H\G|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,100.0 * i.ios_read_to_parent_RAT
+                             ,i.ops_read_to_parent_PCT
                              ,NULL)
 ,[Index OPS Scans PCT!H\B|N0]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(p.ops_Total_scan_cnt > 0
-                                 ,100.0 * i.ops_Total_scan_cnt / p.ops_Total_scan_cnt
+                             ,IIF(p.ops_total_scan_CNT > 0
+                                 ,100.0 * i.ops_total_scan_CNT / p.ops_total_scan_CNT
                                  ,0)
                              ,NULL)
 ,[Index OPS Lookups PCT!H\B|N0]
@@ -23667,7 +23182,7 @@ SELECT
 ,[Index USG Reads PCT!H\G|N0]
                         = IIF(   TRY_CAST(i.type AS INT) IS NOT NULL
                               OR i.type = N'M'
-                             ,100.0 * i.ius_read_to_parent_RAT
+                             ,i.ius_read_to_parent_PCT
                              ,NULL)
 ,[Index USG Scans PCT!H\G|N0]
                         = IIF(   TRY_CAST(i.type AS INT) IS NOT NULL
@@ -23712,37 +23227,37 @@ SELECT
 /******************************************************************************************************************************************/
 --Index Priority Metrics FOR SORTING ACROSS INDEXES
 /******************************************************************************************************************************************/
-,[Index OPS Wait TM!H\B|N0]             = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_Total_wait_MS_CNT         ,NULL)
-,[Index OPS Wait CNT!H\B|N0]            = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_Total_wait_CNT            ,NULL)
-,[Index OPS Locks CNT!H\B|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_Total_Lock_CNT            ,NULL)
+,[Index OPS Wait TM!H\B|N0]             = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_total_wait_MS_CNT         ,NULL)
+,[Index OPS Wait CNT!H\B|N0]            = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_total_wait_CNT            ,NULL)
+,[Index OPS Locks CNT!H\B|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_total_lock_CNT            ,NULL)
 ,[Index OPS Lock Promo!H\B|N0]          = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_lock_promotion_attempt_CNT,NULL)
 ,[Index OPS Promo Fail!H\B|N0]          = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_lock_promotion_attempt_CNT
                                                                                  -i.ios_lock_promotion_CNT        ,NULL)
 ----------------------------------------------
-,[Index OPS Page Split!H\B|N0]          = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_Total_page_split_CNT      ,NULL)
+,[Index OPS Page Split!H\B|N0]          = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_total_page_split_CNT      ,NULL)
 ,[Index OPS Splits to Write PCT!H\B|N0] = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.page_splits_to_write_PCT      ,NULL)
-,[Index OPS Page Merge!H\B|N0]          = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_Total_page_merge_CNT      ,NULL)
+,[Index OPS Page Merge!H\B|N0]          = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_total_page_merge_CNT      ,NULL)
 ,[Index OPS Merges to Write PCT!H\B|N0] = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.page_Merge_to_write_PCT       ,NULL)
 ----------------------------------------------
 ,[Index MIX Advantage Weighted!H\G|N0]  = IIF(          i.type = N'M'            ,i.mix_Advantage_weighted_AMT    ,NULL)
 ,[Index MIX Advantage!H\G|N0]           = IIF(          i.type = N'M'            ,i.mix_Advantage_AMT             ,NULL)
 ----------------------------------------------
-,[Index OPS Writes!H\B|N0]              = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_Total_write_CNT           ,NULL)
+,[Index OPS Writes!H\B|N0]              = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_total_write_CNT           ,NULL)
 ,[Index USG Writes!H\B|N0]              = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ius_user_updates_CNT          ,NULL)
 ----------------------------------------------
 ,[Index BUF Percent in Buffer!H\B|N0]   = IIF(TRY_CAST(i.type AS INT) IS NOT NULL
-                                             ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_Total_KB_CNT > 0.0
+                                             ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_total_KB_CNT > 0.0
                                                    THEN 100
-                                                   WHEN i.reserved_page_CNT > 0
-                                                   THEN 100.0 * i.buffer_Total_KB_CNT / (i.reserved_page_CNT * 8.0)
+                                                   WHEN i.reserved_page_PG_CNT > 0
+                                                   THEN 100.0 * i.buffer_total_KB_CNT / (i.reserved_page_PG_CNT * 8.0)
                                                    ELSE NULL
                                               END
                                              ,NULL)
 ----------------------------------------------
 ,[Index OPS R/W Ratio!H\G|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
-                             ,IIF(i.ops_Total_write_CNT > 0
-                                 ,IIF(i.ops_Total_read_CNT / i.ops_Total_write_CNT < 100
-                                     ,1.0 * i.ops_Total_read_CNT / i.ops_Total_write_CNT
+                             ,IIF(i.ops_total_write_CNT > 0
+                                 ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
+                                     ,1.0 * i.ops_total_read_CNT / i.ops_total_write_CNT
                                      ,99)
                                  ,NULL)
                              ,NULL)
@@ -23754,14 +23269,15 @@ SELECT
                                                  ,NULL)
                                              ,NULL)
 ----------------------------------------------
-,[Index OPS Reads PCT!H\G|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_read_to_parent_RAT        ,NULL)
-,[Index OPS Scans PCT!H\B|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_Total_scan_cnt            ,NULL)
-,[Index OPS Lookups PCT!H\B|N0]         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_singleton_lookup_CNT      ,NULL)
-,[Index OPS Forwarded Fetch!H\B|N0]     = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_forwarded_fetch_CNT       ,NULL)
+,[Index OPS Reads!H\G|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_total_read_CNT        ,NULL)
+,[Index OPS Scans!H\B|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ops_total_scan_CNT        ,NULL)
+,[Index OPS Lookups!H\B|N0]         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_singleton_lookup_CNT  ,NULL)
+,[Index OPS Forwarded Fetch!H\B|N0] = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ios_forwarded_fetch_CNT   ,NULL)
 ----------------------------------------------
-,[Index USG Reads PCT!H\G|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ius_read_to_parent_RAT        ,NULL)
-,[Index USG Scans PCT!H\G|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ius_user_scans_CNT            ,NULL)
-,[Index USG Lookups PCT!H\G|N0]         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ius_user_lookups_CNT          ,NULL)
+,[Index USG Reads!H\G|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ius_user_read_CNT        ,NULL)
+,[Index USG Scans!H\G|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ius_user_scans_CNT       ,NULL)
+,[Index USG Seeks!H\G|N0]           = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ius_user_seeks_CNT       ,NULL)
+,[Index USG Lookups!H\G|N0]         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL,i.ius_user_lookups_CNT     ,NULL)
 ----------------------------------------------
 ,[Index OPS LOB Contacts PCT!H\B|N0]    = IIF(    TRY_CAST(i.type AS INT) IS NOT NULL
                                              , i.ios_lob_fetch_pages_CNT
@@ -23775,39 +23291,39 @@ SELECT
 -- Sorters/filters
 /******************************************************************************************************************************************/
 ,[Table Busyness!H\B|N0]
-                        = IIF(    i.rec_type IN (N'P',N'H')
-                              AND  ( (CAST(ISNULL(a.buffer_Total_KB_CNT     ,0.0) AS FLOAT) *  2.0)
+                        = IIF(    i.rec_type = N'P'
+                              AND  ( (CAST(ISNULL(a.buffer_total_KB_CNT     ,0.0) AS FLOAT) *  2.0)
                                     +(CAST(ISNULL(a.ius_user_updates_CNT    ,0.0) AS FLOAT) *  6.0)
                                     +(CAST(ISNULL(a.ius_User_read_CNT       ,0.0) AS FLOAT) *  1.0)
-                                    +(CAST(ISNULL(a.ops_Total_page_split_CNT,0.0) AS FLOAT) * 10.0)
+                                    +(CAST(ISNULL(a.ops_total_page_split_CNT,0.0) AS FLOAT) * 10.0)
                                    ) > 0
-                             ,100.*( (CAST(ISNULL(i.buffer_Total_KB_CNT     ,0.0) AS FLOAT) *  2.0)
+                             ,100.*( (CAST(ISNULL(i.buffer_total_KB_CNT     ,0.0) AS FLOAT) *  2.0)
                                     +(CAST(ISNULL(i.ius_user_updates_CNT    ,0.0) AS FLOAT) *  6.0)
                                     +(CAST(ISNULL(i.ius_User_read_CNT       ,0.0) AS FLOAT) *  1.0)
-                                    +(CAST(ISNULL(i.ops_Total_page_split_CNT,0.0) AS FLOAT) * 10.0)
+                                    +(CAST(ISNULL(i.ops_total_page_split_CNT,0.0) AS FLOAT) * 10.0)
                                    )
-                               /   ( (CAST(ISNULL(a.buffer_Total_KB_CNT     ,0.0) AS FLOAT) *  2.0) -- Divide by SAMPLE total
+                               /   ( (CAST(ISNULL(a.buffer_total_KB_CNT     ,0.0) AS FLOAT) *  2.0) -- Divide by SAMPLE total
                                     +(CAST(ISNULL(a.ius_user_updates_CNT    ,0.0) AS FLOAT) *  6.0)
                                     +(CAST(ISNULL(a.ius_User_read_CNT       ,0.0) AS FLOAT) *  1.0)
-                                    +(CAST(ISNULL(a.ops_Total_page_split_CNT,0.0) AS FLOAT) * 10.0)
+                                    +(CAST(ISNULL(a.ops_total_page_split_CNT,0.0) AS FLOAT) * 10.0)
                                    )
                              ,NULL)
 ,[Index Busyness!H\B\B|N0]
                         = IIF(    TRY_CAST(i.type AS INT) IS NOT NULL
-                              AND  ( (CAST(ISNULL(p.buffer_Total_KB_CNT     ,0.0) AS FLOAT) *  2.0)
+                              AND  ( (CAST(ISNULL(p.buffer_total_KB_CNT     ,0.0) AS FLOAT) *  2.0)
                                     +(CAST(ISNULL(p.ius_user_updates_CNT    ,0.0) AS FLOAT) *  6.0)
                                     +(CAST(ISNULL(p.ius_User_read_CNT       ,0.0) AS FLOAT) *  1.0)
-                                    +(CAST(ISNULL(p.ops_Total_page_split_CNT,0.0) AS FLOAT) * 10.0)
+                                    +(CAST(ISNULL(p.ops_total_page_split_CNT,0.0) AS FLOAT) * 10.0)
                                    ) > 0
-                             ,100.*( (CAST(ISNULL(i.buffer_Total_KB_CNT     ,0.0) AS FLOAT) *  2.0)
+                             ,100.*( (CAST(ISNULL(i.buffer_total_KB_CNT     ,0.0) AS FLOAT) *  2.0)
                                     +(CAST(ISNULL(i.ius_user_updates_CNT    ,0.0) AS FLOAT) *  6.0)
                                     +(CAST(ISNULL(i.ius_User_read_CNT       ,0.0) AS FLOAT) *  1.0)
-                                    +(CAST(ISNULL(i.ops_Total_page_split_CNT,0.0) AS FLOAT) * 10.0)
+                                    +(CAST(ISNULL(i.ops_total_page_split_CNT,0.0) AS FLOAT) * 10.0)
                                    )
-                               /   ( (CAST(ISNULL(p.buffer_Total_KB_CNT     ,0.0) AS FLOAT) *  2.0) -- Divide by TABLE total
+                               /   ( (CAST(ISNULL(p.buffer_total_KB_CNT     ,0.0) AS FLOAT) *  2.0) -- Divide by TABLE total
                                     +(CAST(ISNULL(p.ius_user_updates_CNT    ,0.0) AS FLOAT) *  6.0)
                                     +(CAST(ISNULL(p.ius_User_read_CNT       ,0.0) AS FLOAT) *  1.0)
-                                    +(CAST(ISNULL(p.ops_Total_page_split_CNT,0.0) AS FLOAT) * 10.0)
+                                    +(CAST(ISNULL(p.ops_total_page_split_CNT,0.0) AS FLOAT) * 10.0)
                                    )
                              ,NULL)
 ,[Last Read Days\B|N0]
@@ -23817,24 +23333,22 @@ SELECT
                                                                ,(i.ius_last_user_lookup_DTTM)) AS value(dt))
                                   ,sp.collection_DTTM
                                   )
---,[Table Stats_Prop_mod!H\B|N0] = IIF(i.rec_type IN (N'P',N'H')
+--,[Table Stats_Prop_mod!H\B|N0] = IIF(i.rec_type = N'P'
 --                                     ,i.Stats_Prop_modification_CNT * i.stathdr_Average_Key_Length
 --                                     ,0)
 --,[Index Stats_Prop_mod!H\B|N0]  = i.Stats_Prop_modification_CNT * i.stathdr_Average_Key_Length
--- ,[Table ios_writes!H\B|N0]     = IIF(i.rec_type IN (N'P',N'H')
---                                      ,i.ops_Total_write_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
+-- ,[Table ios_writes!H\B|N0]     = IIF(i.rec_type = N'P'
+--                                      ,i.ops_total_write_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
 --                                      ,0)
--- ,[Index ios_writes!H\B|N0]      = i.ops_Total_write_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
--- ,[Table ius_writes!H\B|N0]     = IIF(i.rec_type IN (N'P',N'H')
+-- ,[Index ios_writes!H\B|N0]      = i.ops_total_write_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
+-- ,[Table ius_writes!H\B|N0]     = IIF(i.rec_type = N'P'
 --                                      ,i.ius_user_updates_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
 --                                      ,0)
 -- ,[Index ius_writes!H\B|N0]      = i.ius_user_updates_CNT  * (i.column_width_bytes + i.Included_column_width_bytes)
 ---------------------------------------------------------------------------------------
 
--- xtp_Total_write_CNT
--- ops_Total_read_CNT
+-- ops_total_read_CNT
 -- ius_User_read_CNT
--- xtp_Total_read_CNT
 
 ----------------------------------------------------------------------------------------------------
 -- Record Key IDs
@@ -23854,14 +23368,14 @@ SELECT
 ,[mix unique compiles CNT\B|N0]       = IIF(i.type = N'M',i.mix_unique_compiles_CNT      ,NULL)
 ,[mix user seeks CNT\B|N0]            = IIF(i.type = N'M',i.ius_user_seeks_CNT           ,NULL)
 ,[mix user scans CNT\B|N0]            = IIF(i.type = N'M',i.ius_user_scans_CNT           ,NULL)
-,[mix avg Total user cost AMT\B|N2]   = IIF(i.type = N'M',i.mix_avg_Total_user_cost_AMT  ,NULL)
+,[mix avg Total user cost AMT\B|N2]   = IIF(i.type = N'M',i.mix_avg_total_user_cost_AMT  ,NULL)
 ,[mix avg user impact AMT\B|N2]       = IIF(i.type = N'M',i.mix_avg_user_impact_AMT      ,NULL)
 ,[mix last user seek|DT]              = IIF(i.type = N'M',i.ius_last_user_seek_DTTM      ,NULL)
 ,[mix last user scan|DT]              = IIF(i.type = N'M',i.ius_last_user_scan_DTTM      ,NULL)
 --------------------------------------
 ,[Table Total Reads CNT\B|N0]         = IIF(i.type = N'M',p.ius_user_read_CNT            ,NULL)
 --------------------------------------
-,[mix avg Total system cost AMT\B|N2] = IIF(i.type = N'M',i.mix_avg_Total_system_cost_AMT,NULL)
+,[mix avg Total system cost AMT\B|N2] = IIF(i.type = N'M',i.mix_avg_total_system_cost_AMT,NULL)
 ,[mix avg system impact AMT\B|N2]     = IIF(i.type = N'M',i.mix_avg_system_impact_AMT    ,NULL)
 ,[mix system seeks CNT\B|N0]          = IIF(i.type = N'M',i.ius_system_seeks_CNT         ,NULL)
 ,[mix system scans CNT\B|N0]          = IIF(i.type = N'M',i.ius_system_scans_CNT         ,NULL)
@@ -23871,15 +23385,15 @@ SELECT
 /******************************************************************************************************************************************/
 -- TOTAL Operational Stats
 /******************************************************************************************************************************************/
-,[ops_Total_contacts_CNT\B|N0]                   = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_Total_contacts_CNT                   ,NULL)
-,[ops_no_read_Total_write_CNT\B|N0]              = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_no_read_Total_write_CNT              ,NULL)
-,[ops_Total_write_CNT\B|N0]                      = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_Total_write_CNT                      ,NULL)
-,[ops_Total_insert_CNT\B|N0]                     = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_Total_insert_CNT                     ,NULL)
-,[ops_Total_update_CNT\B|N0]                     = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_Total_update_CNT                     ,NULL)
-,[ops_Total_delete_CNT\B|N0]                     = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_Total_delete_CNT                     ,NULL)
-,[ops_Total_read_CNT\G|N0]                       = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_Total_read_CNT                       ,NULL)
-,[ops_Total_scan_cnt\B|N0]                       = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_Total_scan_cnt                       ,NULL)
-,[ops_Total_scan_retries_cnt\B|N0]               = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_Total_scan_retries_cnt               ,NULL)
+,[ops_total_contacts_CNT\B|N0]                   = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_total_contacts_CNT                   ,NULL)
+,[ops_no_read_total_write_CNT\B|N0]              = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_no_read_total_write_CNT              ,NULL)
+,[ops_total_write_CNT\B|N0]                      = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_total_write_CNT                      ,NULL)
+,[ops_total_insert_CNT\B|N0]                     = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_total_insert_CNT                     ,NULL)
+,[ops_total_update_CNT\B|N0]                     = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_total_update_CNT                     ,NULL)
+,[ops_total_delete_CNT\B|N0]                     = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_total_delete_CNT                     ,NULL)
+,[ops_total_read_CNT\G|N0]                       = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_total_read_CNT                       ,NULL)
+,[ops_total_scan_CNT\B|N0]                       = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_total_scan_CNT                       ,NULL)
+,[ops_total_scan_retries_CNT\B|N0]               = IIF(i.rec_type NOT IN (N'A',N'D'),i.ops_total_scan_retries_CNT               ,NULL)
 
 /******************************************************************************************************************************************/
 -- Index Operational Stats
@@ -23889,28 +23403,28 @@ SELECT
 ,[ios_lob_fetch_pages_CNT\B|N0]                  = IIF(i.rec_type = N'I',i.ios_lob_fetch_pages_CNT                  ,NULL)
 ,[ios_partition_CNT\B|N0]                        = IIF(i.rec_type = N'I',i.ios_partition_CNT                        ,NULL)
 -------------------------------------------------
-,[ios_Total_wait_CNT\B|N0]                       = IIF(i.rec_type = N'I',i.ios_Total_wait_CNT                       ,NULL)
-,[ios_Total_wait_MS_CNT\B|N0]                    = IIF(i.rec_type = N'I',i.ios_Total_wait_MS_CNT                    ,NULL)
-,[ios_Total_wait_MS_AVG\B|N2]                    = IIF(i.rec_type = N'I',i.ios_Total_wait_AVG                       ,NULL)
+,[ops_total_wait_CNT\B|N0]                       = IIF(i.rec_type = N'I',i.ops_total_wait_CNT                       ,NULL)
+,[ops_total_wait_MS_CNT\B|N0]                    = IIF(i.rec_type = N'I',i.ops_total_wait_MS_CNT                    ,NULL)
+,[ops_total_wait_MS_AVG\B|N2]                    = IIF(i.rec_type = N'I',i.ops_total_wait_MS_AVG                    ,NULL)
 -------------------------------------------------
 ,[ios_leaf_insert_CNT\B|N0]                      = IIF(i.rec_type = N'I',i.ios_leaf_insert_CNT                      ,NULL)
 ,[ios_leaf_update_CNT\B|N0]                      = IIF(i.rec_type = N'I',i.ios_leaf_update_CNT                      ,NULL)
 ,[ios_leaf_delete_CNT\B|N0]                      = IIF(i.rec_type = N'I',i.ios_leaf_delete_CNT                      ,NULL)
 ,[ios_leaf_ghost_CNT\B|N0]                       = IIF(i.rec_type = N'I',i.ios_leaf_ghost_CNT                       ,NULL)
-,[ios_Total_leaf_Contacts_CNT\B|N0]              = IIF(i.rec_type = N'I',i.ios_Total_leaf_Contacts_CNT              ,NULL)
+,[ios_total_leaf_Contacts_CNT\B|N0]              = IIF(i.rec_type = N'I',i.ios_total_leaf_Contacts_CNT              ,NULL)
 -------------------------------------------------
 ,[ios_nonleaf_insert_CNT\B|N0]                   = IIF(i.rec_type = N'I',i.ios_nonleaf_insert_CNT                   ,NULL)
 ,[ios_nonleaf_delete_CNT\B|N0]                   = IIF(i.rec_type = N'I',i.ios_nonleaf_delete_CNT                   ,NULL)
 ,[ios_nonleaf_update_CNT\B|N0]                   = IIF(i.rec_type = N'I',i.ios_nonleaf_update_CNT                   ,NULL)
-,[ios_Total_nonleaf_Contacts_CNT\B|N0]           = IIF(i.rec_type = N'I',i.ios_Total_nonleaf_Contacts_CNT           ,NULL)
+,[ios_total_nonleaf_Contacts_CNT\B|N0]           = IIF(i.rec_type = N'I',i.ios_total_nonleaf_Contacts_CNT           ,NULL)
 -------------------------------------------------
 ,[ios_leaf_alloc_page_split_CNT\B|N0]            = IIF(i.rec_type = N'I',i.ios_leaf_alloc_page_split_CNT            ,NULL)
 ,[ios_nonleaf_alloc_page_split_CNT\B|N0]         = IIF(i.rec_type = N'I',i.ios_nonleaf_alloc_page_split_CNT         ,NULL)
-,[ops_Total_page_split_CNT\B|N0]                 = IIF(i.rec_type = N'I',i.ops_Total_page_split_CNT                 ,NULL)
+,[ops_total_page_split_CNT\B|N0]                 = IIF(i.rec_type = N'I',i.ops_total_page_split_CNT                 ,NULL)
 -------------------------------------------------
 ,[ios_leaf_page_merge_CNT\B|N0]                  = IIF(i.rec_type = N'I',i.ios_leaf_page_merge_CNT                  ,NULL)
 ,[ios_nonleaf_page_merge_CNT\B|N0]               = IIF(i.rec_type = N'I',i.ios_nonleaf_page_merge_CNT               ,NULL)
-,[ops_Total_page_merge_CNT\B|N0]                 = IIF(i.rec_type = N'I',i.ops_Total_page_merge_CNT                 ,NULL)
+,[ops_total_page_merge_CNT\B|N0]                 = IIF(i.rec_type = N'I',i.ops_total_page_merge_CNT                 ,NULL)
 -------------------------------------------------
 ,[ios_lob_fetch_bytes_CNT\B|N0]                  = IIF(i.rec_type = N'I',i.ios_lob_fetch_bytes_CNT                  ,NULL)
 ,[ios_lob_orphan_create_CNT\B|N0]                = IIF(i.rec_type = N'I',i.ios_lob_orphan_create_CNT                ,NULL)
@@ -23920,20 +23434,20 @@ SELECT
 ,[ios_column_value_push_off_row_CNT\B|N0]        = IIF(i.rec_type = N'I',i.ios_column_value_push_off_row_CNT        ,NULL)
 ,[ios_column_value_pull_in_row_CNT\B|N0]         = IIF(i.rec_type = N'I',i.ios_column_value_pull_in_row_CNT         ,NULL)
 -------------------------------------------------
-,[ios_Total_lock_CNT\B|N0]                       = IIF(i.rec_type = N'I',i.ios_Total_lock_CNT                       ,NULL)
-,[ios_Total_lock_wait_CNT\B|N0]                  = IIF(i.rec_type = N'I',i.ios_Total_lock_wait_CNT                  ,NULL)
-,[ios_Total_lock_wait_MS_CNT\B|N0]               = IIF(i.rec_type = N'I',i.ios_Total_lock_wait_MS_CNT               ,NULL)
-,[ios_Total_lock_wait_MS_AVG\B|N2]               = IIF(i.rec_type = N'I',i.ios_Total_lock_wait_AVG                  ,NULL)
+,[ops_total_lock_CNT\B|N0]                       = IIF(i.rec_type = N'I',i.ops_total_lock_CNT                       ,NULL)
+,[ops_total_lock_wait_CNT\B|N0]                  = IIF(i.rec_type = N'I',i.ops_total_lock_wait_CNT                  ,NULL)
+,[ops_total_lock_wait_MS_CNT\B|N0]               = IIF(i.rec_type = N'I',i.ops_total_lock_wait_MS_CNT               ,NULL)
+,[ops_total_lock_wait_MS_AVG\B|N2]               = IIF(i.rec_type = N'I',i.ops_total_lock_wait_MS_AVG               ,NULL)
 -------------------------------------------------
 ,[ios_row_lock_CNT\B|N0]                         = IIF(i.rec_type = N'I',i.ios_row_lock_CNT                         ,NULL)
 ,[ios_row_lock_wait_CNT\B|N0]                    = IIF(i.rec_type = N'I',i.ios_row_lock_wait_CNT                    ,NULL)
 ,[ios_row_lock_wait_MS_CNT\B|N0]                 = IIF(i.rec_type = N'I',i.ios_row_lock_wait_MS_CNT                 ,NULL)
-,[ios_row_lock_wait_MS_AVG\B|N2]                 = IIF(i.rec_type = N'I',i.ios_row_lock_wait_AVG                    ,NULL)
+,[ios_row_lock_wait_MS_AVG\B|N2]                 = IIF(i.rec_type = N'I',i.ios_row_lock_wait_MS_AVG                 ,NULL)
 -------------------------------------------------
 ,[ios_page_lock_CNT\B|N0]                        = IIF(i.rec_type = N'I',i.ios_page_lock_CNT                        ,NULL)
 ,[ios_page_lock_wait_CNT\B|N0]                   = IIF(i.rec_type = N'I',i.ios_page_lock_wait_CNT                   ,NULL)
 ,[ios_page_lock_wait_MS_CNT\B|N0]                = IIF(i.rec_type = N'I',i.ios_page_lock_wait_MS_CNT                ,NULL)
-,[ios_page_lock_wait_MS_AVG\B|N2]                = IIF(i.rec_type = N'I',i.ios_page_lock_wait_AVG                   ,NULL)
+,[ios_page_lock_wait_MS_AVG\B|N2]                = IIF(i.rec_type = N'I',i.ios_page_lock_wait_MS_AVG                ,NULL)
 -------------------------------------------------
 ,[ios_lock_promotion_attempt_CNT\B|N0]           = IIF(i.rec_type = N'I',i.ios_lock_promotion_attempt_CNT           ,NULL)
 -- Fail PCT                                        IIF(i.rec_type = N'I',                                           ,NULL)
@@ -23942,19 +23456,19 @@ SELECT
 -------------------------------------------------
 ,[ios_page_latch_wait_CNT\B|N0]                  = IIF(i.rec_type = N'I',i.ios_page_latch_wait_CNT                  ,NULL)
 ,[ios_page_latch_wait_MS_CNT\B|N0]               = IIF(i.rec_type = N'I',i.ios_page_latch_wait_MS_CNT               ,NULL)
-,[ios_page_latch_wait_MS_AVG\B|N2]               = IIF(i.rec_type = N'I',i.ios_page_latch_wait_AVG                  ,NULL)
+,[ios_page_latch_wait_MS_AVG\B|N2]               = IIF(i.rec_type = N'I',i.ios_page_latch_wait_MS_AVG               ,NULL)
 -------------------------------------------------
 ,[ios_page_io_latch_wait_CNT\B|N0]               = IIF(i.rec_type = N'I',i.ios_page_io_latch_wait_CNT               ,NULL)
 ,[ios_page_io_latch_wait_MS_CNT\B|N0]            = IIF(i.rec_type = N'I',i.ios_page_io_latch_wait_MS_CNT            ,NULL)
-,[ios_page_io_latch_wait_MS_AVG\B|N2]            = IIF(i.rec_type = N'I',i.ios_page_io_latch_wait_AVG               ,NULL)
+,[ios_page_io_latch_wait_MS_AVG\B|N2]            = IIF(i.rec_type = N'I',i.ios_page_io_latch_wait_MS_AVG            ,NULL)
 -------------------------------------------------
 ,[ios_tree_page_latch_wait_CNT\B|N0]             = IIF(i.rec_type = N'I',i.ios_tree_page_latch_wait_CNT             ,NULL)
 ,[ios_tree_page_latch_wait_MS_CNT\B|N0]          = IIF(i.rec_type = N'I',i.ios_tree_page_latch_wait_MS_CNT          ,NULL)
-,[ios_tree_page_latch_wait_MS_AVG\B|N2]          = IIF(i.rec_type = N'I',i.ios_tree_page_latch_wait_AVG             ,NULL)
+,[ios_tree_page_latch_wait_MS_AVG\B|N2]          = IIF(i.rec_type = N'I',i.ios_tree_page_latch_wait_MS_AVG          ,NULL)
 -------------------------------------------------
 ,[ios_tree_page_io_latch_wait_CNT\B|N0]          = IIF(i.rec_type = N'I',i.ios_tree_page_io_latch_wait_CNT          ,NULL)
 ,[ios_tree_page_io_latch_wait_MS_CNT\B|N0]       = IIF(i.rec_type = N'I',i.ios_tree_page_io_latch_wait_MS_CNT       ,NULL)
-,[ios_tree_page_io_latch_wait_MS_AVG\B|N2]       = IIF(i.rec_type = N'I',i.ios_tree_page_io_latch_wait_AVG          ,NULL)
+,[ios_tree_page_io_latch_wait_MS_AVG\B|N2]       = IIF(i.rec_type = N'I',i.ios_tree_page_io_latch_wait_MS_AVG       ,NULL)
 -------------------------------------------------
 ,[ios_page_compression_attempt_CNT\B|N0]         = IIF(i.rec_type = N'I',i.ios_page_compression_attempt_CNT         ,NULL)
 -- Fail PCT                                        IIF(i.rec_type = N'I',                                           ,NULL)
@@ -23966,12 +23480,12 @@ SELECT
 ,[ios_ghost_version_off_row_CNT\B|N0]            = IIF(i.rec_type = N'I',i.ios_ghost_version_off_row_CNT            ,NULL)
 ,[ios_insert_over_ghost_version_inrow_CNT\B|N0]  = IIF(i.rec_type = N'I',i.ios_insert_over_ghost_version_inrow_CNT  ,NULL)
 ,[ios_insert_over_ghost_version_off_row_CNT\B|N0]= IIF(i.rec_type = N'I',i.ios_insert_over_ghost_version_off_row_CNT,NULL)
-,[ios_Total_Column_value_off_row_CNT\B|N0]       = IIF(i.rec_type = N'I',i.ios_Total_Column_value_off_row_CNT       ,NULL)
+,[ios_total_Column_value_off_row_CNT\B|N0]       = IIF(i.rec_type = N'I',i.ios_total_Column_value_off_row_CNT       ,NULL)
 
 /******************************************************************************************************************************************/
 -- Index Usage Stats
 /******************************************************************************************************************************************/
-,[ius_User_Total_CNT\B|N0]                       = IIF(i.rec_type = N'I',i.ius_User_Total_CNT    ,NULL)
+,[ius_User_total_CNT\B|N0]                       = IIF(i.rec_type = N'I',i.ius_User_total_CNT    ,NULL)
 ,[ius_user_updates_CNT\B|N0]                     = IIF(i.rec_type = N'I',i.ius_user_updates_CNT  ,NULL)
 ,[ius_User_read_CNT\B|N0]                        = IIF(i.rec_type = N'I',i.ius_User_read_CNT     ,NULL)
 ,[ius_user_seeks_CNT\B|N0]                       = IIF(i.rec_type = N'I',i.ius_user_seeks_CNT    ,NULL)
@@ -23998,32 +23512,24 @@ SELECT
 /******************************************************************************************************************************************/
 -- InMemory (XTP) Index Stats
 /******************************************************************************************************************************************/
-,[xtp_Total_Contacts_CNT\B|N0]                   = IIF(tbl.is_memory_optimized = 1,i.xtp_Total_Contacts_CNT              ,NULL)
-,[xtp_Total_read_CNT\B|N0]                       = IIF(tbl.is_memory_optimized = 1,i.xtp_Total_read_CNT                  ,NULL)
 ,[xtp_scans_started_CNT\B|N0]                    = IIF(tbl.is_memory_optimized = 1,i.xtp_scans_started_CNT               ,NULL)
 ,[xtp_scans_retries_CNT\B|N0]                    = IIF(tbl.is_memory_optimized = 1,i.xtp_scans_retries_CNT               ,NULL)
 --------------------------------------------
-,[xtp_Total_write_CNT\B|N0]                      = IIF(tbl.is_memory_optimized = 1,i.xtp_Total_write_CNT                 ,NULL)
 ,[xtp_unique_constraint_violations_CNT\B|N0]     = IIF(tbl.is_memory_optimized = 1,i.xtp_unique_constraint_violations_CNT,NULL)
 ,[xtp_write_conflicts_CNT\B|N0]                  = IIF(tbl.is_memory_optimized = 1,i.xtp_write_conflicts_CNT             ,NULL)
 ,[xtp_page_update_CNT\B|N0]                      = IIF(tbl.is_memory_optimized = 1,i.xtp_page_update_CNT                 ,NULL)
 ,[xtp_page_update_retry_CNT\B|N0]                = IIF(tbl.is_memory_optimized = 1,i.xtp_page_update_retry_CNT           ,NULL)
-,[xtp_Total_insert_CNT\B|N0]                     = IIF(tbl.is_memory_optimized = 1,i.xtp_Total_insert_CNT                ,NULL)
 ,[xtp_row_insert_attempts_CNT\B|N0]              = IIF(tbl.is_memory_optimized = 1,i.xtp_row_insert_attempts_CNT         ,NULL)
 --------------------------------------------
-,[xtp_Total_update_CNT\B|N0]                     = IIF(tbl.is_memory_optimized = 1,i.xtp_Total_update_CNT                ,NULL)
 ,[xtp_row_update_attempts_CNT\B|N0]              = IIF(tbl.is_memory_optimized = 1,i.xtp_row_update_attempts_CNT         ,NULL)
 --------------------------------------------
-,[xtp_Total_delete_CNT\B|N0]                     = IIF(tbl.is_memory_optimized = 1,i.xtp_Total_delete_CNT                ,NULL)
 ,[xtp_row_delete_attempts_CNT\B|N0]              = IIF(tbl.is_memory_optimized = 1,i.xtp_row_delete_attempts_CNT         ,NULL)
 --------------------------------------------
-,[xtp_Total_Split_CNT\B|N0]                      = IIF(tbl.is_memory_optimized = 1,i.xtp_Total_Split_CNT                 ,NULL)
 ,[xtp_page_split_CNT\B|N0]                       = IIF(tbl.is_memory_optimized = 1,i.xtp_page_split_CNT                  ,NULL)
 ,[xtp_page_split_retry_CNT\B|N0]                 = IIF(tbl.is_memory_optimized = 1,i.xtp_page_split_retry_CNT            ,NULL)
 ,[xtp_key_split_CNT\B|N0]                        = IIF(tbl.is_memory_optimized = 1,i.xtp_key_split_CNT                   ,NULL)
 ,[xtp_key_split_retry_CNT\B|N0]                  = IIF(tbl.is_memory_optimized = 1,i.xtp_key_split_retry_CNT             ,NULL)
 --------------------------------------------
-,[xtp_Total_merge_CNT\B|N0]                      = IIF(tbl.is_memory_optimized = 1,i.xtp_Total_merge_CNT                 ,NULL)
 ,[xtp_page_merge_CNT\B|N0]                       = IIF(tbl.is_memory_optimized = 1,i.xtp_page_merge_CNT                  ,NULL)
 ,[xtp_page_merge_retry_CNT\B|N0]                 = IIF(tbl.is_memory_optimized = 1,i.xtp_page_merge_retry_CNT            ,NULL)
 ,[xtp_key_merge_CNT\B|N0]                        = IIF(tbl.is_memory_optimized = 1,i.xtp_key_merge_CNT                   ,NULL)
@@ -24043,16 +23549,16 @@ SELECT
 /******************************************************************************************************************************************/
 -- ColumnStore Index Stats
 /******************************************************************************************************************************************/
-,[cs_partition_CNT\B|N0]                          = IIF(i.type IN (N'5',N'6'),i.cs_partition_CNT             ,NULL)
-,[cs_row_group_CNT\B|N0]                          = IIF(i.type IN (N'5',N'6'),i.cs_row_group_CNT             ,NULL)
-,[cs_index_scan_CNT\B|N0]                         = IIF(i.type IN (N'5',N'6'),i.cs_index_scan_CNT            ,NULL)
-,[cs_scan_CNT\B|N0]                               = IIF(i.type IN (N'5',N'6'),i.cs_scan_CNT                  ,NULL)
-,[cs_delete_buffer_scan_CNT\B|N0]                 = IIF(i.type IN (N'5',N'6'),i.cs_delete_buffer_scan_CNT    ,NULL)
---------------------------------------------
-,[cs_row_group_lock_CNT\B|N0]                     = IIF(i.type IN (N'5',N'6'),i.cs_row_group_lock_CNT        ,NULL)
-,[cs_row_group_lock_wait_CNT\B|N0]                = IIF(i.type IN (N'5',N'6'),i.cs_row_group_lock_wait_CNT   ,NULL)
-,[cs_row_group_lock_wait_MS_CNT\B|N2]             = IIF(i.type IN (N'5',N'6'),i.cs_row_group_lock_wait_MS_CNT,NULL)
-,[cs_row_group_lock_wait_AVG\B]                   = IIF(i.type IN (N'5',N'6'),i.cs_row_group_lock_wait_AVG   ,NULL)
+,[cs_partition_CNT\B|N0]                          = IIF(i.type IN (N'5',N'6'),i.cs_partition_CNT                ,NULL)
+,[cs_row_group_CNT\B|N0]                          = IIF(i.type IN (N'5',N'6'),i.cs_row_group_CNT                ,NULL)
+,[cs_index_scan_CNT\B|N0]                         = IIF(i.type IN (N'5',N'6'),i.cs_index_scan_CNT               ,NULL)
+,[cs_scan_CNT\B|N0]                               = IIF(i.type IN (N'5',N'6'),i.cs_scan_CNT                     ,NULL)
+,[cs_delete_buffer_scan_CNT\B|N0]                 = IIF(i.type IN (N'5',N'6'),i.cs_delete_buffer_scan_CNT       ,NULL)
+--------------------------------------------                                                                    
+,[cs_row_group_lock_CNT\B|N0]                     = IIF(i.type IN (N'5',N'6'),i.cs_row_group_lock_CNT           ,NULL)
+,[cs_row_group_lock_wait_CNT\B|N0]                = IIF(i.type IN (N'5',N'6'),i.cs_row_group_lock_wait_CNT      ,NULL)
+,[cs_row_group_lock_wait_MS_CNT\B|N2]             = IIF(i.type IN (N'5',N'6'),i.cs_row_group_lock_wait_MS_CNT   ,NULL)
+,[cs_row_group_lock_wait_MS_AVG\B]                   = IIF(i.type IN (N'5',N'6'),i.cs_row_group_lock_wait_MS_AVG,NULL)
 --------------------------------------------
 ,[cs_returned_row_CNT\B|N0]                       = IIF(i.type IN (N'5',N'6'),i.cs_returned_row_CNT          ,NULL)
 ,[cs_returned_aggregate_CNT\B|N0]                 = IIF(i.type IN (N'5',N'6'),i.cs_returned_aggregate_CNT    ,NULL)
@@ -24065,16 +23571,17 @@ SELECT
 /*** LOCAL TESTING ***
 DECLARE @show_fulltext_internals TINYINT = 0
 SELECT i.database_id,i.history_source_object_id,i.parent_object_id,i.object_id,i.obj_name,i.index_id,i.type
-      ,op.object_id,op.obj_name
+      ,hst_src.object_id,hst_src.obj_name
 --*/
   FROM tempdb.dbo.SQLXL_Index_Compilation AS i
-  LEFT OUTER
-  JOIN tempdb.dbo.SQLXL_Index_Compilation AS op
-    ON i.database_id              = op.database_id
-   AND i.history_source_object_id = op.parent_object_id
-   AND i.history_source_object_id = op.OBJECT_ID
-   AND i.history_source_object_id = op.index_id
-   AND N'U'                       = op.type
+-------
+  LEFT OUTER HASH
+  JOIN tempdb.dbo.SQLXL_Index_Compilation AS hst_src
+    ON i.database_id              = hst_src.database_id
+   AND i.history_source_object_id = hst_src.parent_object_id
+   AND i.history_source_object_id = hst_src.OBJECT_ID
+   AND i.history_source_object_id = hst_src.index_id
+   AND N'U'                       = hst_src.type
 -- WHERE i.object_id = 1653580929
 -- WHERE i.obj_name LIKE N'%_archive'
  CROSS
@@ -24085,7 +23592,7 @@ SELECT i.database_id,i.history_source_object_id,i.parent_object_id,i.object_id,i
           FROM tempdb.dbo.SQLXL_Index_Compilation
          WHERE rec_type = N'A'
        )                                    AS a
-  LEFT OUTER                                                       -- outer needed for ALL row
+  LEFT OUTER HASH
   JOIN (-- Database level
         SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
@@ -24100,11 +23607,11 @@ SELECT i.database_id,i.history_source_object_id,i.parent_object_id,i.object_id,i
   JOIN (-- Object level
         SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
-         WHERE rec_type IN (N'H',N'P')
+         WHERE rec_type = N'P'
        )                                    AS p
     ON i.database_id                         = p.database_id
    AND i.parent_object_id                    = p.parent_object_id
-  LEFT OUTER                                                       -- outer needed for ALL row
+  LEFT OUTER HASH
   JOIN (-- History table level
         SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
@@ -24113,7 +23620,7 @@ SELECT i.database_id,i.history_source_object_id,i.parent_object_id,i.object_id,i
     ON i.database_id                         = s.database_id
    AND i.parent_object_id                    = s.parent_object_id
    AND i.object_id                           = s.object_id
-  LEFT OUTER
+  LEFT OUTER HASH
   JOIN (-- physical table metrics. Views included for their clustering index
         SELECT *
           FROM tempdb.dbo.SQLXL_Index_Compilation
@@ -24133,13 +23640,14 @@ SELECT i.database_id,i.history_source_object_id,i.parent_object_id,i.object_id,i
        )
 -- Omitting non SQL Table Values Functions for now
    AND i.obj_type NOT IN (N'FT',N'IF')
-
+ 
  ORDER BY
        i.tbl_priority_metric DESC
       ,i.database_ID
       ,i.parent_object_ID
       ,i.index_id
       ,i.type
+OPTION (FORCE ORDER)
 
 GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
 
@@ -24462,7 +23970,8 @@ BEGIN
    IF @type = ''''N''''
    BEGIN
       IF ROUND(@value,2) <   0.01 RETURN N''''0.00''''
-      IF ROUND(@value,2) < 100.00 RETURN LEFT(ROUND(CAST(@value AS DECIMAL(5,2)),2),4)
+      IF ROUND(@value,2) <  10.00 RETURN LEFT(ROUND(CAST(@value AS DECIMAL(5,2)),2),4)
+      IF ROUND(@value,2) < 100.00 RETURN LEFT(ROUND(CAST(@value AS DECIMAL(5,2)),1),4)
    END
 
    IF @type = ''''P''''         -- SQL Server Page, 8KB
@@ -24499,9 +24008,9 @@ BEGIN
                  END
 
    SET @suffix = CASE WHEN @type IN (''''%''''                       ) THEN ''''%''''    -- percent
-                      WHEN @type IN (''''u'''',N''''us'''',N''''U'''') THEN ''''s''''
-                      WHEN @type IN (''''m'''',N''''ms'''',N''''M'''') THEN ''''s''''
-                      WHEN @type IN (''''s'''',N''''S''''            ) THEN ''''s''''
+                      WHEN @type IN (''''u'''',N''''us'''',N''''U'''') THEN ''''s''''    -- seconds
+                      WHEN @type IN (''''m'''',N''''ms'''',N''''M'''') THEN ''''s''''    -- seconds
+                      WHEN @type IN (''''s'''',N''''S''''            ) THEN ''''s''''    -- seconds
                       WHEN @type IN (''''I'''',N''''N''''            ) THEN ''''''''     -- numbers and integers
                       ELSE ''''B''''                                                     -- bytes
                  END
@@ -24522,8 +24031,15 @@ BEGIN
                            WHEN ''''''''  THEN ''''m'''' -- deka  > milli
                            WHEN ''''K'''' THEN ''''''''  -- kilo  > deka
                            WHEN ''''M'''' THEN ''''K'''' -- mega  > kilo
+
                            WHEN ''''G'''' THEN ''''M'''' -- giga  > mega
-                           WHEN ''''T'''' THEN ''''G'''' -- tera  > giga
+                           WHEN ''''B'''' THEN ''''M'''' -- billion  > mega
+
+                           WHEN ''''T'''' THEN CASE WHEN RIGHT(@type,1) = ''''B''''
+                                                    THEN ''''G'''' -- tera  > giga
+                                                    ELSE ''''B'''' -- tera  > billion
+                                               END
+
                            WHEN ''''P'''' THEN ''''T'''' -- peta  > tera
                            WHEN ''''E'''' THEN ''''P'''' -- exa   > peta
                            WHEN ''''Z'''' THEN ''''E'''' -- zetta > exa
@@ -24546,8 +24062,15 @@ BEGIN
                            WHEN ''''m'''' THEN ''''''''  -- milli > deka
                            WHEN ''''''''  THEN ''''K'''' -- deka  > kilo
                            WHEN ''''K'''' THEN ''''M'''' -- kilo  > mega
-                           WHEN ''''M'''' THEN ''''G'''' -- mega  > giga
+
+                           WHEN ''''M'''' THEN CASE WHEN RIGHT(@type,1) = ''''B''''
+                                                    THEN ''''G'''' -- mega  > giga
+                                                    ELSE ''''B'''' -- mega  > billion
+                                               END
+
                            WHEN ''''G'''' THEN ''''T'''' -- giga  > tera
+                           WHEN ''''B'''' THEN ''''T'''' -- billion > tera
+
                            WHEN ''''T'''' THEN ''''P'''' -- tera  > peta
                            WHEN ''''P'''' THEN ''''E'''' -- peta  > exa
                            WHEN ''''E'''' THEN ''''Z'''' -- exa   > zetta
