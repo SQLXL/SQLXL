@@ -13501,7 +13501,7 @@ SELECT tgt.object_id,tgt.index_id,p.rec_type,
 ,ius_write_to_instance_PCT = IIF(a.ius_user_updates_CNT > 0,100.0 * tgt.ius_user_updates_CNT / a.ius_user_updates_CNT,NULL)
 -------------------------------------------------
 ,ops_scans_to_read_PCT            = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ops_total_scan_CNT       / tgt.ops_total_read_CNT,NULL)
-                                    -- NOTE: COLUMNSTORE excluded FROM above since ALL reads are SCANS
+                                    -- NOTE: COLUMNSTORE excluded from above since ALL reads are SCANS
 ,ios_singleton_lookup_to_read_PCT = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ios_singleton_lookup_CNT / tgt.ops_total_read_CNT,NULL)
 ,ios_forwarded_fetch_to_read_PCT  = IIF(tgt.ops_total_read_CNT > 0,100.0 * tgt.ios_forwarded_fetch_CNT  / tgt.ops_total_read_CNT,NULL)
 ,ops_read_to_parent_PCT           = IIF(a.ops_total_read_CNT   > 0,100.0 * tgt.ops_total_read_CNT       / a.ops_total_read_CNT,NULL)
@@ -13536,7 +13536,7 @@ SELECT tgt.object_id,tgt.index_id,p.rec_type,
 OPTION (MAXDOP 1);
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
-   SET @debug = tempdb.dbo.percents(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
+   SET @debug = tempdb.dbo.SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@debug_DTTM,GETDATE()),0))
                +N' Calculated percents and ratios - Index'
    RAISERROR(@debug,0,0) WITH NOWAIT;
    SET @debug_DTTM = GETDATE();
@@ -13602,7 +13602,6 @@ END
 SET NOCOUNT ON
 SET ANSI_WARNINGS OFF
 DECLARE @sql         NVARCHAR(MAX)
-       ,@column_name SYSNAME
        ,@ssms        TINYINT = 1
        ,@debug       VARCHAR(1000)
        ,@debug_DTTM  DATETIME      = GETDATE()
