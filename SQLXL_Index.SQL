@@ -4903,6 +4903,7 @@ CROSS APPLY ('
       ,xos.write_conflicts
       ,xos.unique_constraint_violations
       -- [sys].[dm_db_xtp_index_stats] -------------- Columns marked "Internal use only" are omitted
+      ,xis.xtp_object_id
       ,xis.scans_started
       ,xis.scans_retries
       ,xis.rows_returned
@@ -7408,26 +7409,27 @@ CREATE TABLE [tempdb].[dbo].[SQLXL_Index_Compilation]
 ----------------------------------------------------------------------------------------------------------
 ,ops_total_contacts_CNT                     BIGINT                                  NOT NULL DEFAULT(0)
    -- includes XTP scans_started,row_insert_attempts,row_update_attempts,row_delete_attempts,delta_pages,page_update_count
-   -- includes CS  scan_CNT,delete_buffer_scan_CNT,row_group_lock_CNT
+   -- includes columnstore - scan_CNT, delete_buffer_scan_CNT,row_group_lock_CNT
 ,ops_total_read_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
-   -- Includes XTP scans_started, CS scan_CNT,delete_buffer_scan_CNT
+   -- Includes XTP scans_started
+   -- Includes columnstore - scan_CNT, delete_buffer_scan_CNT
 ,ops_total_write_CNT                        BIGINT                                  NOT NULL DEFAULT(0)
-   -- Include XTP row_insert_attempts,row_update_attempts,row_delete_attempts,delta_pages,page_update_count
-   -- included CS row_group_lock_CNT
+   -- Include XTP - row_insert_attempts, row_update_attempts, row_delete_attempts, delta_pages, page_update_count
+   -- included columnstore row_group_lock_CNT
 ,ops_total_insert_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP row_insert_attempts
 ,ops_total_update_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
-   -- Includes XTP row_update_attempts,page_update_count
+   -- Includes XTP -row_update_attempts,p age_update_count
 ,ops_total_delete_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
    -- Includes XTP row_delete_attempts
 ,ops_total_scan_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
-   -- Includes XTP scans_started, CS scan_CNT
+   -- Includes XTP -scans_started, columnstore scan_CNT
 ,ops_total_scan_retries_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
-   -- Includes XTP scans_started, CS scan_CNT
+   -- Includes XTP -scans_started, columnstore scan_CNT
 ,ops_total_page_split_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
-   -- Includes XTP page_split_count,key_split_count
+   -- Includes XTP - page_split_count, key_split_count
 ,ops_total_page_merge_CNT                   BIGINT                                  NOT NULL DEFAULT(0)
- -- Includes XTP page_merge_count,key_merge_count & potentially page_consolidation_count
+ -- Includes XTP - page_merge_count, key_merge_count & potentially page_consolidation_count
 ,ops_total_wait_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
  -- Includes 
 ,ops_total_wait_MS_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
@@ -7437,7 +7439,7 @@ CREATE TABLE [tempdb].[dbo].[SQLXL_Index_Compilation]
 ,ops_no_read_total_write_CNT                BIGINT                                  NOT NULL DEFAULT(0)
  -- Includes 
 ,ops_total_lock_CNT                         BIGINT                                  NOT NULL DEFAULT(0)
-   -- includes CS row_group_lock_CNT
+   -- includes columnstore row_group_lock_CNT
 ,ops_total_lock_wait_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
    -- includes dm_db_column_store_row_group_operational_stats.row_group_lock_wait_CNT
 ,ops_total_lock_wait_MS_CNT                 BIGINT                                  NOT NULL DEFAULT(0)
@@ -7841,7 +7843,7 @@ INSERT INTO [tempdb].[dbo].[SQLXL_Index_Compilation]
       ,auto_created
       ,optimize_for_sequential_key
       ----------------------------------------------------------------------------------------------------
-      -- Internal Tables & objects - [sys].[internal_tables
+      -- Internal Tables & objects - [sys].[internal_tables]
       ----------------------------------------------------------------------------------------------------
       ,is_ms_shipped
       ,internal_type
@@ -7851,7 +7853,7 @@ INSERT INTO [tempdb].[dbo].[SQLXL_Index_Compilation]
       ,sub_type
       ,sub_type_desc
       ----------------------------------------------------------------------------------------------------
-      -- [sys].[xml_indexes
+      -- [sys].[xml_indexes]
       ----------------------------------------------------------------------------------------------------
       ,xml_index_type
       ,xml_index_type_description
@@ -7860,7 +7862,7 @@ INSERT INTO [tempdb].[dbo].[SQLXL_Index_Compilation]
       ,xml_secondary_type_desc
       ,xml_path_id
       ----------------------------------------------------------------------------------------------------
-      -- [sys].[spatial_indexes
+      -- [sys].[spatial_indexes]
       ----------------------------------------------------------------------------------------------------
       ,si_tessellation_scheme
       ,si_bounding_box_xmin
@@ -7873,11 +7875,11 @@ INSERT INTO [tempdb].[dbo].[SQLXL_Index_Compilation]
       ,si_level_4_grid_desc
       ,si_cells_per_object
       ----------------------------------------------------------------------------------------------------
-      -- [sys].[hash_indexes
+      -- [sys].[hash_indexes]
       ----------------------------------------------------------------------------------------------------
       ,hi_bucket_CNT
       ----------------------------------------------------------------------------------------------------
-      -- [sys].[foreign_keys
+      -- [sys].[foreign_keys]
       ----------------------------------------------------------------------------------------------------
       ,fkc_referenced_object_ID
       ,fkc_referenced_index_ID
@@ -11207,6 +11209,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       -------------------------------------------------------------------------------------------------------------------------------------
       -- [sys].[dm_db_xtp_index_stats]
       -------------------------------------------------------------------------------------------------------------------------------------
+      ,tgt.xtp_object_ID                    = xis.xtp_object_id
       ,xtp_scans_started_CNT                = COALESCE(xis.scans_started,0)
       ,xtp_scans_retries_CNT                = COALESCE(xis.scans_retries,0)                 -- rolled up to TOTAL
       ,xtp_rows_returned_CNT                = COALESCE(xis.rows_returned,0)
@@ -23118,9 +23121,12 @@ Column Label Format
 /******************************************************************************************************************************************/
 ,[Statistics Names~& Filters]
        = STUFF(IIF(LTRIM(RTRIM(i.filter_definition)) > N''
-                  ,NCHAR(10) +N'FLT:'+CAST(i.filter_definition AS NVARCHAR(4000))
+                  ,NCHAR(10) + N'FLT:'+CAST(i.filter_definition AS NVARCHAR(4000))
                   ,N'')
-              +NCHAR(10) +i.stats_Name
+              +IIF(    i.stats_Name  > N'' 
+                   AND i.stats_Name <> i.Name
+                  ,NCHAR(10) + N'Stat:' + i.stats_Name
+                  ,N'')
               ,1,1,N'')
 
 /******************************************************************************************************************************************/
@@ -23781,6 +23787,7 @@ Column Label Format
 /******************************************************************************************************************************************/
 -- InMemory (XTP) Index Stats
 /******************************************************************************************************************************************/
+,[xtp_Object_id]                                 = IIF(tbl.is_memory_optimized = 1,i.xtp_object_ID                       ,NULL)
 ,[xtp_scans_started_CNT\B|N0]                    = IIF(tbl.is_memory_optimized = 1,i.xtp_scans_started_CNT               ,NULL)
 ,[xtp_scans_retries_CNT\B|N0]                    = IIF(tbl.is_memory_optimized = 1,i.xtp_scans_retries_CNT               ,NULL)
 --------------------------------------------
@@ -23805,7 +23812,7 @@ Column Label Format
 ,[xtp_key_merge_retry_CNT\B|N0]                  = IIF(tbl.is_memory_optimized = 1,i.xtp_key_merge_retry_CNT             ,NULL)
 --------------------------------------------
 ,[xtp_rows_returned_CNT\B|N0]                    = IIF(tbl.is_memory_optimized = 1,i.xtp_rows_returned_CNT               ,NULL)
-,[xtp_rows_contacted_CNT\B|N0]                   = IIF(tbl.is_memory_optimized = 1,i.xtp_rows_touched_CNT                ,NULL)
+,[xtp_rows_touched_CNT\B|N0]                     = IIF(tbl.is_memory_optimized = 1,i.xtp_rows_touched_CNT                ,NULL)
 ,[xtp_delta_pages_CNT\B|N0]                      = IIF(tbl.is_memory_optimized = 1,i.xtp_delta_pages_CNT                 ,NULL)
 ,[xtp_leaf_pages_CNT\B|N0]                       = IIF(tbl.is_memory_optimized = 1,i.xtp_leaf_pages_CNT                  ,NULL)
 ,[xtp_page_consolidation_CNT\B|N0]               = IIF(tbl.is_memory_optimized = 1,i.xtp_page_consolidation_CNT          ,NULL)
@@ -23943,7 +23950,7 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 RAISERROR (N'Creating SQLXL_Base_Function',0,0) WITH NOWAIT;
 
 /******************************************************************************************************************************************/
--- function tempdb.dbo.SQLXL_Strip_Strings - remove elements found in a string
+-- function tempdb.dbo.SQLXL_Strip_Strings - remove character elements found in a string
 /******************************************************************************************************************************************/
 RAISERROR ('... tempdb.dbo.SQLXL_Strip_Strings',0,0) WITH NOWAIT;
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -23971,7 +23978,7 @@ END'')
 GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
 
 /******************************************************************************************************************************************/
--- function tempdb.dbo.SQLXL_Keep_Strings - keep only elements found in a string
+-- function tempdb.dbo.SQLXL_Keep_Strings - keep only character elements found in a string
 /******************************************************************************************************************************************/
 RAISERROR ('... tempdb.dbo.SQLXL_Keep_Strings',0,0) WITH NOWAIT;
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -24189,10 +24196,27 @@ DROP FUNCTION dbo.SQLXL_3SD')
 EXEC (N'USE tempdb;EXEC(N''
 CREATE FUNCTION dbo.SQLXL_3SD
       (@value FLOAT
-      ,@type  VARCHAR(2) = ''''I''''
+      ,@type  VARCHAR(3) = ''''I''''
      )
 /*
-Type Parameters
+@Type Parameters
+"ns" = Nanoseconds   10^-9 -- NOTE: Cannot use DATEADD with these time types
+"mcs"= Microseconds  10^-6 -- NOTE: Cannot use DATEADD with these time types
+"u"  = Microseconds  10^-6
+"us" = Microseconds  10^-6
+"U"  = Microseconds  10^-6
+"m"  = Milliseconds  10^-3
+"ms" = Milliseconds  10^-3
+"M"  = Milliseconds  10^-3
+"s"  = Seconds       10^ 0
+"ss" = Seconds       10^ 0
+"S"  = Seconds       10^ 0
+"mi" = Minutes
+"hh" = Hours
+"dd" = Days
+"wk" = Weeks
+"yy" = Years
+
 "P"  = SQL Server 8KB (8192 2^12 bytes) Pages
 "B"  = Bytes       2^ 0
 "KB" = Kilobytes   2^10
@@ -24204,15 +24228,6 @@ Type Parameters
 "ZB" = Zettabytes  2^70
 "YB" = Yottabytes  2^80
 
-"u"  = Microseconds  10^-6
-"us" = Microseconds  10^-6
-"U"  = Microseconds  10^-6
-"m"  = Milliseconds  10^-3
-"ms" = Milliseconds  10^-3
-"M"  = Milliseconds  10^-3
-"s"  = Seconds       10^ 0
-"S"  = Seconds       10^ 0
-"
 "I"  = Integer
 "N"  = Number
 "%"  = Percent
@@ -24227,9 +24242,86 @@ NOTE: cannot NVARCHAR as value input since FLOAT values get converted to exponen
 RETURNS NVARCHAR(7) --WITH COLLATE DATABASE_DEFAULT
 AS
 BEGIN
-   IF @value IS NULL  RETURN N''''''''
+   IF @value IS NULL RETURN N''''''''
 
-   -- Special Cases --------------------------------------------------------------------------------------------
+   /*************************************************************************************************************************************\
+    Special Cases - Dates & Time
+   \*************************************************************************************************************************************/
+   IF @type IN (''''ns'''' -- Nanoseconds   10^-9 -- NOTE: Cannot use DATEADD with these time types
+               ,''''mcs''''-- Microseconds  10^-6 -- NOTE: Cannot use DATEADD with these time types
+               ,''''u''''  -- Microseconds  10^-6
+               ,''''us'''' -- Microseconds  10^-6
+               ,''''U''''  -- Microseconds  10^-6
+               ,''''m''''  -- Milliseconds  10^-3
+               ,''''ms'''' -- Milliseconds  10^-3
+               ,''''M''''  -- Milliseconds  10^-3
+               ,''''s''''  -- Seconds       10^ 0
+               ,''''ss'''' -- Seconds       10^ 0
+               ,''''S''''  -- Seconds       10^ 0
+               ,''''mi'''' -- Minutes
+               ,''''hh'''' -- Hours
+               ,''''dd'''' -- Days
+               ,''''wk'''' -- Weeks
+               ,''''yy'''' -- Years
+               )
+   BEGIN -- IF @type IN (''''ns'''' -- Nanoseconds   10^-9
+      IF @value = -1 RETURN N''''NO LIMIT''''
+      IF @value =  0 RETURN N''''0.00''''+@type
+      
+      DECLARE @dp DATETIME
+
+      SET @type = CASE @type -- modify inbound data type to the corresponding DATEADD dateparts 
+                       WHEN ''''u''''  THEN ''''mcs''''
+                       WHEN ''''us'''' THEN ''''mcs''''
+                       WHEN ''''U''''  THEN ''''mcs''''
+                       WHEN ''''m''''  THEN ''''ms''''
+                       WHEN ''''M''''  THEN ''''ms''''
+                       WHEN ''''s''''  THEN ''''ss''''
+                       WHEN ''''S''''  THEN ''''ss''''
+                       ELSE @type
+                  END
+
+      WHILE @value > 2147483647 -- max size for DATEADD number parameter (INTEGER)
+      BEGIN 
+         IF @type = N''''wk''''  BEGIN SET @type = N''''yy''''  SET @value = @value /  52 END
+         IF @type = N''''dd''''  BEGIN SET @type = N''''wk''''  SET @value = @value /   7 END
+         IF @type = N''''hh''''  BEGIN SET @type = N''''dd''''  SET @value = @value /  24 END
+         IF @type = N''''mi''''  BEGIN SET @type = N''''hh''''  SET @value = @value /  60 END
+         IF @type = N''''ss''''  BEGIN SET @type = N''''mi''''  SET @value = @value /  60 END
+         IF @type = N''''ms''''  BEGIN SET @type = N''''ss''''  SET @value = @value /1000 END
+         IF @type = N''''mcs'''' BEGIN SET @type = N''''ms''''  SET @value = @value /1000 END
+         IF @type = N''''ns''''  BEGIN SET @type = N''''mcs'''' SET @value = @value /1000 END
+      END
+      
+      SET @dp = CASE @type
+                     WHEN N''''yy''''  THEN DATEADD(yy ,@value,0)
+                     WHEN N''''wk''''  THEN DATEADD(wk ,@value,0)
+                     WHEN N''''dd''''  THEN DATEADD(dd ,@value,0)
+                     WHEN N''''hh''''  THEN DATEADD(hh ,@value,0)
+                     WHEN N''''mi''''  THEN DATEADD(mi ,@value,0)
+                     WHEN N''''ss''''  THEN DATEADD(ss ,@value,0)
+                     WHEN N''''ms''''  THEN DATEADD(ms ,@value,0)
+                     WHEN N''''mcs'''' THEN DATEADD(mcs,@value,0) -- NOTE: Cannot use DATEADD with these time types
+                     WHEN N''''ns''''  THEN DATEADD(ns ,@value,0) -- NOTE: Cannot use DATEADD with these time types
+                END 
+
+      DECLARE @df FLOAT = CONVERT(FLOAT,@dp,1)
+
+      RETURN
+         CASE WHEN @df >= 365.0                                       THEN tempdb.dbo.SQLXL_3SD(@df/365.0                              ,N''''N'''')+N''''yy''''
+              WHEN @df >=   1.0                                       THEN tempdb.dbo.SQLXL_3SD(@df                                    ,N''''N'''')+N''''dd''''
+              WHEN @df >=   1.0/(24.0)                                THEN tempdb.dbo.SQLXL_3SD(@df*24.0                               ,N''''N'''')+N''''hh''''
+              WHEN @df >=   1.0/(24.0*60.0)                           THEN tempdb.dbo.SQLXL_3SD(@df*24.0*60.0                          ,N''''N'''')+N''''mi''''
+              WHEN @df >=   1.0/(24.0*60.0*60.0)                      THEN tempdb.dbo.SQLXL_3SD(@df*24.0*60.0*60.0                     ,N''''N'''')+N''''ss''''
+              WHEN @df >=   1.0/(24.0*60.0*60.0*1000.0)               THEN tempdb.dbo.SQLXL_3SD(@df*24.0*60.0*60.0*1000.0              ,N''''N'''')+N''''ms''''
+              WHEN @df >=   1.0/(24.0*60.0*60.0*1000.0*1000.0)        THEN tempdb.dbo.SQLXL_3SD(@df*24.0*60.0*60.0*1000.0*1000.0       ,N''''N'''')+N''''us''''
+              WHEN @df >=   1.0/(24.0*60.0*60.0*1000.0*1000.0*1000.0) THEN tempdb.dbo.SQLXL_3SD(@df*24.0*60.0*60.0*1000.0*1000.0*1000.0,N''''N'''')+N''''ns''''
+         END
+   END -- IF @type IN (''''ns'''' -- Nanoseconds   10^-9
+
+   ---------------------------------------------------------------------------------------------------------------------------------------
+   -- Other Special Cases
+   ---------------------------------------------------------------------------------------------------------------------------------------
    IF @type = ''''I''''
    BEGIN
       IF @value < 0      RETURN N''''***''''
@@ -24242,7 +24334,7 @@ BEGIN
    BEGIN
       IF ROUND(@value,2) <   0.01 RETURN N''''0.00''''
       IF ROUND(@value,2) <  10.00 RETURN LEFT(ROUND(CAST(@value AS DECIMAL(5,2)),2),4)
-      IF ROUND(@value,1) < 100.0  RETURN LEFT(ROUND(CAST(@value AS DECIMAL(5,1)),1),4)
+      IF ROUND(@value,1) < 100.00 RETURN LEFT(ROUND(CAST(@value AS DECIMAL(5,1)),1),4)
    END
 
    IF @type = ''''P''''         -- SQL Server Page, 8KB
@@ -24251,70 +24343,61 @@ BEGIN
       SET @type  = ''''KB''''
    END
 
-   -- Declares - use COLLATE to differentiate between LOWER and UPPER @type ---------------------------------------------------------------
-   DECLARE @power  VARCHAR(1) =  ''''''''  COLLATE SQL_Latin1_General_CP1_CS_AS -- which power of 10 or 2 prefix to show
-          ,@factor FLOAT                                                    -- 1000 for next major power of 10 prefix. 1024 (2^10) for Bytes
-          ,@suffix VARCHAR(1) = N'''''''' COLLATE SQL_Latin1_General_CP1_CS_AS  -- unit of measure - seconds, bytes
+   /*************************************************************************************************************************************\
+    Declares - use COLLATE to differentiate between LOWER and UPPER @type
+   \*************************************************************************************************************************************/
+   DECLARE @power  VARCHAR(3) = ''''''''  COLLATE SQL_Latin1_General_CP1_CS_AS -- which power of 10 or 2 prefix to show
+          ,@factor FLOAT      = 1024.0    -- 1024 (2^10) for Bytes, 1000 for next major power of 10 prefix
+          ,@suffix VARCHAR(3) = N'''''''' COLLATE SQL_Latin1_General_CP1_CS_AS  -- unit of measure - seconds, bytes
 
    -- SETs --------------------------------------------------------------------------------------------------------------------------------
-   SET @power  = CASE WHEN @type IN (''''B'''',N''''I'''',N''''N'''',N''''s'''',N''''S'''',N''''%'''') THEN ''''''''
-                      WHEN @type IN (''''u'''',N''''us'''',N''''U''''                                ) THEN ''''u''''
-                      WHEN @type IN (''''m'''',N''''ms'''',N''''M''''                                ) THEN ''''m''''
+   SET @power  = CASE WHEN @type IN (''''B'''',N''''I'''',N''''N'''',N''''%'''') THEN ''''''''
                       ELSE UPPER(LEFT(@type,1))
                  END
 
-   SET @factor = CASE WHEN @type IN (N''''u''''
-                                    ,N''''us''''
-                                    ,N''''U''''
-                                    ,N''''m''''
-                                    ,N''''ms''''
-                                    ,N''''M''''
-                                    ,N''''S''''
-                                    ,N''''I''''
+   SET @factor = CASE WHEN @type IN (N''''I''''
                                     ,N''''N''''
                                     ,N''''%''''
                                     ) 
                       THEN 1000.0
-                      ELSE 1024.0
+                      ELSE @factor -- Kilobytes
                  END
 
-   SET @suffix = CASE WHEN @type IN (''''%''''                       ) THEN ''''%''''    -- percent
-                      WHEN @type IN (''''u'''',N''''us'''',N''''U'''') THEN ''''s''''    -- seconds
-                      WHEN @type IN (''''m'''',N''''ms'''',N''''M'''') THEN ''''s''''    -- seconds
-                      WHEN @type IN (''''s'''',N''''S''''            ) THEN ''''s''''    -- seconds
-                      WHEN @type IN (''''I'''',N''''N''''            ) THEN ''''''''     -- numbers and integers
-                      ELSE ''''B''''                                                     -- bytes
+   SET @suffix = CASE WHEN @type IN (''''%''''           ) THEN ''''%''''    -- percent
+                      WHEN @type IN (''''I'''',N''''N'''') THEN ''''''''     -- numbers and integers
+                      ELSE ''''B''''                                         -- bytes
                  END
 
-   -- Special Case ------------------------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------------------------------------------------------------------------
+  -- Special Case - Small values
+  ---------------------------------------------------------------------------------------------------------------------------------------
    IF @value <= 0.0000001 OR @value IS NULL RETURN ''''0.00''''+@power+@suffix
 
    -- Calcs - if less than 3 digits to LEFT of decimal, multiply to show next lower power -------------------------------------------------
    IF ROUND(@value,0) < 1000 AND @type <> N''''%''''
-   BEGIN
+   BEGIN -- IF ROUND(@value,0) < 1000 AND @type <> N''''%''''
       WHILE ROUND(@value * @factor,0) < 1000
-      BEGIN
+      BEGIN -- WHILE ROUND(@value * @factor,0) < 1000
+
          SET @value = @value * @factor
          SET @power = CASE @power COLLATE SQL_Latin1_General_CP1_CS_AS -- for each loop adjust the value type to the next lower size
-                           WHEN ''''n'''' THEN ''''p'''' -- nano  > pico
-                           WHEN ''''u'''' THEN ''''n'''' -- micro > nano
-                           WHEN ''''m'''' THEN ''''u'''' -- milli > micro
-                           WHEN ''''''''  THEN ''''m'''' -- deka  > milli
-                           WHEN ''''K'''' THEN ''''''''  -- kilo  > deka
-                           WHEN ''''M'''' THEN ''''K'''' -- mega  > kilo
-
-                           WHEN ''''G'''' THEN ''''M'''' -- giga  > mega
-                           WHEN ''''B'''' THEN ''''M'''' -- billion  > mega
-
+                         --WHEN ''''n'''' THEN ''''p'''' -- nano    > pico
+                         --WHEN ''''u'''' THEN ''''n'''' -- micro   > nano
+                         --WHEN ''''m'''' THEN ''''u'''' -- milli   > micro
+                           WHEN ''''''''  THEN ''''m'''' -- deka    > milli
+                           WHEN ''''K'''' THEN ''''''''  -- kilo    > deka
+                           WHEN ''''M'''' THEN ''''K'''' -- mega    > kilo
+                                                                    
+                           WHEN ''''G'''' THEN ''''M'''' -- giga    > mega
+                           WHEN ''''B'''' THEN ''''M'''' -- billion > mega
                            WHEN ''''T'''' THEN CASE WHEN RIGHT(@type,1) = ''''B''''
                                                     THEN ''''G'''' -- tera  > giga
                                                     ELSE ''''B'''' -- tera  > billion
                                                END
-
-                           WHEN ''''P'''' THEN ''''T'''' -- peta  > tera
-                           WHEN ''''E'''' THEN ''''P'''' -- exa   > peta
-                           WHEN ''''Z'''' THEN ''''E'''' -- zetta > exa
-                           WHEN ''''Y'''' THEN ''''Z'''' -- yotta > zetta
+                           WHEN ''''P'''' THEN ''''T'''' -- peta    > tera
+                           WHEN ''''E'''' THEN ''''P'''' -- exa     > peta
+                           WHEN ''''Z'''' THEN ''''E'''' -- zetta   > exa
+                           WHEN ''''Y'''' THEN ''''Z'''' -- yotta   > zetta
                            ELSE ''''#''''
                       END
       END -- WHILE ROUND(@value,0) < 1000
@@ -24322,35 +24405,34 @@ BEGIN
 
    -- Calcs - if more than 3 digits to LEFT of decimal, divide to show next larger power --------------------------------------------------
    ELSE IF ROUND(@value,0) > 999
-   BEGIN
+   BEGIN -- IF ROUND(@value,0) > 999
       WHILE ROUND(@value,0) > 999
-      BEGIN
+      BEGIN -- WHILE ROUND(@value,0) > 999
          SET @value = @value / @factor
          SET @power = CASE @power COLLATE SQL_Latin1_General_CP1_CS_AS  -- for each loop adjust the value type to the next higher size
-                           WHEN ''''p'''' THEN ''''n'''' -- pico  > nano
-                           WHEN ''''n'''' THEN ''''u'''' -- nano  > micro
-                           WHEN ''''u'''' THEN ''''m'''' -- micro > milli
-                           WHEN ''''m'''' THEN ''''''''  -- milli > deka
-                           WHEN ''''''''  THEN ''''K'''' -- deka  > kilo
-                           WHEN ''''K'''' THEN ''''M'''' -- kilo  > mega
-
+                         --WHEN ''''p'''' THEN ''''n'''' -- pico    > nano
+                         --WHEN ''''n'''' THEN ''''u'''' -- nano    > micro
+                         --WHEN ''''u'''' THEN ''''m'''' -- micro   > milli
+                           WHEN ''''m'''' THEN ''''''''  -- milli   > deka
+                           WHEN ''''''''  THEN ''''K'''' -- deka    > kilo
+                           WHEN ''''K'''' THEN ''''M'''' -- kilo    > mega
                            WHEN ''''M'''' THEN CASE WHEN RIGHT(@type,1) = ''''B''''
                                                     THEN ''''G'''' -- mega  > giga
                                                     ELSE ''''B'''' -- mega  > billion
                                                END
-
-                           WHEN ''''G'''' THEN ''''T'''' -- giga  > tera
+                           WHEN ''''G'''' THEN ''''T'''' -- giga    > tera
                            WHEN ''''B'''' THEN ''''T'''' -- billion > tera
 
-                           WHEN ''''T'''' THEN ''''P'''' -- tera  > peta
-                           WHEN ''''P'''' THEN ''''E'''' -- peta  > exa
-                           WHEN ''''E'''' THEN ''''Z'''' -- exa   > zetta
-                           WHEN ''''Z'''' THEN ''''Y'''' -- zetta > yotta
+                           WHEN ''''T'''' THEN ''''P'''' -- tera    > peta
+                           WHEN ''''P'''' THEN ''''E'''' -- peta    > exa
+                           WHEN ''''E'''' THEN ''''Z'''' -- exa     > zetta
+                           WHEN ''''Z'''' THEN ''''Y'''' -- zetta   > yotta
                            ELSE ''''#''''
                       END
       END -- WHILE ROUND(@value,0) > 999
-   END
+   END    -- IF ROUND(@value,0) > 999
 
+   -- RETURN formatted value --------------------------------------------------------------------------------------------------------------
    RETURN CASE WHEN ROUND(@value,0) >= 100 THEN LEFT(ROUND(CAST(@value AS DECIMAL(5,2)),0),3)
                WHEN ROUND(@value,1) >=  10 THEN LEFT(ROUND(CAST(@value AS DECIMAL(5,2)),1),4)
                ELSE                             LEFT(ROUND(CAST(@value AS DECIMAL(5,2)),2),4)
@@ -24362,7 +24444,10 @@ END'')
 GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
 
 /******************************************************************************************************************************************/
--- function tempdb.dbo.SQLXL_DHMSM - return a formatted date/time value
+-- function tempdb.dbo.SQLXL_DTTM_HMSM - return a DATETIME type formatted elapsed value
+-- If >= 24 hours returns time in days
+-- If >= 60 minutes returns time in Hours
+-- If <  60 minutes returns time in MI:SS.mmm
 /******************************************************************************************************************************************/
 RAISERROR ('... tempdb.dbo.SQLXL_DTTM_HMSM',0,0) WITH NOWAIT;
 
@@ -24386,13 +24471,11 @@ BEGIN
 
    RETURN
 
-   CASE WHEN @df  = -1        THEN N''''NO LIMIT''''
-        WHEN @df  =  0        THEN N''''00:00:000''''
-                              
-        WHEN @df >=  1.0      THEN tempdb.dbo.SQLXL_3SD(@df,N''''N'''')+N'''' Day''''
-
-        WHEN @df >=  1.0/24.0 THEN tempdb.dbo.SQLXL_3SD(@df * 24.0,N''''N'''')+N'''' Hrs''''
-
+   CASE WHEN @df  =  -1               THEN N''''NO LIMIT''''
+        WHEN @df  =   0               THEN N''''00:00:000''''
+        WHEN @df >= 365.0             THEN tempdb.dbo.SQLXL_3SD(@df / 365.0      ,N''''N'''')+N''''yy''''
+        WHEN @df >=   1.0             THEN tempdb.dbo.SQLXL_3SD(@df              ,N''''N'''')+N''''dd''''
+        WHEN @df >=   1.0/(24.0)      THEN tempdb.dbo.SQLXL_3SD(@df * 24.0       ,N''''N'''')+N''''hh''''
         ELSE RIGHT(CONVERT(NVARCHAR(12),@dt,114),9)
 
    END COLLATE DATABASE_DEFAULT
@@ -24403,7 +24486,7 @@ END'')
 GO
 
 /******************************************************************************************************************************************/
--- function tempdb.dbo.SQLXL_INT_DTTM - Converts BIGINT time count to DATETIME (e.g. MILLISECOND)
+-- function tempdb.dbo.SQLXL_INT_DTTM - Converts BIGINT time count to elapsed DATETIME (e.g. MILLISECONDS -> HOURS)
 /******************************************************************************************************************************************/
 RAISERROR ('... tempdb.dbo.SQLXL_INT_DTTM',0,0) WITH NOWAIT;
 
@@ -24426,6 +24509,7 @@ BEGIN
 
    WHILE @cnt > 2147483647 -- max size for DATEADD parameter
    BEGIN 
+      IF @prt = N''''wk''''  BEGIN SET @prt = N''''yy''''  SET @cnt = @cnt /  52 END
       IF @prt = N''''dd''''  BEGIN SET @prt = N''''wk''''  SET @cnt = @cnt /   7 END
       IF @prt = N''''hh''''  BEGIN SET @prt = N''''dd''''  SET @cnt = @cnt /  24 END
       IF @prt = N''''mi''''  BEGIN SET @prt = N''''hh''''  SET @cnt = @cnt /  60 END
@@ -24437,6 +24521,7 @@ BEGIN
 
    RETURN 
       CASE @prt
+           WHEN N''''yy''''  THEN DATEADD(yy ,@cnt,0)
            WHEN N''''wk''''  THEN DATEADD(wk ,@cnt,0)
            WHEN N''''dd''''  THEN DATEADD(dd ,@cnt,0)
            WHEN N''''hh''''  THEN DATEADD(hh ,@cnt,0)
