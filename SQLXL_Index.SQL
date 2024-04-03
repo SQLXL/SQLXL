@@ -1,4 +1,4 @@
--- VERSION 2024.04.03
+-- VERSION 2024.04.03A
 
 /*** LOCAL TESTING ***
 EXEC [tempdb].[dbo].SQLXL_Index -- runs for all non-system databases
@@ -3925,7 +3925,7 @@ SELECT database_id                = DB_ID()
       ,crawl_type_desc            = crawl_type_desc            COLLATE ' + @collation + N'
       ,crawl_start_date
       ,crawl_end_date
-      ,incremental_timestamp      = CONVERT(DATETIME,incremental_timestamp,25)
+      ,incremental_timestamp
       ,stoplist_id
       ,data_space_id
       ,property_list_id
