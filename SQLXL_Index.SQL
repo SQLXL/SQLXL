@@ -1,4 +1,4 @@
--- VERSION 2024.04.03A
+-- VERSION 2024.04.03B
 
 /*** LOCAL TESTING ***
 EXEC [tempdb].[dbo].SQLXL_Index -- runs for all non-system databases
@@ -292,8 +292,7 @@ SELECT collation        = @collation
       ,version_minor    = TRY_CONVERT(INT,SERVERPROPERTY('ProductMinorVersion'))
       ,version_build    = TRY_CONVERT(INT,SERVERPROPERTY('ProductBuild'))
       ,version_revision = TRY_CONVERT(SMALLINT,PARSENAME(CONVERT(VARCHAR(20),SERVERPROPERTY('ProductVersion')),1))
-      ,database_name    = @database_name
-      ,edition          = (SELECT SERVERPROPERTY(N'Edition'))
+--    ,database_name    = @database_name
   INTO [tempdb].[dbo].[SQLXL_Index_sys_Startup_Parameters];
 
 /******************************************************************************************************************************************/
@@ -744,7 +743,7 @@ SELECT -------------------------------------------------------------------------
        name                                        = name                                       COLLATE DATABASE_DEFAULT
       ,database_id                                 = database_id
       ,source_database_id                          = source_database_id
-      ,owner_sid                                   = owner_sid
+--    ,owner_sid                                   = owner_sid -- varbinary(85) SID (Security-Identifier) of the external owner of the database, as registered to the server.
       ,create_date                                 = create_date
       ,compatibility_level                         = compatibility_level
       ,collation_name                              = collation_name                             COLLATE DATABASE_DEFAULT
@@ -970,7 +969,7 @@ SELECT replica_id                            = replica_id
       ,group_id                              = group_id
       ,replica_metadata_id                   = replica_metadata_id
       ,replica_server_name                   = replica_server_name                   COLLATE DATABASE_DEFAULT
-      ,owner_sid                             = owner_sid
+--    ,owner_sid -- varbinary(85) Security identifier (SID) registered to this server instance for the external owner of this availability replica.
       ,endpoint_url                          = endpoint_url                          COLLATE DATABASE_DEFAULT
       ,availability_mode                     = availability_mode
       ,availability_mode_desc                = availability_mode_desc                COLLATE DATABASE_DEFAULT
@@ -996,7 +995,7 @@ ELSE -- Azure
       ,group_id                              = CONVERT(UNIQUEIDENTIFIER,NULL) 
       ,replica_metadata_id                   = CONVERT(INT,NULL) 
       ,replica_server_name                   = CONVERT(NVARCHAR(256),NULL) COLLATE DATABASE_DEFAULT
-      ,owner_sid                             = CONVERT(VARBINARY(85),NULL)
+--    ,owner_sid -- varbinary(85) Security identifier (SID) registered to this server instance for the external owner of this availability replica.
       ,endpoint_url                          = CONVERT(NVARCHAR(128),NULL) COLLATE DATABASE_DEFAULT
       ,availability_mode                     = CONVERT(TINYINT,NULL) 
       ,availability_mode_desc                = CONVERT(NVARCHAR(60),NULL)  COLLATE DATABASE_DEFAULT
@@ -3890,6 +3889,9 @@ END
 -- Collect [sys].[fulltext_indexes]
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+-- NOTE: The “incremental_timestamp” column in sys.fulltext_indexes is stored as a binary data type, which represents a rowversion 
+--       (also known as timestamp). However, it’s important to note that this rowversion is not related to date and time; it’s merely an 
+--       incrementing number used for version-stamping table rows. It does not preserve a date or time.
 --------------------------------------------------------------------------------------------------------------------------------------------
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
@@ -3925,7 +3927,7 @@ SELECT database_id                = DB_ID()
       ,crawl_type_desc            = crawl_type_desc            COLLATE ' + @collation + N'
       ,crawl_start_date
       ,crawl_end_date
-      ,incremental_timestamp
+--    ,incremental_timestamp -- OMITTED. binary data type, which represents a rowversion
       ,stoplist_id
       ,data_space_id
       ,property_list_id
@@ -7445,7 +7447,7 @@ CREATE TABLE [tempdb].[dbo].[SQLXL_Index_Compilation]
 ,ft_crawl_type_desc                         SYSNAME        COLLATE DATABASE_DEFAULT     NULL
 ,ft_crawl_start_date                        DATETIME                                    NULL
 ,ft_crawl_end_date                          DATETIME                                    NULL
-,ft_incremental_timestamp                   DATETIME                                    NULL
+--,ft_incremental_timestamp                   DATETIME                                    NULL -- OMITTED. binary data type, which represents a rowversion
 ,ft_stoplist_ID                             BIGINT                                      NULL
 ,ft_property_list_ID                        BIGINT                                      NULL
 
@@ -8321,7 +8323,7 @@ OPTION (FORCE ORDER,MAXDOP 1);
 
 IF @ssms = 1 BEGIN -- display status to SSMS Messages tab
    SET @msg = [tempdb].[dbo].SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
-               +N' Inserted Insert heaps, indexes, FKC, TVF, Views'
+               +N' Inserted heaps, indexes, FKC, TVF, Views'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END
@@ -8376,7 +8378,7 @@ INSERT INTO [tempdb].[dbo].[SQLXL_Index_Compilation]
       ,ft_crawl_type_desc
       ,ft_crawl_start_date
       ,ft_crawl_end_date
-      ,ft_incremental_timestamp
+--    ,ft_incremental_timestamp -- OMITTED. binary data type, which represents a rowversion
       ,ft_stoplist_id
       ,ft_property_list_id
       ----------------------------------------------------------------------------------------------------
@@ -8446,7 +8448,7 @@ SELECT rec_type                          = N'I'
       ,ft_crawl_type_desc                = i.crawl_type_desc
       ,ft_crawl_start_date               = i.crawl_start_date
       ,ft_crawl_end_date                 = i.crawl_end_date
-      ,ft_incremental_timestamp          = i.incremental_timestamp
+--    ,ft_incremental_timestamp          = i.incremental_timestamp -- OMITTED. binary data type, which represents a rowversion
       ,ft_stoplist_id                    = i.stoplist_id
       ,ft_property_list_id               = i.property_list_id
       ----------------------------------------------------------------------------------------------------
@@ -20247,7 +20249,7 @@ SELECT ic.database_id
    AND 2  <> (--------------------------------------------------------------------------------------
               -- Can't run columnstore on STANDARD EDITION (2)
               --------------------------------------------------------------------------------------
-              SELECT edition = TRY_CAST(run_value AS TINYINT)
+              SELECT EngineEdition = TRY_CAST(run_value AS TINYINT)
                 FROM [tempdb].[dbo].[SQLXL_Index_sys_instance]
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
@@ -20309,7 +20311,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
    AND 2  <> (----------------------------------------------------------------------------------------
               -- Can't run columnstore on STANDARD EDITION (2)
               ----------------------------------------------------------------------------------------
-              SELECT edition = TRY_CAST(run_value AS TINYINT)
+              SELECT EngineEdition = TRY_CAST(run_value AS TINYINT)
                 FROM [tempdb].[dbo].[SQLXL_Index_sys_instance]
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
@@ -20411,7 +20413,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
    AND 2  <> (----------------------------------------------------------------------------------------
               -- Can't run columnstore on STANDARD EDITION (2)
               ----------------------------------------------------------------------------------------
-              SELECT edition = TRY_CAST(run_value AS TINYINT)
+              SELECT EngineEdition = TRY_CAST(run_value AS TINYINT)
                 FROM [tempdb].[dbo].[SQLXL_Index_sys_instance]
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
@@ -20473,7 +20475,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
    AND 2  <> (----------------------------------------------------------------------------------------
               -- Can't run columnstore on STANDARD EDITION (2)
               ----------------------------------------------------------------------------------------
-              SELECT edition = TRY_CAST(run_value AS TINYINT)
+              SELECT EngineEdition = TRY_CAST(run_value AS TINYINT)
                 FROM [tempdb].[dbo].[SQLXL_Index_sys_instance]
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
