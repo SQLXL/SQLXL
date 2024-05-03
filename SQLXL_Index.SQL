@@ -12,13 +12,13 @@ All rights reserved.
 
 MIT License, http://www.opensource.org/licenses/mit-license.php
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
-(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge,
+(the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge,
 publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -236,8 +236,10 @@ DECLARE @collation            SYSNAME  = (SELECT collation_name
        -----------------------------
        ,@ssms                 TINYINT = CASE WHEN (SELECT (1)
                                                      FROM [msdb].[sys].[dm_exec_sessions]
-                                                    WHERE session_id = @@spid
-                                                      AND program_name LIKE N'Microsoft SQL Server Management Studio%'
+                                                    WHERE session_id = @@spid 
+                                                      AND (program_name LIKE N'Microsoft SQL Server Management Studio%'
+                                                           OR program_name like N'azdata%' --azure data studio
+                                                           )
                                                   ) = 1
                                              THEN 1
                                              ELSE 0
@@ -2529,11 +2531,12 @@ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [tempdb].[dbo].SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
              +N''    ... ' + @database_name_quoted + N'.[sys].[triggers]''
    RAISERROR(@msg,0,0) WITH NOWAIT;
+   
+   RAISERROR(N''                 Start '+@database_name_quoted + N'.[sys].[objects],[views],[sql_modules],[internal_tables],[triggers],[table_types]'',0,0) WITH NOWAIT
    SET @exec_dttm = GETDATE();
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
-RAISERROR(N''                 Start [sys].[objects],[views],[sql_modules],[internal_tables],[triggers],[table_types]'',0,0) WITH NOWAIT
 ;WITH newcol AS (
 SELECT is_memory_optimized     = CONVERT(BIT,NULL)     -- SQL 2014+
       ,uses_native_compilation = CONVERT(BIT,NULL)     -- SQL 2014+
@@ -3065,7 +3068,7 @@ IF @ssms > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [tempdb].[dbo].SQLXL_DTTM_HMSM(DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
              +N'    ... ' + @database_name_quoted + N'.[sys].[types]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
-   RAISERROR(N'                 Start [sys].[columns],[identity_columns],[computed_columns],[sequences],[dm_sql_referencing_entities]',0,0) WITH NOWAIT;
+   RAISERROR(N'                 Start '+@database_name_quoted + N'[sys].[columns],[identity_columns],[computed_columns],[sequences],[dm_sql_referencing_entities]',0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END
 
@@ -4005,8 +4008,8 @@ END
 -- Collect [sys].[fulltext_indexes]
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
--- NOTE: The “incremental_timestamp” column in sys.fulltext_indexes is stored as a binary data type, which represents a rowversion 
---       (also known as timestamp). However, it’s important to note that this rowversion is not related to date and time; it’s merely an 
+-- NOTE: The "incremental_timestamp" column in sys.fulltext_indexes is stored as a binary data type, which represents a rowversion 
+--       (also known as timestamp). However, it's important to note that this rowversion is not related to date and time; it's merely an 
 --       incrementing number used for version-stamping table rows. It does not preserve a date or time.
 --------------------------------------------------------------------------------------------------------------------------------------------
 /*** LOCAL TESTING ***
