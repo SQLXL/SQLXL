@@ -1,4 +1,4 @@
--- VERSION 2024.05.12
+-- VERSION 2024.05.23
 
 /*** LOCAL TESTING ***
 EXEC [tempdb].[dbo].[SQLXL_Index]                                        -- runs for all USER databases
