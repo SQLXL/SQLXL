@@ -10112,7 +10112,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************/
--- Create - [SQLXL_Index_uniqueness] - Build table of column uniqueness & display values
+-- Create - [SQLXL_Index_uniqueness] - Build table of index column uniqueness & display values
 /******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    RAISERROR(N'    Start Build table of column uniqueness & display values',0,0) WITH NOWAIT;
@@ -10364,10 +10364,9 @@ SELECT icol.database_id
            AND N'1'             = cix.type
            AND icol.column_id   = cix.column_id
           LEFT OUTER
-          JOIN [tempdb].[dbo].[SQLXL_Index_sys_ShowStatistics_StatHeader] AS sssh
+          JOIN [tempdb].[dbo].[SQLXL_Index_sys_ShowStatistics_StatHeader] AS sssh -- 1 row per index/column
             ON icol.database_id = sssh.database_id
            AND icol.object_id   = sssh.object_id
-           AND 0                = sssh.column_id
            AND icol.index_id    = sssh.index_ID
                                 -- No sssh.type
        ) icol
@@ -10375,7 +10374,6 @@ SELECT icol.database_id
   JOIN [tempdb].[dbo].[SQLXL_Index_sys_ShowStatistics_DensityVector] AS ssdv
     ON icol.database_id = ssdv.database_id
    AND icol.object_id   = ssdv.object_id
-   AND 0                = ssdv.column_id
    AND icol.index_id    = ssdv.index_ID
                         -- No ssdv.type column
    AND icol.rn          = ssdv.Row_ID
@@ -10690,11 +10688,10 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                        (--
                                         SELECT NCHAR(10) + TRY_CAST(ssdv.Average_Length AS NVARCHAR(20))
                                           FROM [tempdb].[dbo].[SQLXL_Index_sys_ShowStatistics_DensityVector] ssdv
-                                         WHERE tgt.database_id                          = ssdv.database_id
-                                           AND tgt.object_id                            = ssdv.object_id
+                                         WHERE tgt.database_id  = ssdv.database_id
+                                           AND tgt.object_id    = ssdv.object_id
                                            --- No object_id in SSDV
-                                           AND 0                                        = ssdv.column_id
-                                           AND tgt.index_id                             = ssdv.index_id
+                                           AND tgt.index_id     = ssdv.index_id
                                          ORDER BY ssdv.Row_ID
                                            FOR XML PATH (N''), TYPE
                                        ).value('(./text())[1]','NVARCHAR(4000)')
@@ -10872,7 +10869,7 @@ STUFF(-- Strip off leading unnecessary characters
       ,Partition_columnstore_compress_CNT         = COALESCE(p.colstore_Comp,0)
       ,Partition_columnstore_archive_compress_CNT = COALESCE(p.colstore_Arch,0)
 
-  FROM (-- get all views that are not indexed
+  FROM (-- 
         SELECT *
           FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
          WHERE rec_type           = N'I'
@@ -10935,13 +10932,15 @@ STUFF(-- Strip off leading unnecessary characters
                       -- add indicator showing cumulative statistics as columns are added
                      + IIF(tgt.stathdr_Rows_CNT > 0,ucol.uniqueness_flag,N'')
                      + IIF(ucol.idx_uniqueness_3sd > N'',ucol.idx_uniqueness_3sd,N'(N/A)')
-                     + CASE WHEN ucol.stat_uniqueness  > 0 -- use index stat uniqueness
+                     + CASE WHEN ucol.stat_uniqueness > 0 -- use index stat uniqueness
+                             AND i.row_CNT            > 0 
                             THEN CASE WHEN ROUND(100.0 * ucol.stat_uniqueness / i.row_CNT,0) >= 1.0
                                            -- lead element is >= 1% of all table rows
                                       THEN N' (' + [tempdb].[dbo].[SQLXL_3SD](ucol.stat_uniqueness / i.row_CNT,N'%') + N')'
                                       ELSE N''
                                  END
-                            WHEN i.row_CNT > 0 AND ucol.col_uniqueness > 0 -- use column level uniqueness
+                            WHEN ucol.col_uniqueness > 0 -- use column level uniqueness
+                             AND i.row_CNT           > 0 
                             THEN CASE WHEN ROUND(100.0 * ucol.col_uniqueness / i.row_CNT,0) > 1.0
                                         -- lead element is >= 1% of all index rows
                                       THEN N' (' + [tempdb].[dbo].[SQLXL_3SD](ucol.col_uniqueness / i.row_CNT,N'%') + N')'
