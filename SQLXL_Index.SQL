@@ -1,4 +1,4 @@
--- VERSION 2024.05.24
+-- VERSION 2024.05.26
 
 /*** LOCAL TESTING ***
 EXEC [tempdb].[dbo].[SQLXL_Index]                                        -- runs for all USER databases
@@ -2503,7 +2503,7 @@ Collect [sys].[objects]
         [sys].[triggers]
         [sys].[table_types]
         [sys].[views]
- Results placed into temp tables - much better performance than if all joined together
+ Results placed into temp tables - provides much better performance than if all joined together
 
 NOTE: Internal Tables are created as objects of their HISTORY TABLE, BASE TABLE, or (potentially) VIEW parents
       HISTORY tables do not have a parent in [sys].[objects], must be captured from [cdc].[change_tables] or [sys].[tables] as below
@@ -2592,16 +2592,17 @@ BEGIN TRY
      FROM [sys].[sql_modules] AS m WITH (READUNCOMMITTED)
      JOIN #sys_objects        AS o
        ON m.object_id = o.object_id
-    WHERE o.type IN (N''AF'' -- Aggregate function (CLR)
-                    ,N''FN'' -- SQL scalar function
-                    ,N''FS'' -- Assembly (CLR) scalar-function
-                    ,N''FT'' -- Assembly (CLR) stored-procedure
-                    ,N''IF'' -- SQL inline table-valued function (TVF)
-                    ,N''P''  -- SQL Stored Procedure
-                    ,N''PC'' -- Assembly (CLR) stored-procedure
-                    ,N''TF'' -- SQL table-valued-function (TVF)
-                    ,N''X''  -- Extended stored procedure
-                    );
+    WHERE o.type
+       IN (--------------------------------------------------------------------------------------------------------------
+           -- "Indexable" / orderable objects
+           --------------------------------------------------------------------------------------------------------------
+           N''F''  -- Foreign Key Constraint
+          ,N''FT'' -- Assembly (CLR) table-valued function
+          ,N''IF'' -- SQL inline table-valued function
+          ,N''TF'' -- SQL table-valued-function            SQL 2012+
+          ,N''U''  -- Table (user-defined)
+          ,N''V''  -- View
+          )
 
    IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
       SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -8908,8 +8909,7 @@ SELECT rec_type = IIF(o.type = N'IT'
   FROM [tempdb].[dbo].[SQLXL_Index_sys_Startup_Parameters] AS p
  CROSS
   JOIN (--
-        SELECT TOP (100) PERCENT
-               *
+        SELECT *
           FROM [tempdb].[dbo].[SQLXL_Index_sys_objects]
          WHERE type
             IN (N'FT' -- Assembly (CLR) table-valued function
@@ -8919,15 +8919,11 @@ SELECT rec_type = IIF(o.type = N'IT'
                ,N'U'  -- Table
                ,N'V'  -- View
                )
-         ORDER BY
-               database_id
-              ,object_id
        ) AS o
 
   LEFT OUTER
   JOIN (-- Get count of compressed and archived partitions - OBJECT LEVEL ONLY
-        SELECT TOP (100) PERCENT
-               p.database_id
+        SELECT p.database_id
               ,p.object_id
               ,None_Comp           = SUM(p.None_Comp    )
               ,Row_Comp            = SUM(p.Row_Comp     )
@@ -8943,9 +8939,6 @@ SELECT rec_type = IIF(o.type = N'IT'
          GROUP BY
                p.database_id
               ,p.object_id
-         ORDER BY
-               p.database_id
-              ,p.object_id
        ) AS part
     ON o.database_id        = part.database_id
    AND o.object_id          = part.object_id
@@ -8955,16 +8948,12 @@ SELECT rec_type = IIF(o.type = N'IT'
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
   JOIN (-- count of statistics for each table & indexed view
-        SELECT TOP (100) PERCENT
-               s.database_id
+        SELECT s.database_id
               ,s.object_id
               ,Statistics_CNT          = COUNT(1)
               ,Statistics_Filtered_CNT = SUM(IIF(has_filter = 1,1,0))
           FROM [tempdb].[dbo].[SQLXL_Index_sys_stats]   AS s
          GROUP BY
-               s.database_id
-              ,s.object_id
-         ORDER BY
                s.database_id
               ,s.object_id
        ) stats
@@ -10019,7 +10008,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************/
--- Update - [SQLXL_Index_Compilation]- Column Descriptors for Full Text indexes
+-- Update - [SQLXL_Index_Compilation] - Column Descriptors for Full Text indexes
 /******************************************************************************************************************************************/
 UPDATE tgt
    SET key_column_info = COALESCE(--
@@ -10050,6 +10039,31 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @exec_dttm = GETDATE();
 END
 
+/******************************************************************************************************************************************/
+-- Update - [SQLXL_Index_Compilation] - Columns for Objects
+/******************************************************************************************************************************************/
+UPDATE tgt
+   SET key_column_info = STUFF(
+                               (SELECT  NCHAR(10)
+                                      + COALESCE(icol.[Column Descriptors],N'')
+                                  FROM [tempdb].[dbo].[SQLXL_Index_column] AS icol
+                                 WHERE tgt.database_id = icol.database_id
+                                   AND tgt.object_id   = icol.object_id
+                                 ORDER BY
+                                       icol.column_id
+                                   FOR XML PATH(N''), TYPE
+                               ).value('(./text())[1]','NVARCHAR(4000)')
+                              ,1,1,N'')
+  FROM [tempdb].[dbo].[SQLXL_Index_Compilation] AS tgt
+ WHERE tgt.rec_type = N'P'
+OPTION (MAXDOP 1);
+
+IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
+            + N' Update Column Descriptors for Objects'
+   RAISERROR(@msg,0,0) WITH NOWAIT;
+   SET @exec_dttm = GETDATE();
+END
 /******************************************************************************************************************************************/
 -- Update - [SQLXL_Index_sys_index_columns] - index columns to identify those also included from CLUSTERED index
 /******************************************************************************************************************************************/
@@ -10623,6 +10637,89 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************/
+-- Update - [SQLXL_Index_Compilation] - table columns with attributes Unique, Ordered IDs
+-- Table Unique Ordered IDs - Identity, Sequence, GUID, Sequence GUID
+/******************************************************************************************************************************************/
+UPDATE tgt
+   SET
+/*** LOCAL TESTING ***
+SELECT tgt.database_id,tgt.parent_object_id,tgt.index_id,tgt.type,c.UNQ,c.column_id,ncx.index_id,
+--*/
+       tbl_cx_uniq_ordered_column_TYP       = c.UNQ
+      ,tbl_cx_uniq_ordered_column_ID        = c.column_id
+      ,tbl_smallest_uniq_Nonclustered_idx   = ncx.index_id
+  FROM [tempdb].[dbo].[SQLXL_Index_Compilation] AS tgt
+  LEFT OUTER
+  JOIN (-- find all tables with columns that are unique/incrementing
+        SELECT c.database_id
+              ,c.object_id
+              ,c.Column_ID
+              ,UNQ = CASE WHEN c.is_identity   = 1                      THEN N'IDN'
+                          WHEN c.seq_object_id > 0                      THEN N'SEQ'
+                          WHEN dc.definition   = N'(newsequentialid())' THEN N'SUID'
+                          WHEN dc.definition   = N'(newid())'           THEN N'NUID'
+                          ELSE N''
+                     END
+              ,rn = ROW_NUMBER() OVER (PARTITION BY c.database_id
+                                                   ,c.object_id
+                                           ORDER BY c.max_length          -- smallest one first if more than one
+                                                   ,c.is_identity   DESC
+                                                   ,c.seq_object_id DESC
+                                                   ,dc.definition
+                                      )
+          FROM [tempdb].[dbo].[SQLXL_Index_sys_columns]             AS c
+          LEFT OUTER
+          JOIN [tempdb].[dbo].[SQLXL_Index_sys_default_constraints] AS dc
+            ON c.database_id       = dc.database_id
+           AND c.default_object_id = dc.object_id
+         WHERE (   c.is_identity   = 1
+                OR c.seq_object_id > 0
+                OR dc.definition   = N'(newsequentialid())'
+                OR dc.definition   = N'(newid())'
+               )
+       ) AS c
+    ON tgt.database_id = c.database_id
+   AND tgt.object_id   = c.object_id
+   AND 1               = c.rn
+  LEFT OUTER
+  JOIN (-- find smallest unique index to replace heap
+        SELECT i.database_id
+              ,i.parent_object_id
+              ,i.index_id
+              ,rn = ROW_NUMBER() OVER (PARTITION BY i.database_id
+                                                   ,i.parent_object_id
+                                           ORDER BY i.stathdr_Average_Key_Length  -- smallest one first if more than one
+                                                   ,i.Lead_Element_Uniqueness     -- most uniquest first key element next
+                                                   ,i.Key_Columns_CNT             -- fewest key columns
+                                                   ,ius.user_total_CNT  DESC    -- most used
+                                      )
+          FROM [tempdb].[dbo].[SQLXL_Index_Compilation] AS i
+          LEFT OUTER
+          JOIN [tempdb].[dbo].[SQLXL_Index_sys_dm_db_index_usage_stats] AS ius
+            ON i.database_ID      = ius.database_id
+           AND i.parent_object_ID = ius.object_id
+           AND i.index_ID         = ius.index_id
+         WHERE i.rec_type                 = N'I'
+           AND i.type                     = N'2'
+           AND (   i.is_primary_key       = 1
+                OR i.is_unique_constraint = 1
+                OR i.is_unique            = 1
+               )
+       ) AS ncx
+    ON tgt.database_id      = ncx.database_id
+   AND tgt.parent_object_id = ncx.parent_object_id
+   AND 1                    = ncx.rn
+ WHERE TRY_CAST(tgt.type AS INT) < 2
+OPTION (MAXDOP 1);
+
+IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
+            + N' Update table columns with attributes Unique, Ordered,IDs'
+   RAISERROR(@msg,0,0) WITH NOWAIT;
+   SET @exec_dttm = GETDATE();
+END
+
+/******************************************************************************************************************************************/
 -- Update - [SQLXL_Index_Compilation] - index column, statistics, uniqueness, compression
 /******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -10971,89 +11068,6 @@ OPTION (MAXDOP 1);
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
             + N' Update index column statistics and attributes'
-   RAISERROR(@msg,0,0) WITH NOWAIT;
-   SET @exec_dttm = GETDATE();
-END
-
-/******************************************************************************************************************************************/
--- Update - [SQLXL_Index_Compilation] - table columns with attributes Unique, Ordered IDs
--- Table Unique Ordered IDs - Identity, Sequence, GUID, Sequence GUID
-/******************************************************************************************************************************************/
-UPDATE tgt
-   SET
-/*** LOCAL TESTING ***
-SELECT tgt.database_id,tgt.parent_object_id,tgt.index_id,tgt.type,c.UNQ,c.column_id,ncx.index_id,
---*/
-       tbl_cx_uniq_ordered_column_TYP       = c.UNQ
-      ,tbl_cx_uniq_ordered_column_ID        = c.column_id
-      ,tbl_smallest_uniq_Nonclustered_idx   = ncx.index_id
-  FROM [tempdb].[dbo].[SQLXL_Index_Compilation] AS tgt
-  LEFT OUTER
-  JOIN (-- find all tables with columns that are unique/incrementing
-        SELECT c.database_id
-              ,c.object_id
-              ,c.Column_ID
-              ,UNQ = CASE WHEN c.is_identity   = 1                      THEN N'IDN'
-                          WHEN c.seq_object_id > 0                      THEN N'SEQ'
-                          WHEN dc.definition   = N'(newsequentialid())' THEN N'SUID'
-                          WHEN dc.definition   = N'(newid())'           THEN N'NUID'
-                          ELSE N''
-                     END
-              ,rn = ROW_NUMBER() OVER (PARTITION BY c.database_id
-                                                   ,c.object_id
-                                           ORDER BY c.max_length          -- smallest one first if more than one
-                                                   ,c.is_identity   DESC
-                                                   ,c.seq_object_id DESC
-                                                   ,dc.definition
-                                      )
-          FROM [tempdb].[dbo].[SQLXL_Index_sys_columns]             AS c
-          LEFT OUTER
-          JOIN [tempdb].[dbo].[SQLXL_Index_sys_default_constraints] AS dc
-            ON c.database_id       = dc.database_id
-           AND c.default_object_id = dc.object_id
-         WHERE (   c.is_identity   = 1
-                OR c.seq_object_id > 0
-                OR dc.definition   = N'(newsequentialid())'
-                OR dc.definition   = N'(newid())'
-               )
-       ) AS c
-    ON tgt.database_id = c.database_id
-   AND tgt.object_id   = c.object_id
-   AND 1               = c.rn
-  LEFT OUTER
-  JOIN (-- find smallest unique index to replace heap
-        SELECT i.database_id
-              ,i.parent_object_id
-              ,i.index_id
-              ,rn = ROW_NUMBER() OVER (PARTITION BY i.database_id
-                                                   ,i.parent_object_id
-                                           ORDER BY i.stathdr_Average_Key_Length  -- smallest one first if more than one
-                                                   ,i.Lead_Element_Uniqueness     -- most uniquest first key element next
-                                                   ,i.Key_Columns_CNT             -- fewest key columns
-                                                   ,ius.user_total_CNT  DESC    -- most used
-                                      )
-          FROM [tempdb].[dbo].[SQLXL_Index_Compilation] AS i
-          LEFT OUTER
-          JOIN [tempdb].[dbo].[SQLXL_Index_sys_dm_db_index_usage_stats] AS ius
-            ON i.database_ID      = ius.database_id
-           AND i.parent_object_ID = ius.object_id
-           AND i.index_ID         = ius.index_id
-         WHERE i.rec_type                 = N'I'
-           AND i.type                     = N'2'
-           AND (   i.is_primary_key       = 1
-                OR i.is_unique_constraint = 1
-                OR i.is_unique            = 1
-               )
-       ) AS ncx
-    ON tgt.database_id      = ncx.database_id
-   AND tgt.parent_object_id = ncx.parent_object_id
-   AND 1                    = ncx.rn
- WHERE TRY_CAST(tgt.type AS INT) < 2
-OPTION (MAXDOP 1);
-
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
-   SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
-            + N' Update table columns with attributes Unique, Ordered,IDs'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END
@@ -11728,15 +11742,15 @@ SELECT dv1.database_id
    AND dv1.object_id    = ic.object_id
    AND dv1.index_ID     = ic.index_ID
    AND dv1.Row_ID       = ic.key_column_sequence
-   AND 0                = ic.is_included_column  -- only KEY index elements are to be compared
+   AND 0                = ic.is_included_column      -- only KEY index elements are to be compared
   JOIN [tempdb].[dbo].[SQLXL_Index_sys_ShowStatistics_DensityVector] AS dv0
     ON dv1.database_id  = dv0.database_id
    AND dv1.object_id    = dv0.object_id
    AND dv1.index_ID     = dv0.index_ID
    AND (dv1.Row_ID - 1) = dv0.row_id
-   AND 0.0              < dv0.All_Density
+   AND 0.0              < dv0.All_Density            -- avoide divide by zero below
  WHERE 1 = 1
-   AND dv1.All_Density / dv0.All_Density > 1.0 / 3.0
+   AND dv1.All_Density / dv0.All_Density > 1.0 / 3.0 -- if more then 1/3 of previous keys records returned
 OPTION (MAXDOP 1)
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -11771,13 +11785,10 @@ UPDATE tgt
 SET ANSI_WARNINGS ON; -- FOR XML PATH used below
 SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-
--- Diagnostic - Index - additional keys not selective
        is_activity_for_period = IIF(   COALESCE(tgt.ius_user_total_CNT    ,0) > 0
                                     OR COALESCE(tgt.ops_total_contacts_CNT,0) > 0
                                    ,1
                                    ,0)
--- Diagnostic - Index - additional keys not selective
       ,low_selectivity_additional_keys
        = (--
           SELECT  CASE WHEN d.row_id     = 1 THEN             N'Key Selectivity LO > '
@@ -11923,12 +11934,12 @@ UPDATE tgt
               ,cc.object_id
               ,(-- check constraints for this column - full definitions.
                 -- FOR XML PATH used since there can be multiple constraints on a column. STUFF applied above
-                SELECT NCHAR(10)
+                SELECT  NCHAR(10)
                       + QUOTENAME(cx.name) + N' CCOL:'
                       + IIF(cx.uses_sql_proc = 1,N' *PROCEDURE*' ,N'')
                       + IIF(cx.uses_sql_ftn  = 1,N' *FUNCTION*'  ,N'')
                       + IIF(cx.uses_sql_mthd = 1,N' *SQL METHOD*',N'')
-                      + N' ' +cx.definition
+                      + N' ' + cx.definition
                       + IIF(cx.is_persisted = 0 OR cx.uses_database_collation = 0
                            , NCHAR(10)
                            + STUFF(-- Strip off leading unnecessary characters
@@ -16831,7 +16842,7 @@ SELECT p.rec_type
     + N'Modified: '
     + TRY_CAST(DATEDIFF(DAY,p.obj_modify_date,sp.Collection_DTTM) AS NVARCHAR(20)) + N' days (BI66)'
     + IIF(DATEDIFF(DAY,p.obj_create_date,sp.Collection_DTTM) <= 90
-         ,N' Created: ' + CAST(DATEDIFF(DAY,p.obj_create_date,sp.Collection_DTTM) AS NVARCHAR(20)) + N' days (BI67)'
+         ,N' Created: ' + TRY_CAST(DATEDIFF(DAY,p.obj_create_date,sp.Collection_DTTM) AS NVARCHAR(20)) + N' days (BI67)'
          ,N'')
     ,N'')
 
@@ -18586,20 +18597,16 @@ INSERT
       ,type
       ,diagnostic
       )
-SELECT i.rec_type
-      ,i.database_id
-      ,i.parent_object_id
-      ,i.object_id
-      ,i.index_id
-      ,i.type
+SELECT rec_type
+      ,database_id
+      ,parent_object_id
+      ,object_id
+      ,index_id
+      ,type
 -- Diagnostic - Index - adding another key element doesn't make index much more selective
-      ,diagnostic  = i.low_selectivity_additional_keys
-  FROM (-- All "index" records
-        SELECT *
-          FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
-         WHERE rec_type = N'I'
-       ) AS i
- WHERE i.low_selectivity_additional_keys IS NOT NULL;
+      ,diagnostic  = low_selectivity_additional_keys
+  FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
+ WHERE low_selectivity_additional_keys IS NOT NULL;
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -18990,7 +18997,7 @@ SELECT rec_type   = N'I'
  N'Parameter sniffing candidate - Range '
 + tempdb.[dbo].[SQLXL_3SD](ssh.param_sniff,N'N')
 + N'x for Key '
-+ CAST(ic.key_column_sequence AS NVARCHAR(20))
++ TRY_CAST(ic.key_column_sequence AS NVARCHAR(20))
   FROM [tempdb].[dbo].[SQLXL_Index_sys_index_columns]                    AS ic
   JOIN [tempdb].[dbo].[SQLXL_Index_sys_ShowStatistics_Histogram_summary] AS ssh
     ON ic.database_id                                             = ssh.database_id
@@ -19280,7 +19287,7 @@ SELECT rec_type   = N'I'
       ,i.type
       ,diagnostic = N'Column Filtered Statistics (BI93)'
                   + COALESCE((SELECT  N' Key '
-                                    + CAST(cfs.key_column_sequence AS NVARCHAR(20))
+                                    + TRY_CAST(cfs.key_column_sequence AS NVARCHAR(20))
                                     + N': ' + tempdb.[dbo].[SQLXL_3SD](cfs.cnt,N'I')
                                 FROM #key_column_filtered_statistics AS cfs
                                WHERE i.database_id      = cfs.database_id
@@ -19422,7 +19429,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- Diagnostic - Index - Another key has better lead uniqueness, does not cover foreign key
+-- Diagnostic - Index - Another key column has better lead uniqueness, does not cover foreign key
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
   INTO [tempdb].[dbo].[SQLXL_Index_Diagnostics]
@@ -19466,12 +19473,13 @@ SELECT rec_type   = N'I'
                    AND u.object_id   = c.object_ID
                    AND N'P'          = c.rec_type              -- parents only
                    AND N'TBL'        = c.obj_type_short_label  -- tables only
-                 WHERE TRY_CAST(u.type AS INT)  BETWEEN 1 AND 2
-                   AND u.is_included_column           = 0
-                   AND u.key_column_sequence          > 0
-                   AND CHARINDEX(N'CX(',u.col_prefix) = 0
-                   AND u.col_uniqueness               > 0
-                   AND c.covered_fkc_IDs IS NULL
+                 WHERE TRY_CAST(u.type AS INT)   BETWEEN 1 AND 2
+                   AND u.is_included_column            = 0
+                   AND u.key_column_sequence           > 0
+                   AND CHARINDEX(N'=CX(',u.col_suffix) = 0 -- exclude columns also in from the clustering index
+                   AND CHARINDEX(N'>CX(',u.col_prefix) = 0 -- exclude columns added from the clustering index
+                   AND u.col_uniqueness                > 0
+                   AND c.covered_fkc_IDs              IS NULL
                ) bc
          WHERE bc.rn = 1
         EXCEPT
@@ -19490,11 +19498,12 @@ SELECT rec_type   = N'I'
    AND xc.object_id   = u.object_id
    AND xc.index_id    = u.index_id
    AND xc.type        = u.type
-   AND xc.column_id   = u.Column_ID;
+   AND xc.column_id   = u.Column_ID
+OPTION (MAXDOP 1);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
-            + N' Index Diagnostics - better clustered index key'
+            + N' Index Diagnostics - better lead index key'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END
@@ -19617,7 +19626,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
--- LEAD KEY - ALL ELEMENTS
+-- LEAD ROWSTORE INDEX KEY - ALL ELEMENTS
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
   INTO [tempdb].[dbo].[SQLXL_Index_Diagnostics]
@@ -19643,16 +19652,18 @@ STUFF(-- Strip off leading unnecessary characters
 -- Diagnostic - Index - Lead Key - is SEQUENCE and index is NOT UNIQUE
 -- Diagnostic - Index - Lead Key - is NEWSEQUENTIALID and index is NOT UNIQUE
 -- Diagnostic - Index - Lead Key - is SEQUENTIAL UNIQUE and optimize_for_sequential_key not enabled (2019+) (BI121)
+-- Diagnostic - Index - Lead Key - is SEQUENTIAL UNIQUE and optimize_for_sequential_key is  enabled (2019+) (BI121)
 +IIF(   i.Lead_Element_is_Identity        = 1
      OR i.Lead_Element_is_Sequence        = 1
      OR i.Lead_Element_is_newsequentialid = 1
+     OR i.Lead_Element_is_newid           = 1
     ,NCHAR(10) + N'Lead Key is '
                + IIF(i.Lead_Element_is_Identity        = 1,N'IDENTITY'       ,N'')
                + IIF(i.Lead_Element_is_Sequence        = 1,N'SEQUENCE'       ,N'')
                + IIF(i.Lead_Element_is_newsequentialid = 1,N'NEWSEQUENTIALID',N'')
                + IIF(i.is_unique                       = 0,N', index not UNIQUE',N'')
                + IIF(mv.ProductMajorVersion >= 15 AND i.tbl_is_clustered_columnstore = 0
-                    , NCHAR(10) + N'> Sequential key option '
+                    , NCHAR(10) + N'> OPTIMIZE_FOR_SEQUENTIAL_KEY '
                     + IIF(i.optimize_for_sequential_key = 0,N'NOT ',N'')
                     + N'ENABLED (2019+) (BI121)'
                     ,N'')
@@ -19664,7 +19675,7 @@ STUFF(-- Strip off leading unnecessary characters
               OR i.Lead_Element_is_Sequence        = 1
               OR i.Lead_Element_is_newsequentialid = 1
              )
-    ,NCHAR(10) + N'Seq key optimization ENABLED, lead key not SEQ UNIQ (BI121)'
+    ,NCHAR(10) + N'OPTIMIZE_FOR_SEQUENTIAL_KEY ENABLED (2019+), lead key not SEQ UNIQ (BI121)'
     ,N'')
 
 -- Diagnostic - Index - Lead Key - is NEWID and index is not unique
@@ -19692,8 +19703,8 @@ STUFF(-- Strip off leading unnecessary characters
          )
      AND i.Key_Columns_CNT > (1 + IIF(i.partition_function_ID > 0,1,0)) -- if partitioned must have partitioned column
     ,NCHAR(10) + IIF(i.type = N'1'
-                    ,N'> has ' + CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(20)) + N' unneeded col(s)'
-                    ,N'> move ' + TRY_CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(20)) + N' unneeded columns to Include')
+                    ,N'> has '  + TRY_CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(20)) + N' unneeded col(s)'              -- clustered rowstore
+                    ,N'> move ' + TRY_CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(20)) + N' unneeded columns to Include') -- nonclustered rowstore
     ,N'')
 -- Diagnostic - Index - Lead Key - another column may be a better clustering lead key
 +IIF(    i.type                          IN (N'1')
@@ -24839,7 +24850,9 @@ DECLARE @Prio_wait_time                   SMALLINT = 100
        ,@Prio_LOB                         SMALLINT =  80
        ,@xtp_Priority_deflator            SMALLINT =  50 -- since activities in memory much faster than disk
 
-SELECT p.database_id,p.parent_object_id,p.object_id,p.obj_type,p.obj_name,
+--SELECT p.database_id,p.parent_object_id,p.object_id,p.obj_type,p.obj_name,
+UPDATE p
+   SET
 --*/
        tbl_priority_metric =
 -- Waiting -------------------------------------------------
@@ -25490,12 +25503,15 @@ Column Label Format
 STUFF(
   IIF(i.is_disabled = 1,NCHAR(10) + N'*Disabled*',N'')
 
-+ CASE WHEN i.type      = N'90' -- FullText Index
-       THEN NCHAR(10) + N'FTX'
-       WHEN i.type      = N'3'  -- XML Index
-       THEN NCHAR(10) + N'XML'
-       WHEN i.type      = N'4'  -- Spatial Index
-       THEN NCHAR(10) + N'SPT'
++ CASE WHEN i.type     = N'90' -- FullText Index
+       THEN NCHAR(10)  + N'FTX'
+       WHEN i.type     = N'3'  -- XML Index
+       THEN NCHAR(10)  + N'XML'
+       WHEN i.type     = N'4'  -- Spatial Index
+       THEN NCHAR(10)  + N'SPT'
+       WHEN i.type     = N'V'  -- View
+        AND i.index_id = 0     -- HEAP (no index on view)
+       THEN NCHAR(10)  + N'View Unindexed'
 
        WHEN i.rec_type = N'P'   -- Parent table
        THEN CASE WHEN i.obj_type IN (N'V') -- view
@@ -25554,11 +25570,9 @@ STUFF(
                                     ,N'S' -- system internal table
                                     )
                      , N' COL ' + tempdb.[dbo].[SQLXL_3SD](p.tbl_column_CNT,'I')
-                     + NCHAR(10)
-                     + N'LEN   ' -- extra space added to make 2nd column in cell align
-                     + IIF(i.row_CNT > 0
-                          ,tempdb.[dbo].[SQLXL_3SD](i.tbl_row_size_byte_AVG,'B')
-                          ,N'MT')
+                     ,N'')
+                + IIF(i.row_CNT > 0
+                     ,NCHAR(10) + N'LEN   ' + tempdb.[dbo].[SQLXL_3SD](i.tbl_row_size_byte_AVG,'B')
                      ,N'')
                 ,N'')
             -------------------------------------------------------------------------------------------------------------
@@ -25571,11 +25585,12 @@ STUFF(
                        WHEN N'0' THEN N'HP'
                        WHEN N'5' THEN N'CCS'
                        WHEN N'6' THEN N'NCS'
-                       ELSE [tempdb].[dbo].[SQLXL_3SD](i.Key_Columns_CNT ,N'I')
+                       ELSE TRY_CAST(i.Key_Columns_CNT AS NVARCHAR(20))
                   END
-                + IIF(i.key_total_datatype_length_bytes > 0
-                     ,N' LEN ' + [tempdb].[dbo].[SQLXL_3SD](i.key_total_datatype_length_bytes,N'I') + N'B'
-                     ,N'')
+                + CASE WHEN i.key_total_datatype_length_bytes > 0
+                       THEN N' LEN ' + tempdb.[dbo].[SQLXL_3SD](i.key_total_datatype_length_bytes,N'I') + N'B'
+                       ELSE N''
+                  END
                 ,N'')
             --------------------------------------------------------------------------------------------------------------
             --
@@ -25590,10 +25605,11 @@ STUFF(
                        WHEN N'0' THEN N'HP'    -- Heap
                        WHEN N'1' THEN N'<all>' -- Clustered Rowstore
                        WHEN N'5' THEN N'<all>' -- Clustered columnstore
-                       ELSE  [tempdb].[dbo].[SQLXL_3SD](i.Included_Columns_CNT,N'I')
-                           + IIF(i.inc_total_datatype_length_bytes > 0
-                                ,N' LEN ' + tempdb.[dbo].[SQLXL_3SD](i.inc_total_datatype_length_bytes,N'I') + N'B'
-                                ,N'')
+                       ELSE TRY_CAST(i.Included_Columns_CNT AS NVARCHAR(20))
+                  END
+                + CASE WHEN i.inc_total_datatype_length_bytes > 0
+                       THEN N' LEN ' + tempdb.[dbo].[SQLXL_3SD](i.inc_total_datatype_length_bytes,N'I') + N'B'
+                       ELSE N''
                   END
                 ,N'')
             --------------------------------------------------------------------------------------------------------------
