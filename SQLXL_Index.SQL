@@ -16885,12 +16885,12 @@ SELECT p.rec_type
          OR p.ops_total_contacts_CNT      > 0
          OR p.Stats_Prop_modification_CNT > 0
         -- Usage found
-        ,NCHAR(10) + N'Last Used'
+        ,NCHAR(10) + N'Last Use (days before collection)'
                    + N' Read: ' + IIF(p.ius_last_read_days_ago IS NOT NULL
-                                     ,tempdb.[dbo].[SQLXL_3SD](p.ius_last_read_days_ago,N'I') + N' days'
+                                     ,tempdb.[dbo].[SQLXL_3SD](p.ius_last_read_days_ago,N'I')
                                      ,N'N/A')
                    + N' Write: ' + IIF(p.ius_last_write_days_ago IS NOT NULL
-                                      ,tempdb.[dbo].[SQLXL_3SD](p.ius_last_write_days_ago,N'I') + N' days'
+                                      ,tempdb.[dbo].[SQLXL_3SD](p.ius_last_write_days_ago,N'I')
                                       ,N'N/A')
         -- Usage not found
         ,NCHAR(10) + N'Not used'
@@ -16903,7 +16903,7 @@ SELECT p.rec_type
 -- Diagnostic - Object - Modify Date - last 90 days (BI66)
 +IIF(DATEDIFF(DAY,p.obj_modify_date,sp.Collection_DTTM) <= 90
     ,NCHAR(10)
-    + N'Modified: '
+    + N'Object Modified: '
     + TRY_CAST(DATEDIFF(DAY,p.obj_modify_date,sp.Collection_DTTM) AS NVARCHAR(20)) + N' days (BI66)'
     + IIF(DATEDIFF(DAY,p.obj_create_date,sp.Collection_DTTM) <= 90
          ,N' Created: ' + TRY_CAST(DATEDIFF(DAY,p.obj_create_date,sp.Collection_DTTM) AS NVARCHAR(20)) + N' days (BI67)'
@@ -16914,8 +16914,17 @@ SELECT p.rec_type
 -- Table outliers
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - Many Nonclustered indexes on table (BI20)
-+IIF(p.tbl_is_clustered_columnstore <> 1 AND p.Nonclustered_index_CNT >= 4
-    , NCHAR(10) + N'Nonclustered indexes: ' + TRY_CAST(p.Nonclustered_index_CNT AS NVARCHAR(20))
+-- Diagnostic - Table - has mmany lightly used Nonclustered indexes, no existing nonclustered Columnstore
++IIF(    p.tbl_is_clustered_columnstore <> 1 
+     AND (   p.Nonclustered_index_CNT >= 4
+          OR idx_rd.idx_cnt           > 2
+         )
+    , NCHAR(10) 
+    + N'Nonclustered indexes: ' 
+    + TRY_CAST(p.Nonclustered_index_CNT AS NVARCHAR(20))
+    + IIF(idx_rd.idx_cnt > 0
+         ,N', ' + TRY_CONVERT(NVARCHAR(20),idx_rd.idx_cnt) + N' lo read (<2%)'
+         ,N'')
     + IIF(    sp.version_major >= 13
           AND (--
                SELECT run_value
@@ -16976,8 +16985,40 @@ SELECT p.rec_type
           FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
          WHERE rec_type = N'P'
        ) AS p
- CROSS JOIN
-       [tempdb].[dbo].[SQLXL_Index_sys_Startup_Parameters] AS sp
+ CROSS 
+  JOIN [tempdb].[dbo].[SQLXL_Index_sys_Startup_Parameters] AS sp
+  LEFT OUTER
+  JOIN (
+        SELECT i.database_ID
+              ,i.parent_object_ID
+              ,i.object_id
+              ,idx_cnt = SUM(1)
+          FROM (-- All "index" records
+                SELECT *
+                  FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
+                 WHERE rec_type                       = N'I'
+                   AND tbl_is_clustered_columnstore = 0
+                   AND type                         = N'2'
+               ) AS i
+          JOIN (-- All "Parent" records
+                SELECT *
+                  FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
+                 WHERE rec_type = N'P'
+               ) AS p
+            ON i.database_id      = p.database_id
+           AND i.parent_object_id = p.parent_object_id
+           AND i.object_ID        = p.object_ID
+         WHERE IIF(p.ops_total_read_CNT > 0
+                  ,100.0 * COALESCE(i.ops_total_read_CNT,0) / p.ops_total_read_CNT
+                  ,0.0) < 2.0 -- 2 percent
+         GROUP BY
+               i.database_ID
+              ,i.parent_object_ID
+              ,i.object_ID
+       ) AS idx_rd
+    ON p.database_ID      = idx_rd.database_ID
+   AND p.parent_object_ID = idx_rd.parent_object_ID
+   AND p.object_ID        = idx_rd.object_ID
 ) AS p
  WHERE p.diagnostic IS NOT NULL;
 
@@ -17600,66 +17641,6 @@ HAVING SUM(IIF(s.has_filter = 1,1,0)) > 0;
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - filtered statistics'
-   RAISERROR(@msg,0,0) WITH NOWAIT;
-   SET @exec_dttm = GETDATE();
-END
-
---------------------------------------------------------------------------------------------------------------------------------------------
--- Parent - Tables many unused/lightly used indexes
---------------------------------------------------------------------------------------------------------------------------------------------
-INSERT
-  INTO [tempdb].[dbo].[SQLXL_Index_Diagnostics]
-      (rec_type
-      ,database_id
-      ,parent_object_id
-      ,object_id
-      ,index_id
-      ,type
-      ,diagnostic
-      )
-SELECT rec_type   = N'P'
-      ,i.database_id
-      ,i.parent_object_id
-      ,i.parent_object_id
-      ,i.parent_object_id
-      ,type       = N'U'
--- Diagnostic - Table - has mmany lightly used Nonclustered indexes, no existing nonclustered Columnstore
-      ,diagnostic = TRY_CAST(COUNT(1) AS NVARCHAR(20))
-                  + N' low read nonclustered indexes (<2%)'
-                  + IIF(p.Nonclustered_ColumnStore_CNT = 0
-                       ,N' - consider NCS?'
-                       ,N' - replace with NCS?')
-  FROM (-- All "index" records
-        SELECT *
-          FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
-         WHERE rec_type = N'I'
-       ) AS i
-  JOIN (--
-        SELECT *
-          FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
-         WHERE rec_type = N'P'
-       ) AS p
-    ON i.database_id      = p.database_id
-   AND i.parent_object_id = p.parent_object_id
-   AND i.object_ID        = p.object_ID
- WHERE i.tbl_is_clustered_columnstore = 0
-   AND i.type                         = N'2'
-   AND i.ius_User_total_CNT           > 0                              -- at least some activity
-   AND IIF(p.ius_User_read_CNT > 0
-          ,100.0 * COALESCE(i.ius_User_read_CNT,0) / p.ius_User_read_CNT
-          ,0.0) < 2.0 -- 2 percent
-   AND IIF(p.ops_total_read_CNT > 0
-          ,100.0 * COALESCE(i.ops_total_read_CNT,0) / p.ops_total_read_CNT
-          ,0.0) < 2.0 -- 2 percent
- GROUP BY
-       i.database_id
-      ,i.parent_object_id
-      ,p.Nonclustered_ColumnStore_CNT
-HAVING COUNT(1) > 1
-
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
-   SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
-            + N' Table Diagnostics - unused/lightly used indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END
@@ -23653,7 +23634,7 @@ SELECT i.database_id
           ,IIF(i.row_CNT > 0
               ,100.0 * i.ops_total_write_CNT     / i.row_CNT
               ,0.0)
-          ) > 25.0;
+          ) >= 25.0;
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- REFACTOR - Consider Database AUTO_UPDATE_STATISTICS_ASYNC due to high volumes of data changes
@@ -24436,38 +24417,6 @@ SELECT database_id
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
             + N' Review - indexes Auto Created'
-   RAISERROR(@msg,0,0) WITH NOWAIT;
-   SET @exec_dttm = GETDATE();
-END
-
---------------------------------------------------------------------------------------------------------------------------------------------
--- REVIEW - Index - High stats writes - consider enabling STATISTICS NORECOMPUTE
---------------------------------------------------------------------------------------------------------------------------------------------
-SET @srt += 1;
-INSERT
-  INTO #prescription
-/*** LOCAL TESTING ***
-DECLARE @srt INT = 0;
---*/
-SELECT database_id
-      ,parent_object_id
-      ,object_id
-      ,index_id
-      ,type
-      ,N'Review'
-      ,sort         = @srt
-      ,prescription = N'Stats NoRecompute'
-  FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
- WHERE rec_type = N'I'
-   AND type    IN (N'1',N'2') -- HEAPS handled separately
-   AND IIF(stathdr_Rows_CNT > 0
-          ,100.0 * Stats_Prop_modification_CNT / stathdr_Rows_CNT
-          ,0.0) >= 25.0
-   AND stats_no_recompute = 0;
-
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
-   SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
-            + N' Review - High stats writes - consider enabling STATISTICS NORECOMPUTE'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END
@@ -25670,7 +25619,20 @@ Column Label Format
 /******************************************************************************************************************************************\
 -- Detailed diagnostic information for each index and objects
 \******************************************************************************************************************************************/
-,[Diagnostics] = LEFT(i.[diagnostics],32767) -- to avoid Excel treating as MAX column
+,[Diagnostics] = LEFT(i.[diagnostics]
+                     + CASE WHEN i.rec_type = N'I'
+                             AND i.type     = N'F'
+                            THEN  NCHAR(10)
+                                + N'-- Foreign Key Reference ---'
+                                + NCHAR(10)
+                                + COALESCE(i.fkc_reference,N'<fkc_reference?>')             -- Referenced schema + table + column(s)
+                                + NCHAR(10)
+                                + N'OID DB ' + QUOTENAME(i.database_id)                                                     -- Referenced Database ID
+                                + N' TBL '   + COALESCE(QUOTENAME(i.fkc_referenced_object_id),N'fkc_referenced_object_id?') -- Referenced Table ID
+                                + N' IDX '   + COALESCE(QUOTENAME(i.fkc_referenced_index_id) ,N'fkc_referenced_index_id?')  -- Referenced Index ID
+                            ELSE N''
+                       END
+                     ,32767) -- to avoid Excel treating as MAX column
 
 /******************************************************************************************************************************************\
 -- Index Element Uniqueness, in increasing key order
@@ -25711,15 +25673,14 @@ STUFF(
         AND i.index_id = 0     -- HEAP (no index on view)
        THEN NCHAR(10)  + N'View Unindexed'
 
-       WHEN i.rec_type = N'P'   -- Parent table
-       THEN CASE WHEN i.obj_type IN (N'V') -- view
-                 THEN NCHAR(10) + N'View'
-                 WHEN i.obj_type IN (N'FT' -- Assembly (CLR) table-valued function
-                                    ,N'IF' -- SQL inline table-valued function (TVF)
-                                    ,N'TF' -- SQL table-valued-function (TVF)
-                                    )
-                 THEN NCHAR(10) + N'TVF' -- table functions w/o indexes have no stats other than PLAN CACHE
-            END
+--WHEN i.rec_type = N'P'   -- Parent table
+       WHEN i.obj_type IN (N'V') -- view
+       THEN NCHAR(10) + N'View'
+       WHEN i.obj_type IN (N'FT' -- Assembly (CLR) table-valued function
+                          ,N'IF' -- SQL inline table-valued function (TVF)
+                          ,N'TF' -- SQL table-valued-function (TVF)
+                          )
+       THEN NCHAR(10) + N'TVF' -- table functions w/o indexes have no stats other than PLAN CACHE
 
        ELSE  IIF(i.type NOT IN (N'F'  -- Foreign Key constraint
                                ,N'M'  -- Missing index
@@ -25768,14 +25729,14 @@ STUFF(
                                     ,N'S' -- system internal table
                                     )
                      , N' COL ' + tempdb.[dbo].[SQLXL_3SD](p.tbl_column_CNT,'I')
-                     ,N'')
-                + IIF(i.row_CNT > 0
-                     ,N' LEN   ' + tempdb.[dbo].[SQLXL_3SD](i.tbl_row_size_byte_AVG,'B')
+                     + IIF(i.row_CNT > 0
+                          ,NCHAR(10) + N'LEN   ' + tempdb.[dbo].[SQLXL_3SD](i.tbl_row_size_byte_AVG,'B')
+                          ,N'')
                      ,N'')
                 ,N'')
-            -------------------------------------------------------------------------------------------------------------
-            --
-            --------------------------------------------------------------------------------------------------------------
+             -------------------------------------------------------------------------------------------------------------
+             --
+             --------------------------------------------------------------------------------------------------------------
            + IIF(i.rec_type = N'I'
                 , NCHAR(10)
                 + N'KEY   ' -- extra space added to make 2nd column in cell align
@@ -25790,9 +25751,9 @@ STUFF(
                        ELSE N''
                   END
                 ,N'')
-            --------------------------------------------------------------------------------------------------------------
-            --
-            --------------------------------------------------------------------------------------------------------------
+             --------------------------------------------------------------------------------------------------------------
+             --
+             --------------------------------------------------------------------------------------------------------------
            + IIF(    i.rec_type = N'I'
                  AND i.type NOT IN (N'F'  -- Foreign Key constraint
                                    ,N'TF' -- SQL table-valued-function (TVF)
@@ -25810,9 +25771,9 @@ STUFF(
                        ELSE N''
                   END
                 ,N'')
-            --------------------------------------------------------------------------------------------------------------
-            -- Fill factor & tree padding
-            --------------------------------------------------------------------------------------------------------------
+             --------------------------------------------------------------------------------------------------------------
+             -- Fill factor & tree padding
+             --------------------------------------------------------------------------------------------------------------
            + IIF(    i.rec_type  = N'I'   -- index-level record
                  AND i.type NOT IN (N'F'  -- foreign key constraint
                                    ,N'M'  -- missing index
@@ -25999,12 +25960,7 @@ STUFF(
 -- Foreign Key Constraint reference
 \******************************************************************************************************************************************/
 ,[Foreign Key Constraint reference~MIX Biggest Resource Query]
-       = CASE i.type 
-              WHEN N'F' THEN  COALESCE(i.fkc_reference,N'<fkc_reference?>')             -- Referenced schema + table + column(s)
-                            + NCHAR(10)
-                            + N'OID DB ' + QUOTENAME(i.database_id)                                                   -- Referenced Database ID
-                            + N' TBL '   + COALESCE(QUOTENAME(i.fkc_referenced_object_id),N'fkc_referenced_object_id?') -- Referenced Table ID
-                            + N' IDX '   + COALESCE(QUOTENAME(i.fkc_referenced_index_id) ,N'fkc_referenced_index_id?')  -- Referenced Index ID
+       = CASE i.type
               WHEN N'M' THEN  COALESCE(i.mqy_query_text,N'')
         END
 
@@ -26085,68 +26041,68 @@ STUFF(
 /******************************************************************************************************************************************\
 --Table Priority Metrics
 \******************************************************************************************************************************************/
-,[Table OPS Wait TM!H\B|N0]
+,[Table OPS Wait TM!H\B|N1]
                         = IIF(i.rec_type = N'P' AND a.ops_total_wait_MS_CNT > 0 AND i.ops_total_wait_MS_CNT > 0
                              ,100.0 * i.ops_total_wait_MS_CNT / a.ops_total_wait_MS_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Wait CNT!H\B|N0]
+,[Table OPS Wait CNT!H\B|N1]
                         = IIF(i.rec_type = N'P'  AND a.ops_total_wait_CNT > 0
                              ,100.0 * i.ops_total_wait_CNT / a.ops_total_wait_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
-,[Table OPS Locks CNT!H\B|N0]
+,[Table OPS Locks CNT!H\B|N1]
                         = IIF(i.rec_type = N'P'  AND a.ops_total_lock_CNT > 0
                              ,100.0 * i.ops_total_lock_CNT / a.ops_total_lock_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Lock Promo!H\B|N0]
+,[Table OPS Lock Promo!H\B|N1]
                         = IIF(i.rec_type = N'P'              AND a.ios_lock_promotion_attempt_CNT > 0
                              ,100.0 * i.ios_lock_promotion_attempt_CNT / a.ios_lock_promotion_attempt_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Promo Fail!H\B|N0]
+,[Table OPS Promo Fail!H\B|N1]
                         = IIF(    i.rec_type = N'P'
                               AND a.ios_lock_promotion_attempt_CNT > 0
                              ,100.0 * (i.ios_lock_promotion_attempt_CNT - i.ios_lock_promotion_CNT)
                                     / A.ios_lock_promotion_attempt_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
-,[Table OPS Page Split!H\B|N0]
+,[Table OPS Page Split!H\B|N1]
                         = IIF(i.rec_type = N'P'        AND a.ops_total_page_split_CNT > 0
                              ,100.0 * i.ops_total_page_split_CNT / a.ops_total_page_split_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Splits to Write PCT!H\B|N0]
+,[Table OPS Splits to Write PCT!H\B|N1]
                         = IIF(i.rec_type = N'P' AND i.page_splits_to_write_PCT > 0.0
                              ,i.page_splits_to_write_PCT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Page Merge!H\B|N0]
+,[Table OPS Page Merge!H\B|N1]
                         = IIF(i.rec_type = N'P'        AND a.ops_total_page_merge_CNT > 0
                              ,100.0 * i.ops_total_page_merge_CNT / a.ops_total_page_merge_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Merge to Write PCT!H\B|N0]
+,[Table OPS Merge to Write PCT!H\B|N1]
                         = IIF(i.rec_type = N'P' AND i.page_Merge_to_write_PCT > 0.0
                              ,i.page_Merge_to_write_PCT
                              ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
-,[Table MIX Advantage Weighted!H\G|N0]
+,[Table MIX Advantage Weighted!H\G|N1]
                         = IIF(    i.rec_type = N'P'      AND a.mix_Advantage_weighted_AMT > 0
                               AND i.mix_Advantage_weighted_AMT > 0
                              ,100.0 * i.mix_Advantage_weighted_AMT / a.mix_Advantage_weighted_AMT
                              ,NULL)
-,[Table MIX Advantage!H\G|N0]
+,[Table MIX Advantage!H\G|N1]
                         = IIF(    i.rec_type = N'P' AND a.mix_Advantage_AMT > 0
                               AND i.mix_Advantage_AMT > 0
                              ,100.0 * i.mix_Advantage_AMT / a.mix_Advantage_AMT
                              ,NULL)
 ----------------------------------------------
-,[Table OPS Writes!H\B|N0]
+,[Table OPS Writes!H\B|N1]
                         = IIF(i.rec_type = N'P'   AND a.ops_total_write_CNT > 0
                              ,100.0 * i.ops_total_write_CNT / a.ops_total_write_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table USG Writes!H\B|N0]
+,[Table USG Writes!H\B|N1]
                         = IIF(i.rec_type = N'P'    AND a.ius_user_updates_CNT > 0
                              ,100.0 * i.ius_user_updates_CNT / a.ius_user_updates_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
-,[Table BUF Percent in Buffer!H\B|N0]
+,[Table BUF Percent in Buffer!H\B|N1]
                         = IIF(i.rec_type = N'P'
                              ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_total_KB_CNT > 0.0
                                    THEN 100
@@ -26156,14 +26112,14 @@ STUFF(
                               END
                              ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
-,[Table OPS R/W Ratio!H\G|N0]
+,[Table OPS R/W Ratio!H\G|N1]
                         = IIF(    i.rec_type = N'P'
                               AND i.ops_total_write_CNT > 0
                              ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
                                  ,1.0 * i.ops_total_read_CNT / i.ops_total_write_CNT
                                  ,99)
                              ,NULL) -- show NULL if no writes found
-,[Table USG R/W Ratio!H\G|N0]
+,[Table USG R/W Ratio!H\G|N1]
                         = IIF(    i.rec_type = N'P'
                               AND i.ius_user_updates_CNT > 0
                              ,IIF(i.ius_User_read_CNT / i.ius_user_updates_CNT < 100
@@ -26171,37 +26127,37 @@ STUFF(
                                  ,99)
                              ,NULL) -- show NULL if no writes found
 ----------------------------------------------
-,[Table OPS Reads PCT!H\B|N0]
+,[Table OPS Reads PCT!H\B|N1]
                         = IIF(i.rec_type = N'P'  AND a.ops_total_read_CNT > 0
                              ,100.0 * i.ops_total_read_CNT / a.ops_total_read_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Scans PCT!H\B|N0]
+,[Table OPS Scans PCT!H\B|N1]
                         = IIF(i.rec_type = N'P'  AND a.ops_total_scan_CNT > 0
                              ,100.0 * i.ops_total_scan_CNT / a.ops_total_scan_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Lookups PCT!H\B|N0]
+,[Table OPS Lookups PCT!H\B|N1]
                         = IIF(i.rec_type = N'P'        AND a.ios_singleton_lookup_CNT > 0
                              ,100.0 * i.ios_singleton_lookup_CNT / a.ios_singleton_lookup_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table OPS Forwarded Fetch!H\B|N0]
+,[Table OPS Forwarded Fetch!H\B|N1]
                         = IIF(i.rec_type = N'P'       AND a.ios_forwarded_fetch_CNT > 0
                              ,100.0 * i.ios_forwarded_fetch_CNT / a.ios_forwarded_fetch_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
-,[Table USG Reads PCT!H\B|N0]
+,[Table USG Reads PCT!H\B|N1]
                         = IIF(i.rec_type = N'P' AND a.ius_user_read_CNT > 0
                              ,100.0 * i.ius_User_read_CNT / a.ius_user_read_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table USG Scans PCT!H\B|N0]
+,[Table USG Scans PCT!H\B|N1]
                         = IIF(i.rec_type = N'P'  AND a.ius_user_scans_CNT > 0
                              ,100.0 * i.ius_user_scans_CNT / a.ius_user_scans_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
-,[Table USG Lookups PCT!H\B|N0]
+,[Table USG Lookups PCT!H\B|N1]
                         = IIF(i.rec_type = N'P'    AND a.ius_user_lookups_CNT > 0
                              ,100.0 * i.ius_user_lookups_CNT / a.ius_user_lookups_CNT
                              ,IIF(i.rec_type <> N'P',NULL,0))
 ----------------------------------------------
-,[Table OPS LOB Contacts PCT!H\B|N0]
+,[Table OPS LOB Contacts PCT!H\B|N1]
                         = IIF(    i.rec_type = N'P'
                               AND     ( a.ios_lob_fetch_pages_CNT
                                       + a.ios_lob_orphan_create_CNT
@@ -26229,88 +26185,88 @@ STUFF(
 /******************************************************************************************************************************************\
 --Index Priority Metrics
 \******************************************************************************************************************************************/
-,[Index OPS Wait TM!H\B|N0]
+,[Index OPS Wait TM!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ops_total_wait_MS_CNT > 0
                                  ,100.0 * i.ops_total_wait_MS_CNT / p.ops_total_wait_MS_CNT
                                  ,0)
                              ,NULL)
-,[Index OPS Wait CNT!H\B|N0]
+,[Index OPS Wait CNT!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ops_total_wait_CNT > 0
                                  ,100.0 * i.ops_total_wait_CNT / p.ops_total_wait_CNT
                                  ,0)
                              ,NULL)
 ----------------------------------------------
-,[Index OPS Locks CNT!H\B|N0]
+,[Index OPS Locks CNT!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ops_total_lock_CNT > 0
                                  ,100.0 * i.ops_total_lock_CNT / p.ops_total_lock_CNT
                                  ,0)
                              ,NULL)
-,[Index OPS Lock Promo!H\B|N0]
+,[Index OPS Lock Promo!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ios_lock_promotion_attempt_CNT > 0
                                  ,100.0 * i.ios_lock_promotion_attempt_CNT / p.ios_lock_promotion_attempt_CNT
                                  ,0)
                              ,NULL)
-,[Index OPS Promo Fail!H\B|N0]
+,[Index OPS Promo Fail!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ios_lock_promotion_attempt_CNT > 0
                                  ,100.0 * (i.ios_lock_promotion_attempt_CNT - i.ios_lock_promotion_CNT) / p.ios_lock_promotion_attempt_CNT
                                  ,0)
                              ,NULL)
 ----------------------------------------------
-,[Index OPS Page Split!H\B|N0]
+,[Index OPS Page Split!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ops_total_page_split_CNT > 0
                                  ,100.0 * i.ops_total_page_split_CNT / p.ops_total_page_split_CNT
                                  ,0)
                              ,NULL)
-,[Index OPS Splits to Write PCT!H\B|N0]
+,[Index OPS Splits to Write PCT!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(i.ops_total_write_CNT > 0
                                  ,i.page_splits_to_write_PCT
                                  ,0)
                              ,NULL)
-,[Index OPS Page Merge!H\B|N0]
+,[Index OPS Page Merge!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ops_total_page_merge_CNT > 0
                                  ,100.0 * i.ops_total_page_merge_CNT / p.ops_total_page_merge_CNT
                                  ,0)
                              ,NULL)
-,[Index OPS Merges to Write PCT!H\B|N0]
+,[Index OPS Merges to Write PCT!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(i.ops_total_write_CNT > 0
                                  ,i.page_Merge_to_write_PCT
                                  ,0)
                              ,NULL)
 ----------------------------------------------
-,[Index MIX Advantage Weighted!H\G|N0]
+,[Index MIX Advantage Weighted!H\G|N1]
                         = IIF(    i.type = N'M'
                               AND p.mix_Advantage_weighted_AMT > 0
                              ,100.0 * i.mix_Advantage_weighted_AMT / p.mix_Advantage_weighted_AMT
                              ,NULL)
-,[Index MIX Advantage!H\G|N0]
+,[Index MIX Advantage!H\G|N1]
                         = IIF(    i.type = N'M'
                               AND p.mix_Advantage_AMT > 0
                              ,100.0 * i.mix_Advantage_AMT / p.mix_Advantage_AMT
                              ,NULL)
 ----------------------------------------------
-,[Index OPS Writes!H\B|N0]
+,[Index OPS Writes!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ops_total_write_CNT > 0
                                  ,100.0 * i.ops_total_write_CNT / p.ops_total_write_CNT
                                  ,0)
                              ,NULL)
-,[Index USG Writes!H\B|N0]
+,[Index USG Writes!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ius_user_updates_CNT > 0
                                  ,100.0 * i.ius_user_updates_CNT / p.ius_user_updates_CNT
                                  ,0)
                              ,NULL)
 ----------------------------------------------
-,[Index BUF Percent in Buffer!H\B|N0]
+,[Index BUF Percent in Buffer!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_total_KB_CNT > 0.0
                                    THEN 100
@@ -26320,7 +26276,7 @@ STUFF(
                               END
                              ,NULL)
 ----------------------------------------------
-,[Index OPS R/W Ratio!H\G|N0]
+,[Index OPS R/W Ratio!H\G|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(i.ops_total_write_CNT > 0
                                  ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
@@ -26328,7 +26284,7 @@ STUFF(
                                      ,99)
                                  ,NULL)
                              ,NULL)
-,[Index USG R/W Ratio!H\G|N0]
+,[Index USG R/W Ratio!H\G|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(i.ius_user_updates_CNT > 0
                                  ,IIF(i.ius_User_read_CNT / i.ius_user_updates_CNT < 100
@@ -26337,42 +26293,42 @@ STUFF(
                                  ,NULL)
                              ,NULL)
 ----------------------------------------------
-,[Index OPS Reads PCT!H\G|N0]
+,[Index OPS Reads PCT!H\G|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,i.ops_read_to_parent_PCT
                              ,NULL)
-,[Index OPS Scans PCT!H\B|N0]
+,[Index OPS Scans PCT!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ops_total_scan_CNT > 0
                                  ,100.0 * i.ops_total_scan_CNT / p.ops_total_scan_CNT
                                  ,0)
                              ,NULL)
-,[Index OPS Lookups PCT!H\B|N0]
+,[Index OPS Lookups PCT!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ios_singleton_lookup_CNT > 0
                                  ,100.0 * i.ios_singleton_lookup_CNT / p.ios_singleton_lookup_CNT
                                  ,0)
                              ,NULL)
-,[Index OPS Forwarded Fetch!H\B|N0]
+,[Index OPS Forwarded Fetch!H\B|N1]
                         = IIF(TRY_CAST(i.type AS INT) IS NOT NULL AND p.obj_type_short_label <> N'TVF'
                              ,IIF(p.ios_forwarded_fetch_CNT > 0
                                  ,100.0 * i.ios_forwarded_fetch_CNT / p.ios_forwarded_fetch_CNT
                                  ,0)
                              ,NULL)
 ----------------------------------------------
-,[Index USG Reads PCT!H\G|N0]
+,[Index USG Reads PCT!H\G|N1]
                         = IIF(   TRY_CAST(i.type AS INT) IS NOT NULL
                               OR i.type = N'M'
                              ,i.ius_read_to_parent_PCT
                              ,NULL)
-,[Index USG Scans PCT!H\G|N0]
+,[Index USG Scans PCT!H\G|N1]
                         = IIF(   TRY_CAST(i.type AS INT) IS NOT NULL
                               OR i.type = N'M'
                              ,IIF(p.ius_user_scans_CNT > 0
                                  ,100.0 * i.ius_user_scans_CNT / p.ius_user_scans_CNT
                                  ,0)
                              ,NULL)
-,[Index USG Lookups PCT!H\G|N0]
+,[Index USG Lookups PCT!H\G|N1]
                         = IIF(   TRY_CAST(i.type AS INT) IS NOT NULL
                               OR i.type = N'M'
                              ,IIF(p.ius_user_lookups_CNT > 0
@@ -26381,7 +26337,7 @@ STUFF(
                              ,NULL)
 
 ----------------------------------------------
-,[Index OPS LOB Contacts PCT!H\B|N0]
+,[Index OPS LOB Contacts PCT!H\B|N1]
                         = IIF(    i.rec_type IN (N'I')
                               AND     ( p.ios_lob_fetch_pages_CNT
                                       + p.ios_lob_orphan_create_CNT           -- Bulk operations only
