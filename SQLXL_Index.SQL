@@ -1,4 +1,4 @@
--- VERSION 2024.05.28
+-- VERSION 2024.05.29
 
 /*** LOCAL TESTING ***
 EXEC [tempdb].[dbo].[SQLXL_Index]                                        -- runs for all USER databases
@@ -23082,7 +23082,7 @@ SELECT database_id
       ,type
       ,N'Refactor'
       ,sort         = @srt
-      ,prescription = N'Consider Opt Seq Key'
+      ,prescription = N'Optimize Seq Key?'
   FROM (--
         SELECT *
           FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
@@ -23488,7 +23488,7 @@ SELECT i.database_id
       ,i.type
       ,N'Refactor'
       ,sort         = @srt
-      ,prescription = N'Add IDX Keys'
+      ,prescription = N'Add IDX key columns'
   FROM [tempdb].[dbo].[SQLXL_Index_Compilation] AS i
  WHERE i.rec_type = N'I'
    AND i.type    IN (N'6')
@@ -23624,7 +23624,7 @@ SELECT i.database_id
       ,i.type
       ,N'Refactor'
       ,sort         = @srt
-      ,prescription = N'Consider NoRecompute'
+      ,prescription = N'Stats NoRecompute?'
   FROM [tempdb].[dbo].[SQLXL_Index_Compilation] AS i
  WHERE i.rec_type = N'I'
    AND i.type    IN (N'1',N'2') -- HEAPS handled separately. 
@@ -24376,13 +24376,11 @@ SELECT i.database_id
    AND i.index_ID         = s.index_id
    AND i.type             = s.type
  WHERE i.obj_type         = N'U'
-   AND (   (    i.prescription LIKE N'Retain%'
-            AND i.type            = N'2'
-           )
-        OR (    i.prescription LIKE N'Reject' + NCHAR(10) + N' MIX low Gain' -- only indexes not getting built or replaced
-            AND i.type            = N'M'
-           )
-       )
+   AND i.type IN (N'2' -- nonclustered rowstore
+                 ,N'F' -- missing
+                 ,N'M' -- foreign key
+                 )
+   AND i.prescription NOT LIKE N'Replace%';        -- NOTE: no leading "%"
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -25229,7 +25227,7 @@ END
 UPDATE tgt
    SET
 /*** LOCAL TESTING ***
---SET ANSI_WARNINGS ON;
+SET ANSI_WARNINGS ON;
 SELECT parent_object_id,object_id,index_id,
 --*/
        Diagnostics = STUFF(-- Strip off leading unnecessary characters
