@@ -25255,7 +25255,13 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
             + N' Added diagnostic records to [SQLXL_Index_Compilation]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
-   SET @exec_dttm = GETDATE();
+-- End of the procedure - run time
+   RAISERROR(N'',0,0) WITH NOWAIT;
+   SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@collection_DTTM,GETDATE()),0))
+            + N' End of procedure [tempdb].[dbo].[SQLXL_Index]'
+   RAISERROR(@msg,0,0) WITH NOWAIT;
+
+   SET @exec_dttm = GETDATE(); -- unneeded since last step
 END
 
 SET NOEXEC OFF
