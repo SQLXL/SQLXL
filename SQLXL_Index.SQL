@@ -9732,7 +9732,11 @@ SELECT database_id       = ic.database_id
       + CASE WHEN typ.name = N'BIT' THEN N''
              ELSE IIF(ic.max_length = -1
                      ,N'MAX'
-                     ,COALESCE(TRY_CAST(ic.max_length AS NVARCHAR(MAX)),N'<??>'))
+                     ,COALESCE(TRY_CAST(ic.max_length * IIF(typ.name IN (N'nchar',N'nvarchar',N'ntext') -- double-byte data types
+                                                           ,2
+                                                           ,1)
+                                        AS NVARCHAR(MAX))
+                              ,N'<??>'))
         END
       --------------------------------------------------------------------------------------------------------------------------------------
       + IIF(ic.is_identity   = 1                     ,N' IDN(' + CAST(COALESCE(ic.increment_value,1) AS NVARCHAR(20)) + N')',N'')
