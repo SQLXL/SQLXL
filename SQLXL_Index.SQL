@@ -1,4 +1,4 @@
--- VERSION 2024.05.29
+-- VERSION 2024.05.30
 
 /*** LOCAL TESTING ***
 EXEC [tempdb].[dbo].[SQLXL_Index]                                        -- runs for all USER databases
@@ -21199,7 +21199,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- REMOVE - Nonclustered rowstore with key sequence matching Clustered index
--- Moved here since to good reason for index to exist except full scans on key elements
+-- Moved here since no good reason for index to exist except full scans on key elements
 --------------------------------------------------------------------------------------------------------------------------------------------
 UPDATE i
    SET
@@ -23184,7 +23184,7 @@ SELECT i.database_id
       ,i.type
       ,N'Refactor'
       ,sort         = @srt
-      ,prescription = N'Use Tbl Part'
+      ,prescription = N'Use Tbl Partition'
   FROM (--
         SELECT *
           FROM [tempdb].[dbo].[SQLXL_Index_Compilation]
@@ -26003,44 +26003,36 @@ STUFF(
 -- Table Logical & Physical File Info
 \******************************************************************************************************************************************/
 ,[Table File & Partitions] =
- CASE WHEN i.Type = N'U'
-      THEN STUFF(-- Strip off leading unnecessary characters
-                  CASE WHEN p.data_space_id         > 0
-                       THEN NCHAR(10) + N'Data Space' + N' ' + QUOTENAME(i.data_space_name)
-                           + N' ' + N'(' + CAST(i.data_space_id AS NVARCHAR(20)) + N')'
-                       ELSE N''
-                  END
-                 --
-                + CASE WHEN p.data_space_logical_filename IS NOT NULL
-                       THEN NCHAR(10) + N'Logical file name' + N' ' + QUOTENAME(i.data_space_logical_filename)
-                       ELSE N''
-                  END
-                 --
-                + CASE WHEN p.data_space_logical_filename IS NOT NULL
-                       THEN NCHAR(10) + N'Logical file name' + N' ' + QUOTENAME(i.data_space_logical_filename)
-                       ELSE N''
-                  END
-                 --
-                + CASE WHEN p.partition_Column_ID   > 0
-                       THEN NCHAR(10) + N'Partition COLUMN' + N' ' + QUOTENAME(p.partition_Column_Name)
-                           + N' ' + N'(' + CAST(p.partition_Column_ID AS NVARCHAR(20)) + N')'
-                       ELSE N''
-                  END
-                 --
-                + CASE WHEN p.partition_schemes_name      IS NOT NULL
-                       THEN NCHAR(10) + N'Partition scheme'  + N' ' + QUOTENAME(p.partition_schemes_name)
-                       ELSE N''
-                  END
-                 --
-                + CASE WHEN p.partition_function_id > 0
-                       THEN NCHAR(10) + N'Partition function' + N' ' + QUOTENAME(p.partition_function_name)
-                           + N' ' + N'(' + CAST(p.partition_function_id  AS NVARCHAR(20)) + N')'
-                       ELSE N''
-                  END
-                ,1,1,N'')
-      ELSE N''
- END
-
+ STUFF(-- Strip off leading unnecessary characters
+         CASE WHEN i.data_space_id IS NOT NULL
+              THEN NCHAR(10) + N'Data Space' + N' ' + QUOTENAME(i.data_space_name)
+                  + N' ' + N'(' + CAST(i.data_space_id AS NVARCHAR(20)) + N')'
+              ELSE N''
+         END
+        --
+       + CASE WHEN i.data_space_logical_filename IS NOT NULL
+              THEN NCHAR(10) + N'Logical file name' + N' ' + QUOTENAME(i.data_space_logical_filename)
+              ELSE N''
+         END
+        --
+       + CASE WHEN i.partition_Column_ID > 0
+              THEN NCHAR(10) + N'Partition COLUMN' + N' ' + QUOTENAME(i.partition_Column_Name)
+                  + N' ' + N'(' + CAST(i.partition_Column_ID AS NVARCHAR(20)) + N')'
+              ELSE N''
+         END
+        --
+       + CASE WHEN i.partition_schemes_name IS NOT NULL
+              THEN NCHAR(10) + N'Partition scheme'  + N' ' + QUOTENAME(i.partition_schemes_name)
+              ELSE N''
+         END
+        --
+       + CASE WHEN i.partition_function_id > 0
+              THEN NCHAR(10) + N'Partition function' + N' ' + QUOTENAME(i.partition_function_name)
+                  + N' ' + N'(' + CAST(i.partition_function_id  AS NVARCHAR(20)) + N')'
+              ELSE N''
+         END
+       ,1,1,N'')
+ 
 /******************************************************************************************************************************************\
 -- Extended Properties
 \******************************************************************************************************************************************/
