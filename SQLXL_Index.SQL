@@ -10373,25 +10373,25 @@ SELECT icol.database_id
                     ON i.database_id = u.database_id
                    AND i.object_ID   = u.object_ID
                ) icol
-          LEFT OUTER
+          LEFT OUTER HASH
           JOIN [tempdb].[dbo].[SQLXL_Index_column]            AS c                -- object all columns
             ON icol.database_id = c.database_id
            AND icol.object_id   = c.object_id
            AND icol.column_id   = c.column_id
-          LEFT OUTER
+          LEFT OUTER HASH
           JOIN [tempdb].[dbo].[SQLXL_Index_sys_index_columns] AS ic               -- column by index, FKC, MIX
             ON icol.database_id = ic.database_id
            AND icol.object_id   = ic.object_id
            AND icol.index_id    = ic.index_id
            AND icol.type        = ic.type
            AND icol.column_id   = ic.column_id
-          LEFT OUTER
+          LEFT OUTER HASH
           JOIN [tempdb].[dbo].[SQLXL_Index_sys_index_columns] AS cix              -- clustered index if available
             ON icol.database_id = cix.database_id
            AND icol.object_id   = cix.object_id
            AND N'1'             = cix.type
            AND icol.column_id   = cix.column_id
-          LEFT OUTER
+          LEFT OUTER HASH
           JOIN [tempdb].[dbo].[SQLXL_Index_sys_ShowStatistics_StatHeader] AS sssh -- 1 row per index/column
             ON icol.database_id = sssh.database_id
            AND icol.object_id   = sssh.object_id
@@ -10399,7 +10399,7 @@ SELECT icol.database_id
                                 -- No sssh.type
        ) icol
 
-  LEFT OUTER
+  LEFT OUTER HASH
   JOIN [tempdb].[dbo].[SQLXL_Index_sys_ShowStatistics_DensityVector] AS ssdv
     ON icol.database_id = ssdv.database_id
    AND icol.object_id   = ssdv.object_id
@@ -10407,12 +10407,13 @@ SELECT icol.database_id
                         -- No ssdv.type column
    AND icol.rn          = ssdv.Row_ID
 
-  LEFT OUTER
+  LEFT OUTER HASH
   JOIN [tempdb].[dbo].[SQLXL_Index_sys_foreign_keys] AS fk
     ON icol.database_id = fk.database_id
    AND icol.object_id   = fk.parent_object_id
    AND icol.index_id    = fk.object_id
-OPTION (MAXDOP 1);
+OPTION (FORCE ORDER  -- suppresses "Warning: The join order has been enforced because a local join hint is used"
+       ,MAXDOP 1);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [tempdb].[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -14437,7 +14438,7 @@ SELECT c.*,
    AND tgt.type             = c.type
    AND tgt.metric           = c.metric
  WHERE tgt.metric_AMT          >  0.0
-   AND (   c.previous_sum_PCT <= 90.0
+   AND (   c.previous_sum_PCT <= 80.0
         OR c.previous_sum_PCT IS NULL
         OR RIGHT(c.metric,4) IN (N'_AVG',N'_PCT',N'_RAT')
        )
