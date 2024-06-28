@@ -15284,8 +15284,8 @@ SELECT rec_type         = N'D'
                      + IIF(qso.max_storage_size_mb > 0
                           ,N' (' + [tempdb].[dbo].[SQLXL_3SD](1.0 * qso.current_storage_size_mb / qso.max_storage_size_mb,N'%') + N')'
                           ,N'')
-                     + N' Aggregation interval: ' + [tempdb].[dbo].[SQLXL_3SD](qso.interval_length_minutes,N'I') + N'min'
-                     + N' Flush interval: '       + [tempdb].[dbo].[SQLXL_3SD](qso.flush_interval_seconds,N'S')
+                     + N' Aggregation interval: ' + [tempdb].[dbo].[SQLXL_3SD](qso.interval_length_minutes,N'I') + N' minutes'
+                     + N' Flush interval: '       + [tempdb].[dbo].[SQLXL_3SD](qso.flush_interval_seconds,N'I')  + N' seconds'
                      + N' Max Plans: '            + [tempdb].[dbo].[SQLXL_3SD](qso.max_plans_per_query   ,N'I')
 
          -----------------------------------------------------
