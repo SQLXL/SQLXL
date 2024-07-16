@@ -1138,20 +1138,21 @@ Copy procedure SQLXL_Instance to tempdb
 IF @@TRANCOUNT > 0 ROLLBACK;
 RAISERROR ('Created procedure [dbo].[SQLXL_Instance] ...',0,0) WITH NOWAIT;
 
-DECLARE @sql        NVARCHAR(MAX)
-SELECT @sql = REPLACE(definition,'''','''''')
-  FROM sys.sql_modules 
- WHERE OBJECT_ID IN (SELECT object_id FROM sys.objects WHERE name = N'SQLXL_Instance')
-SET @sql = N'USE [tempdb];
-EXEC(''IF OBJECT_ID(''''[dbo].[SQLXL_Instance]'''') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Instance]'');
-EXEC(''' + @sql +''')'
-EXEC(@sql)
-
----------------------------------------------------------------
--- drop procedure SQLXL_Instance in this database after copy
----------------------------------------------------------------
-IF object_id('[dbo].[SQLXL_Instance]') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Instance];
-
+IF DB_NAME() <> N'tempdb'
+BEGIN
+   DECLARE @sql        NVARCHAR(MAX)
+   SELECT @sql = REPLACE(definition,'''','''''')
+     FROM sys.sql_modules 
+    WHERE OBJECT_ID IN (SELECT object_id FROM sys.objects WHERE name = N'SQLXL_Instance')
+   SET @sql = N'USE [tempdb];
+   EXEC(''IF OBJECT_ID(''''[dbo].[SQLXL_Instance]'''') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Instance]'');
+   EXEC(''' + @sql +''')'
+   EXEC(@sql)
+   ---------------------------------------------------------------
+   -- drop procedure SQLXL_Instance in this database after copy
+   ---------------------------------------------------------------
+   IF object_id('[dbo].[SQLXL_Instance]') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Instance];
+END;
 
 -- VERSION 2024.07.15
 /******************************************************************************************************************************************\
@@ -26003,21 +26004,22 @@ GO
 /*########################################################################################################################################*\
 Copy procedure SQLXL_Index to tempdb
 \*########################################################################################################################################*/
+IF DB_NAME() <> N'tempdb'
+BEGIN
+   DECLARE @sql NVARCHAR(MAX)
+   SELECT @sql = REPLACE(definition,'''','''''')
+     FROM sys.sql_modules 
+    WHERE OBJECT_ID IN (SELECT object_id FROM sys.objects WHERE name = N'SQLXL_Index')
+   SET @sql = N'USE [tempdb];
+   EXEC(''IF OBJECT_ID(''''[dbo].[SQLXL_Index]'''') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Index]'');
+   EXEC(''' + @sql +''')'
+   EXEC(@sql)
+   ---------------------------------------------------------------
+   -- drop procedure SQLXL_Instance in this database after copy
+   ---------------------------------------------------------------
+   IF object_id('[dbo].[SQLXL_Index]') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Index];
+END;
 
-DECLARE @sql        NVARCHAR(MAX)
-SELECT @sql = REPLACE(definition,'''','''''')
-  FROM sys.sql_modules 
- WHERE OBJECT_ID IN (SELECT object_id FROM sys.objects WHERE name = N'SQLXL_Index')
-SET @sql = N'USE [tempdb];
-EXEC(''IF OBJECT_ID(''''[dbo].[SQLXL_Index]'''') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Index]'');
-EXEC(''' + @sql +''')'
-EXEC(@sql)
-
----------------------------------------------------------------
--- drop procedure SQLXL_Instance in this database after copy
----------------------------------------------------------------
-IF object_id('[dbo].[SQLXL_Index]') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Index];
-GO
 
 -- VERSION 2024.07.15
 /******************************************************************************************************************************************\
@@ -27449,21 +27451,21 @@ GO
 /*########################################################################################################################################*\
 Copy procedure SQLXL_Index_Present to tempdb
 \*########################################################################################################################################*/
-
-DECLARE @sql        NVARCHAR(MAX)
-SELECT @sql = REPLACE(definition,'''','''''')
-  FROM sys.sql_modules 
- WHERE OBJECT_ID IN (SELECT object_id FROM sys.objects WHERE name = N'SQLXL_Index_Present')
-SET @sql = N'USE [tempdb];
-EXEC(''IF OBJECT_ID(''''[dbo].[SQLXL_Index_Present]'''') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Index_Present]'');
-EXEC(''' + @sql +''')'
-EXEC(@sql)
-
----------------------------------------------------------------
--- drop procedure SQLXL_Instance in this database after copy
----------------------------------------------------------------
-IF object_id('[dbo].[SQLXL_Index_Present]') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Index_Present];
-GO
+IF DB_NAME() <> N'tempdb'
+BEGIN
+   DECLARE @sql        NVARCHAR(MAX)
+   SELECT @sql = REPLACE(definition,'''','''''')
+     FROM sys.sql_modules 
+    WHERE OBJECT_ID IN (SELECT object_id FROM sys.objects WHERE name = N'SQLXL_Index_Present')
+   SET @sql = N'USE [tempdb];
+   EXEC(''IF OBJECT_ID(''''[dbo].[SQLXL_Index_Present]'''') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Index_Present]'');
+   EXEC(''' + @sql +''')'
+   EXEC(@sql)
+   ---------------------------------------------------------------
+   -- drop procedure SQLXL_Instance in this database after copy
+   ---------------------------------------------------------------
+   IF object_id('[dbo].[SQLXL_Index_Present]') IS NOT NULL DROP PROCEDURE [dbo].[SQLXL_Index_Present];
+END;
 
 
 /******************************************************************************************************************************************\
