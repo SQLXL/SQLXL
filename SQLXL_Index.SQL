@@ -3362,22 +3362,31 @@ END
 BEGIN TRY
    SET LOCK_TIMEOUT 100; -- 100 milliseconds
 
-   SELECT m.object_id
-         ,definition = LEFT(STUFF(m.definition,1,ISNULL(NULLIF(PATINDEX(@Pattern,m.definition),0)-1,0),''''),4000)
-         ,m.uses_ansi_nulls
-         ,m.uses_quoted_identifier
-         ,m.is_schema_bound
-         ,m.uses_database_collation
-         ,m.is_recompiled
-         ,m.null_on_null_input
-         ,m.execute_as_principal_id
-         ,m.uses_native_compilation
-         ,m.inline_type
-         ,m.is_inlineable
+   ;WITH newcol AS (-- columns added after SQL Server 2005
+   SELECT uses_native_compilation = CAST(NULL AS BIT)
+         ,inline_type             = CAST(NULL AS BIT)
+         ,is_inlineable           = CAST(NULL AS BIT)
+   )
+   SELECT sm.*
      INTO #sys_sql_modules
-     FROM [sys].[sql_modules] AS m WITH (READCOMMITTED,READPAST)
-     JOIN #sys_objects        AS o
-       ON m.object_id = o.object_id
+     FROM newcol
+    CROSS
+    APPLY (SELECT object_id
+                 ,definition = LEFT(STUFF(definition,1,ISNULL(NULLIF(PATINDEX(@Pattern,definition),0)-1,0),''''),4000)
+                 ,uses_ansi_nulls
+                 ,uses_quoted_identifier
+                 ,is_schema_bound
+                 ,uses_database_collation
+                 ,is_recompiled
+                 ,null_on_null_input
+                 ,execute_as_principal_id
+                 ,uses_native_compilation
+                 ,inline_type
+                 ,is_inlineable
+             FROM [sys].[sql_modules] AS m WITH (READCOMMITTED,READPAST)
+          ) AS sm
+     JOIN #sys_objects AS o
+       ON sm.object_id  = o.object_id
     WHERE o.type
        IN (--------------------------------------------------------------------------------------------------------------
            -- "Indexable" / orderable objects
@@ -3405,7 +3414,6 @@ BEGIN CATCH
       RAISERROR(@msg,0,0) WITH NOWAIT;
       SET @exec_dttm = GETDATE();
    END
-
 END CATCH
 
 --  [sys].[internal_tables] --------------------------------
@@ -4247,14 +4255,14 @@ SELECT database_id             = DB_ID()
                                         ELSE NULL
                                    END
               ,is_exhausted      = seq.is_exhausted
-              ,last_used_value   = CASE WHEN ISNUMERIC(CONVERT(NVARCHAR(20),seq.last_used_value)) = 1
-                                        THEN CONVERT(BIGINT,CONVERT(NVARCHAR(20),seq.last_used_value)) -- stored in source table as SQL_VARIANT
+              ,last_used_value   = CASE WHEN ISNUMERIC(CONVERT(NVARCHAR(20),last_used_value)) = 1
+                                        THEN CONVERT(BIGINT,CONVERT(NVARCHAR(20),last_used_value)) -- stored in source table as SQL_VARIANT
                                         ELSE NULL
                                    END
-          FROM [sys].[sequences]                    AS seq
+          FROM [sys].[sequences]                        AS seq
           JOIN [tempdb].[dbo].[SQLXL_Index_sys_schemas] AS s
-            ON DB_ID()                           = s.database_id
-           AND seq.schema_id                     = s.schema_id
+            ON DB_ID()       = s.database_id
+           AND seq.schema_id = s.schema_id
          CROSS
          APPLY [sys].[dm_sql_referencing_entities] (s.name + ''.'' + seq.name,N''OBJECT'') sre
        ) AS seq
@@ -5918,7 +5926,15 @@ SELECT xml_compression = CONVERT(BIT,NULL)
               ,colstore_comp           = SUM(IIF(data_compression = CAST(3 AS TINYINT),1,0)) -- COLUMNSTORE
               ,colstore_arch           = SUM(IIF(data_compression = CAST(4 AS TINYINT),1,0)) -- COLUMNSTORE_ARCHIVE
               ,xml_comp                = SUM(IIF(xml_compression  = CAST(1 AS BIT    ),1,0)) -- XML
-          FROM [sys].[partitions] WITH (READUNCOMMITTED)
+          FROM (SELECT object_id
+                      ,index_id
+                      ,hobt_id
+                      ,partition_id
+                      ,rows 
+                      ,data_compression
+                      ,xml_compression
+                  FROM [sys].[partitions] WITH (READUNCOMMITTED)
+               ) AS sp
          GROUP BY
                object_id
               ,index_id
