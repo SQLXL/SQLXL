@@ -405,10 +405,15 @@ SELECT collation        = @collation
 EXEC [dbo].[SQLXL_Instance]
 
 /******************************************************************************************************************************************\
--- Collect [sys].[databases] info - use collation from to avoid collation issues later
--- use the database_id's from this table to filter further data collection
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+Collect [sys].[databases] info - use collation from to avoid collation issues later
+use the database_id's from this table to filter further data collection
+
+In Azure SQL Database, DB_ID may not return the same value as the database_id column in sys.databases and 
+sys.database_service_objectives. These two views return database_id values that are unique within the logical server, while DB_ID 
+and the database_id column in other system views return values that are unique within a single database or within an elastic pool.
+
+NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+      https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @sql         NVARCHAR(MAX)
@@ -476,7 +481,7 @@ SELECT qry.*
  APPLY (-- [sys].[databases]
 SELECT name                                        = db.name                                       COLLATE DATABASE_DEFAULT
                                                   -- db. required since database_id also in [sys].[change_tracking_databases]
-      ,database_id                                 = db.database_id
+      ,database_id                                 = COALESCE(IIF(@EngineEdition = 5,5,NULL),db.database_id)
       ,source_database_id
 --    ,owner_sid -- varbinary(85) SID (Security-Identifier) of the external owner of the database
       ,create_date
@@ -572,7 +577,7 @@ SELECT name                                        = db.name                    
   FROM [sys].[databases] AS db
   LEFT OUTER
   JOIN [sys].[change_tracking_databases] AS c
-    ON db.database_id = c.database_id
+    ON COALESCE(IIF(@EngineEdition = 5,5,NULL),db.database_id) = COALESCE(IIF(@EngineEdition = 5,5,NULL),c.database_id)
 )
 AS qry -- from CROSS APPLY
  WHERE qry.user_access_desc = N'MULTI_USER'
@@ -881,7 +886,7 @@ SELECT --------------------------------------------------------------
   INTO [dbo].[SQLXL_Index_sys_dm_db_missing_index_details]
   FROM [dbo].[SQLXL_Index_sys_databases]       AS d        -- filters out databases we're not interested in
   JOIN [sys].[dm_db_missing_index_details]     AS mid
-    ON d.database_id          = mid.database_id
+    ON d.database_id          = COALESCE(IIF(@EngineEdition = 5,5,NULL),mid.database_id)
   LEFT OUTER
   JOIN [sys].[dm_db_missing_index_groups]      AS mig
     ON mid.index_handle       = mig.index_handle
@@ -1152,7 +1157,7 @@ SELECT ius.database_id
       ,ius.last_system_update
   FROM [dbo].[SQLXL_Index_sys_databases] AS d   -- only collect usage statistice from databases we are looking for
   JOIN [sys].[dm_db_index_usage_stats]   AS ius
-    ON d.database_id = ius.database_id
+    ON d.database_id = COALESCE(IIF(@EngineEdition = 5,5,NULL),ius.database_id)
 ) AS qry
 OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
        ,MAXDOP 1);
@@ -1218,7 +1223,7 @@ SELECT qry.*
  APPLY (-- columns from [sys].[dm_db_index_operational_stats]
         -- multiple CROSS APPLYs required to avoid error "Aggregates on the right side of an APPLY
         -- cannot reference columns from the left side" referencing  columns from the "newcol" CTE
-SELECT ios.database_id
+SELECT database_id                           = COALESCE(IIF(@EngineEdition = 5,5,NULL),ios.database_id)
       ,ios.object_id
       ,ios.index_id
       ---------------------------------------------------------------------------------------
@@ -1279,7 +1284,15 @@ SELECT ios.database_id
       ,ghost_version_off_row_CNT             = SUM(COALESCE(ghost_version_off_row              ,0))
       ,insert_over_ghost_version_inrow_CNT   = SUM(COALESCE(ios.insert_over_ghost_version_inrow,0))
       ,insert_over_ghost_version_off_row_CNT = SUM(COALESCE(insert_over_ghost_version_off_row  ,0))
-  FROM [dbo].[SQLXL_Index_sys_databases] AS db -- limit operational statistics to the databases we are looking for
+  FROM (SELECT database_id 
+          FROM [dbo].[SQLXL_Index_sys_databases]
+        UNION
+        SELECT DB_ID() WHERE @EngineEdition = 5
+        UNION
+        SELECT database_id FROM sys.databases 
+         WHERE name NOT IN (N'master')
+           AND @EngineEdition = 5
+       ) AS db -- limit operational statistics to the databases we are looking for
  CROSS
  APPLY (-- required to avoid error "Aggregates on the right side of an APPLY cannot reference columns from the left side" referencing
         -- columns from the "newcol" CTE
@@ -1396,7 +1409,7 @@ SELECT bd.database_id
   INTO [dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors]
   FROM [dbo].[SQLXL_Index_sys_databases] AS d WITH (READUNCOMMITTED)
   JOIN (-- aggregate columns from [sys].[dm_os_buffer_descriptors]. No speed advantage using an APPLY
-        SELECT bd.database_id
+        SELECT database_id        = COALESCE(IIF(@EngineEdition = 5,5,NULL),bd.database_id)
               ,bd.allocation_unit_id
               ,row_CNT            = SUM(TRY_CAST(COALESCE(bd.row_count,0) AS BIGINT))
               ,buffer_total_KB    = SUM(TRY_CAST(8.0 AS BIGINT))                                         -- each page is 8KB
@@ -1404,7 +1417,7 @@ SELECT bd.database_id
               ,read_microsec_AVG  = AVG(COALESCE(bd.read_microsec,0))
           FROM [sys].[dm_os_buffer_descriptors] AS bd WITH (READUNCOMMITTED)
          GROUP BY
-               bd.database_id
+               COALESCE(IIF(@EngineEdition = 5,5,NULL),bd.database_id)
               ,bd.allocation_unit_id
        ) AS bd
     ON d.database_id = bd.database_id
