@@ -1,4 +1,4 @@
--- VERSION 2024.07.18
+-- VERSION 2024.07.19
 /******************************************************************************************************************************************\
 PLEASE NOTE: All SQLXL objects are created in in the database your SSMS or ADS session is connected to.
 \******************************************************************************************************************************************/
@@ -644,7 +644,7 @@ BEGIN
 
    IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
-               + N' [msdb] Index [ixuc_SQLXL_Index_sys_databases__database_id]'
+               + N' Index [ixuc_SQLXL_Index_sys_databases__database_id]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
       SET @exec_dttm = GETDATE();
    END
@@ -24893,7 +24893,7 @@ END
 
 GO -- end of stored procedure [SQLXL_Index]
 
-RAISERROR ('Created procedure [dbo].[SQLXL_Index] ...',0,0) WITH NOWAIT;
+RAISERROR ('Created procedure dbo.SQLXL_Index ...',0,0) WITH NOWAIT;
 IF @@TRANCOUNT > 0 ROLLBACK;
 SET NOEXEC OFF
 GO
@@ -26346,7 +26346,7 @@ OPTION (FORCE ORDER)
 
 GO -- end of stored procedure/function/T-SQL script/CREATE VIEW
 
-RAISERROR ('Created procedure [dbo].[SQLXL_Index_Present] ...',0,0) WITH NOWAIT;
+RAISERROR ('Created procedure dbo.SQLXL_Index_Present ...',0,0) WITH NOWAIT;
 IF @@TRANCOUNT > 0 ROLLBACK;
 SET NOEXEC OFF
 GO
@@ -26511,7 +26511,7 @@ DECLARE @sql       NVARCHAR(MAX)
        ,@exec_dttm DATETIME = GETDATE()
        ,@run_value NVARCHAR(4000)
        ,@ssms_ads  TINYINT  = (SELECT (1)
-                                 FROM [msdb].[sys].[dm_exec_sessions]
+                                 FROM [sys].[dm_exec_sessions]
                                 WHERE session_id = @@SPID
                                   AND (   program_name LIKE N'Microsoft SQL Server Management Studio%'
                                        OR program_name LIKE N'azdata%' --azure data studio
@@ -26526,14 +26526,14 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Create table to hold Instance/Server configuration info from [msdb].[sys].[sp_configure], SERVERPROPERTY, etc.
+-- Create table to hold Instance/Server configuration info from [sys].[sp_configure], SERVERPROPERTY, etc.
 -- if this procedure has been run within last day don't execute again
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 TRUNCATE TABLE dbo.SQLXL_Instance_Diagnostics
 TRUNCATE TABLE dbo.SQLXL_Instance_info
 DECLARE @ssms_ads TINYINT  = (SELECT (1)
-                                FROM [msdb].[sys].[dm_exec_sessions]
+                                FROM [sys].[dm_exec_sessions]
                                WHERE session_id = @@SPID
                                  AND (   program_name LIKE N'Microsoft SQL Server Management Studio%'
                                       OR program_name LIKE N'azdata%' --azure data studio
@@ -26843,7 +26843,7 @@ SELECT N''System''        ,N''CURRENT_TIMEZONE''               ,CONVERT(NVARCHAR
 END;
 
 /******************************************************************************************************************************************\
--- Collect Instance/Server configuration from [msdb].[sys].[dm_os_sys_info]
+-- Collect Instance/Server configuration from [sys].[dm_os_sys_info]
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
@@ -26882,49 +26882,49 @@ SELECT qry.source
       ,run_value  = CAST(run_value AS BIGINT)
   FROM newcol
  CROSS
- APPLY (-- All [msdb].[sys].[dm_os_sys_info] values
+ APPLY (-- All [sys].[dm_os_sys_info] values
 ----------------------------------------------------------
 SELECT TOP (0) -- make sure each column has the correct data type
        source    = CAST(NULL AS SYSNAME)
       ,name      = CAST(NULL AS SYSNAME)
       ,run_value = CAST(NULL AS BIGINT)
 UNION ALL
-SELECT N'dm_os_sys_info',N'cpu_ticks'                     ,(SELECT cpu_ticks                      FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'ms_ticks'                      ,(SELECT ms_ticks                       FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'cpu_count'                     ,(SELECT cpu_count                      FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'hyperthread_ratio'             ,(SELECT hyperthread_ratio              FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'stack_size_in_bytes'           ,(SELECT stack_size_in_bytes            FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'os_quantum'                    ,(SELECT os_quantum                     FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'os_error_mode'                 ,(SELECT os_error_mode                  FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'os_priority_class'             ,(SELECT os_priority_class              FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'max_workers_count'             ,(SELECT max_workers_count              FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'scheduler_count'               ,(SELECT scheduler_count                FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'scheduler_total_count'         ,(SELECT scheduler_total_count          FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'deadlock_monitor_serial_number',(SELECT deadlock_monitor_serial_number FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'sqlserver_start_time_ms_ticks' ,(SELECT sqlserver_start_time_ms_ticks  FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'affinity_type'                 ,(SELECT affinity_type                  FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'process_kernel_time_ms'        ,(SELECT process_kernel_time_ms         FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'process_user_time_ms'          ,(SELECT process_user_time_ms           FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'time_source'                   ,(SELECT time_source                    FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'virtual_machine_type'          ,(SELECT virtual_machine_type           FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'cpu_ticks'                     ,(SELECT cpu_ticks                      FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'ms_ticks'                      ,(SELECT ms_ticks                       FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'cpu_count'                     ,(SELECT cpu_count                      FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'hyperthread_ratio'             ,(SELECT hyperthread_ratio              FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'stack_size_in_bytes'           ,(SELECT stack_size_in_bytes            FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'os_quantum'                    ,(SELECT os_quantum                     FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'os_error_mode'                 ,(SELECT os_error_mode                  FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'os_priority_class'             ,(SELECT os_priority_class              FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'max_workers_count'             ,(SELECT max_workers_count              FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'scheduler_count'               ,(SELECT scheduler_count                FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'scheduler_total_count'         ,(SELECT scheduler_total_count          FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'deadlock_monitor_serial_number',(SELECT deadlock_monitor_serial_number FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'sqlserver_start_time_ms_ticks' ,(SELECT sqlserver_start_time_ms_ticks  FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'affinity_type'                 ,(SELECT affinity_type                  FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'process_kernel_time_ms'        ,(SELECT process_kernel_time_ms         FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'process_user_time_ms'          ,(SELECT process_user_time_ms           FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'time_source'                   ,(SELECT time_source                    FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'virtual_machine_type'          ,(SELECT virtual_machine_type           FROM [sys].[dm_os_sys_info]) UNION ALL
 -- columns added in later versions --------------------------------------------------------
-SELECT N'dm_os_sys_info',N'physical_memory_in_bytes'      ,(SELECT physical_memory_in_bytes       FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'virtual_memory_in_bytes'       ,(SELECT virtual_memory_in_bytes        FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'bpool_visible'                 ,(SELECT bpool_visible                  FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'bpool_committed'               ,(SELECT bpool_committed                FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'bpool_commit_target'           ,(SELECT bpool_commit_target            FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'committed_kb'                  ,(SELECT committed_kb                   FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'virtual_memory_kb'             ,(SELECT virtual_memory_kb              FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'committed_target_kb'           ,(SELECT committed_target_kb            FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'physical_memory_kb'            ,(SELECT physical_memory_kb             FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'visible_target_kb'             ,(SELECT visible_target_kb              FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'sql_memory_model'              ,(SELECT sql_memory_model               FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'socket_count'                  ,(SELECT socket_count                   FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'cores_per_socket'              ,(SELECT cores_per_socket               FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'numa_node_count'               ,(SELECT numa_node_count                FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'softnuma_configuration'        ,(SELECT softnuma_configuration         FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'container_type'                ,(SELECT container_type                 FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'pdw_node_id'                   ,(SELECT pdw_node_id                    FROM [msdb].[sys].[dm_os_sys_info])
+SELECT N'dm_os_sys_info',N'physical_memory_in_bytes'      ,(SELECT physical_memory_in_bytes       FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'virtual_memory_in_bytes'       ,(SELECT virtual_memory_in_bytes        FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'bpool_visible'                 ,(SELECT bpool_visible                  FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'bpool_committed'               ,(SELECT bpool_committed                FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'bpool_commit_target'           ,(SELECT bpool_commit_target            FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'committed_kb'                  ,(SELECT committed_kb                   FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'virtual_memory_kb'             ,(SELECT virtual_memory_kb              FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'committed_target_kb'           ,(SELECT committed_target_kb            FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'physical_memory_kb'            ,(SELECT physical_memory_kb             FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'visible_target_kb'             ,(SELECT visible_target_kb              FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'sql_memory_model'              ,(SELECT sql_memory_model               FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'socket_count'                  ,(SELECT socket_count                   FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'cores_per_socket'              ,(SELECT cores_per_socket               FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'numa_node_count'               ,(SELECT numa_node_count                FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'softnuma_configuration'        ,(SELECT softnuma_configuration         FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'container_type'                ,(SELECT container_type                 FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'pdw_node_id'                   ,(SELECT pdw_node_id                    FROM [sys].[dm_os_sys_info])
 -----------------------------------------------------------
 ) AS qry (source,name,run_value);
 
@@ -26951,30 +26951,30 @@ SELECT qry.source
       ,text_value = CAST(qry.text_value AS NVARCHAR(255))
   FROM newcol
  CROSS
- APPLY (-- All [msdb].[sys].[dm_os_sys_info] values
+ APPLY (-- All [sys].[dm_os_sys_info] values
 ----------------------------------------------------------
 SELECT TOP (0) -- make sure each column has the correct data type
        source     = CAST(NULL AS SYSNAME)
       ,name       = CAST(NULL AS SYSNAME)
       ,text_value = CAST(NULL AS NVARCHAR(255))
 UNION ALL
-SELECT N'dm_os_sys_info',N'affinity_type_desc'            ,(SELECT affinity_type_desc             FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'time_source_desc'              ,(SELECT time_source_desc               FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'virtual_machine_type_desc'     ,(SELECT virtual_machine_type_desc      FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'affinity_type_desc'            ,(SELECT affinity_type_desc             FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'time_source_desc'              ,(SELECT time_source_desc               FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'virtual_machine_type_desc'     ,(SELECT virtual_machine_type_desc      FROM [sys].[dm_os_sys_info]) UNION ALL
 -- columns added in later versions --------------------------------------------------------
-SELECT N'dm_os_sys_info',N'sql_memory_model_desc'         ,(SELECT sql_memory_model_desc          FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'softnuma_configuration_desc'   ,(SELECT softnuma_configuration_desc    FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'container_type_desc'           ,(SELECT container_type_desc            FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
-SELECT N'dm_os_sys_info',N'process_physical_affinity'     ,(SELECT process_physical_affinity      FROM [msdb].[sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'sql_memory_model_desc'         ,(SELECT sql_memory_model_desc          FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'softnuma_configuration_desc'   ,(SELECT softnuma_configuration_desc    FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'container_type_desc'           ,(SELECT container_type_desc            FROM [sys].[dm_os_sys_info]) UNION ALL
+SELECT N'dm_os_sys_info',N'process_physical_affinity'     ,(SELECT process_physical_affinity      FROM [sys].[dm_os_sys_info]) UNION ALL
 -----------------------------------------------------------
 SELECT N'dm_os_sys_info',N'sqlserver_start_time'   ,REPLACE((SELECT CONVERT(NVARCHAR(4000),sqlserver_start_time,120)
-                                                               FROM [msdb].[sys].[dm_os_sys_info]
+                                                               FROM [sys].[dm_os_sys_info]
                                                             )
                                                            ,N'-',N'.')
 ) AS qry (source,name,text_value);
 
 /******************************************************************************************************************************************\
--- Collect Instance/Server configuration from [msdb].[sys].[servers]
+-- Collect Instance/Server configuration from [sys].[servers]
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
@@ -26993,31 +26993,31 @@ SELECT qry.source
       ,run_value = CAST(qry.run_value AS BIGINT)
   FROM newcol
  CROSS
- APPLY (-- all [msdb].[sys].[servers] values
+ APPLY (-- all [sys].[servers] values
 SELECT TOP (0)
        source    = CAST(NULL AS SYSNAME)
       ,name      = CAST(NULL AS SYSNAME)
       ,run_value = CAST(NULL AS BIGINT)
 UNION ALL
-SELECT N'servers',N'server_id'              ,(SELECT server_id                FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'connect_timeout'        ,(SELECT connect_timeout          FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'query_timeout'          ,(SELECT query_timeout            FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_linked'              ,(SELECT is_linked                FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_remote_login_enabled',(SELECT is_remote_login_enabled  FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_rpc_out_enabled'     ,(SELECT is_rpc_out_enabled       FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_data_access_enabled' ,(SELECT is_data_access_enabled   FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_collation_compatible',(SELECT is_collation_compatible  FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'uses_remote_collation'  ,(SELECT uses_remote_collation    FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'lazy_schema_validation' ,(SELECT lazy_schema_validation   FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_system'              ,(SELECT is_system                FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_publisher'           ,(SELECT is_publisher             FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_subscriber'          ,(SELECT is_subscriber            FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_distributor'         ,(SELECT is_distributor           FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_nonsql_subscriber'   ,(SELECT is_nonsql_subscriber     FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'is_rda_server'          ,(SELECT is_rda_server            FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'server_id'              ,(SELECT server_id                FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'connect_timeout'        ,(SELECT connect_timeout          FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'query_timeout'          ,(SELECT query_timeout            FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_linked'              ,(SELECT is_linked                FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_remote_login_enabled',(SELECT is_remote_login_enabled  FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_rpc_out_enabled'     ,(SELECT is_rpc_out_enabled       FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_data_access_enabled' ,(SELECT is_data_access_enabled   FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_collation_compatible',(SELECT is_collation_compatible  FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'uses_remote_collation'  ,(SELECT uses_remote_collation    FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'lazy_schema_validation' ,(SELECT lazy_schema_validation   FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_system'              ,(SELECT is_system                FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_publisher'           ,(SELECT is_publisher             FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_subscriber'          ,(SELECT is_subscriber            FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_distributor'         ,(SELECT is_distributor           FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_nonsql_subscriber'   ,(SELECT is_nonsql_subscriber     FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'is_rda_server'          ,(SELECT is_rda_server            FROM [sys].[servers] WHERE server_id = 0) UNION ALL
 SELECT N'servers',N'is_remote_proc_transaction_promotion_enabled'
                                             ,(SELECT is_remote_proc_transaction_promotion_enabled
-                                                FROM [msdb].[sys].[servers]
+                                                FROM [sys].[servers]
                                                WHERE server_id = 0
                                              )
 ) AS qry (source,name,run_value);
@@ -27032,15 +27032,15 @@ SELECT qry.source
       ,qry.name
       ,text_value = CAST(qry.text_value AS NVARCHAR(4000))
   FROM (
-SELECT N'servers',N'name'                   ,(SELECT name                     FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'product'                ,(SELECT product                  FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'provider'               ,(SELECT provider                 FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'data_source'            ,(SELECT data_source              FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'location'               ,(SELECT location                 FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'provider_string'        ,(SELECT provider_string          FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'catalog'                ,(SELECT catalog                  FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'collation_name'         ,(SELECT collation_name           FROM [msdb].[sys].[servers] WHERE server_id = 0) UNION ALL
-SELECT N'servers',N'modify_date'            ,(SELECT CONVERT(NVARCHAR(30),modify_date,120) FROM [msdb].[sys].[servers] WHERE server_id = 0)
+SELECT N'servers',N'name'                   ,(SELECT name                     FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'product'                ,(SELECT product                  FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'provider'               ,(SELECT provider                 FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'data_source'            ,(SELECT data_source              FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'location'               ,(SELECT location                 FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'provider_string'        ,(SELECT provider_string          FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'catalog'                ,(SELECT catalog                  FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'collation_name'         ,(SELECT collation_name           FROM [sys].[servers] WHERE server_id = 0) UNION ALL
+SELECT N'servers',N'modify_date'            ,(SELECT CONVERT(NVARCHAR(30),modify_date,120) FROM [sys].[servers] WHERE server_id = 0)
 ) AS qry (source,name,text_value);
 
 -------------------------------------------------------------------------------------------------------------------------------------------
@@ -27503,7 +27503,7 @@ GO -- end of procedure
 /*########################################################################################################################################*\
 \*########################################################################################################################################*/
 IF @@TRANCOUNT > 0 ROLLBACK;
-RAISERROR ('Created procedure [dbo].[SQLXL_Instance] ...',0,0) WITH NOWAIT;
+RAISERROR ('Created procedure dbo.SQLXL_Instance ...',0,0) WITH NOWAIT;
 
 
 /******************************************************************************************************************************************\
