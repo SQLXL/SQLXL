@@ -1,4 +1,4 @@
--- VERSION 2024.07.23
+-- VERSION 2024.07.24
 /******************************************************************************************************************************************\
 PLEASE NOTE: All SQLXL objects are created in in the database your SSMS or ADS session is connected to.
 \******************************************************************************************************************************************/
@@ -402,7 +402,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Create persisted tables to capture platform information. CONVERT ok here since we're running in on SQL 2012 or higher
+-- Create persisted tables to capture platform information.
 \******************************************************************************************************************************************/
 -- Instance Startup Parameters
 SELECT collation        = @collation
@@ -417,15 +417,21 @@ SELECT collation        = @collation
 EXEC [dbo].[SQLXL_Instance]
 
 /******************************************************************************************************************************************\
-Collect [sys].[databases] info - use collation from to avoid collation issues later
-use the database_id's from this table to filter further data collection
-
-In Azure SQL Database, DB_ID may not return the same value as the database_id column in sys.databases and
-sys.database_service_objectives. These two views return database_id values that are unique within the logical server, while DB_ID
-and the database_id column in other system views return values that are unique within a single database or within an elastic pool.
+Collect [sys].[databases] info - use collation here to avoid collation issues later.
+Use the database_id's from this table to filter further data collection.
 
 NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+
+In Azure SQL Database:
+---------------------
+- DB_ID may not return the same value as the database_id column in sys.databases and
+sys.database_service_objectives. These two views return database_id values that are unique within the logical server, while DB_ID
+and the database_id column in other system views return values that are unique within a single database or within an elastic pool.
+
+- [sys].[databases] is available in the master database and in user databases. In the master database, this view returns the 
+information on the master database and all user databases on the server. In a user database, this view returns information only on 
+the current database and the master database.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @sql         NVARCHAR(MAX)
@@ -491,9 +497,9 @@ SELECT qry.*
   FROM newcol
  CROSS
  APPLY (-- [sys].[databases]
-SELECT name                                        = db.name                                       COLLATE DATABASE_DEFAULT
+SELECT name                                        = db.name                                    COLLATE DATABASE_DEFAULT
                                                   -- db. required since database_id also in [sys].[change_tracking_databases]
-      ,database_id                                 = COALESCE(IIF(@EngineEdition = 5,5,NULL),db.database_id)
+      ,database_id                                 = IIF(@EngineEdition = 5,DB_ID(),db.database_id)
       ,source_database_id
 --    ,owner_sid -- varbinary(85) SID (Security-Identifier) of the external owner of the database
       ,create_date
@@ -589,12 +595,13 @@ SELECT name                                        = db.name                    
   FROM [sys].[databases] AS db
   LEFT OUTER
   JOIN [sys].[change_tracking_databases] AS c
-    ON COALESCE(IIF(@EngineEdition = 5,5,NULL),db.database_id) = COALESCE(IIF(@EngineEdition = 5,5,NULL),c.database_id)
+    ON IIF(@EngineEdition = 5,DB_ID(),db.database_id) = c.database_id
 )
 AS qry -- from CROSS APPLY
  WHERE qry.user_access_desc = N'MULTI_USER'
    AND qry.state_desc       = N'ONLINE'
    AND qry.is_distributor   = 0
+   ---------------------------------------------------------------------------------------------
    AND (   (    @database_name IS NULL -- NULL selection made, all non-system databases
             AND (   LOWER(qry.name)
                      NOT IN (N'dbatools'
@@ -616,7 +623,8 @@ AS qry -- from CROSS APPLY
            )
         OR @database_name = qry.name -- 1 database requested
         OR @database_name = N'*'     -- all databases including system
-       );
+       )
+   AND NOT (@EngineEdition = 5 AND qry.name = N'Master') -- Azure SQL DB single database;
 
 SET @rowcount = @@ROWCOUNT;
 
@@ -862,7 +870,7 @@ SELECT --------------------------------------------------------------
        -- [sys].[dm_db_missing_index_details]
        --------------------------------------------------------------
        mid.index_handle
-      ,mid.database_id
+      ,database_id             = IIF(@EngineEdition = 5,DB_ID(),mid.database_id)
       ,mid.object_id
       ,statement               = mid.statement          COLLATE DATABASE_DEFAULT
       ,equality_columns        = mid.equality_columns   COLLATE DATABASE_DEFAULT
@@ -905,6 +913,7 @@ SELECT --------------------------------------------------------------
   LEFT OUTER
   JOIN [sys].[dm_db_missing_index_group_stats] AS migs
     ON mig.index_group_handle = migs.group_handle
+ WHERE mid.database_id = IIF(@EngineEdition = 5,DB_ID(),mid.database_id)
 OPTION (MAXDOP 1);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -960,7 +969,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_db_missing_index_columns]') IS NOT NULL
 SELECT --------------------------------------------------------------
        -- [sys].[dm_db_missing_index_details]
        --------------------------------------------------------------
-       database_id      = mid.database_id
+       database_id      = IIF(@EngineEdition = 5,DB_ID(),mid.database_id) -- Azure SQL DB single database
       ,object_id        = mid.object_id
       ,index_handle     = mid.index_handle
        --------------------------------------------------------------
@@ -1133,7 +1142,11 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[dm_db_index_usage_stats] for one or all user databases
+Collect [sys].[dm_db_index_usage_stats] for one or all user databases
+---------------------------------------------------------------------
+In Azure SQL Database, dynamic management views cannot expose information that would impact database containment or expose information 
+about other databases the user has access to. To avoid exposing this information, every row that contains data that doesn't belong to the 
+connected tenant is filtered out.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -1152,7 +1165,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_db_index_usage_stats]') IS NOT NULL
 SELECT qry.*
   INTO [dbo].[SQLXL_Index_sys_dm_db_index_usage_stats]
   FROM (-- columns from [sys].[dm_db_index_usage_stats]
-SELECT ius.database_id
+SELECT database_id       = IIF(@EngineEdition = 5,DB_ID(),ius.database_id)
       ,ius.object_id
       ,ius.index_id
       ,User_total_CNT    = ius.user_seeks + ius.user_scans + ius.user_lookups + ius.user_updates
@@ -1173,9 +1186,10 @@ SELECT ius.database_id
       ,ius.last_system_scan
       ,ius.last_system_lookup
       ,ius.last_system_update
-  FROM [dbo].[SQLXL_Index_sys_databases] AS d   -- only collect usage statistice from databases we are looking for
-  JOIN [sys].[dm_db_index_usage_stats]   AS ius
-    ON d.database_id = COALESCE(IIF(@EngineEdition = 5,5,NULL),ius.database_id)
+  FROM [sys].[dm_db_index_usage_stats]   AS ius
+  LEFT OUTER
+  JOIN [dbo].[SQLXL_Index_sys_databases] AS d   -- only collect usage statistice from databases we are looking for
+    ON ius.database_id = IIF(@EngineEdition = 5,DB_ID(),d.database_id) -- EngineEdition = 5 Azure SQL Database
 ) AS qry
 OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
        ,MAXDOP 1);
@@ -1241,7 +1255,7 @@ SELECT qry.*
  APPLY (-- columns from [sys].[dm_db_index_operational_stats]
         -- multiple CROSS APPLYs required to avoid error "Aggregates on the right side of an APPLY
         -- cannot reference columns from the left side" referencing  columns from the "newcol" CTE
-SELECT database_id                           = COALESCE(IIF(@EngineEdition = 5,5,NULL),ios.database_id)
+SELECT database_id                           = IIF(@EngineEdition = 5,DB_ID(),ios.database_id)
       ,ios.object_id
       ,ios.index_id
       ---------------------------------------------------------------------------------------
@@ -1302,19 +1316,12 @@ SELECT database_id                           = COALESCE(IIF(@EngineEdition = 5,5
       ,ghost_version_off_row_CNT             = SUM(COALESCE(ghost_version_off_row              ,0))
       ,insert_over_ghost_version_inrow_CNT   = SUM(COALESCE(ios.insert_over_ghost_version_inrow,0))
       ,insert_over_ghost_version_off_row_CNT = SUM(COALESCE(insert_over_ghost_version_off_row  ,0))
-  FROM (SELECT database_id
-          FROM [dbo].[SQLXL_Index_sys_databases]
-        UNION
-        SELECT DB_ID() WHERE @EngineEdition = 5
-        UNION
-        SELECT database_id FROM sys.databases
-         WHERE name NOT IN (N'master')
-           AND @EngineEdition = 5
-       ) AS db -- limit operational statistics to the databases we are looking for
+  FROM [dbo].[SQLXL_Index_sys_databases] AS db -- limit operational statistics to the databases we are looking for
  CROSS
  APPLY (-- required to avoid error "Aggregates on the right side of an APPLY cannot reference columns from the left side" referencing
         -- columns from the "newcol" CTE
-        SELECT database_id
+        SELECT database_id       -- NOTE: In Azure SQL Database, the values are unique within a single database or an elastic pool, 
+                                 -- but not within a logical server.
               ,object_id
               ,index_id
               ,partition_number
@@ -1363,7 +1370,7 @@ SELECT database_id                           = COALESCE(IIF(@EngineEdition = 5,5
               ,ghost_version_off_row               -- SQL 2016+
               ,insert_over_ghost_version_inrow     -- SQL 2016+
               ,insert_over_ghost_version_off_row   -- SQL 2016+
-          FROM [sys].[dm_db_index_operational_stats] (db.database_id,NULL,NULL,NULL)
+          FROM [sys].[dm_db_index_operational_stats] (IIF(@EngineEdition = 5,DB_ID(),db.database_id),NULL,NULL,NULL)
        ) AS ios
  GROUP BY
        ios.database_id
@@ -1414,11 +1421,12 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /*** LOCAL TESTING ***
+DECLARE @EngineEdition INT = CAST(SERVERPROPERTY(N'EngineEdition') AS INT)
 IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors]') IS NOT NULL
    DROP TABLE [dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors]
 --*/
 
-SELECT bd.database_id
+SELECT database_id = IIF(@EngineEdition = 5,DB_ID(),bd.database_id)
       ,bd.allocation_unit_id
       ,bd.row_CNT
       ,bd.buffer_total_KB
@@ -1427,7 +1435,7 @@ SELECT bd.database_id
   INTO [dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors]
   FROM [dbo].[SQLXL_Index_sys_databases] AS d
   JOIN (-- aggregate columns from [sys].[dm_os_buffer_descriptors]. No speed advantage using an APPLY
-        SELECT database_id        = COALESCE(IIF(@EngineEdition = 5,5,NULL),bd.database_id)
+        SELECT database_id        = IIF(@EngineEdition = 5,DB_ID(),bd.database_id)
               ,bd.allocation_unit_id
               ,row_CNT            = SUM(CAST(COALESCE(bd.row_count,0) AS BIGINT))
               ,buffer_total_KB    = SUM(CAST(8.0 AS BIGINT))                                         -- each page is 8KB
@@ -1435,10 +1443,10 @@ SELECT bd.database_id
               ,read_microsec_AVG  = AVG(COALESCE(bd.read_microsec,0))
           FROM [sys].[dm_os_buffer_descriptors] AS bd
          GROUP BY
-               COALESCE(IIF(@EngineEdition = 5,5,NULL),bd.database_id)
+               IIF(@EngineEdition = 5,DB_ID(),bd.database_id)
               ,bd.allocation_unit_id
        ) AS bd
-    ON d.database_id = bd.database_id
+    ON bd.database_id = IIF(@EngineEdition = 5,DB_ID(),d.database_id)
 OPTION (MAXDOP 1);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -1587,7 +1595,7 @@ SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[database_scoped_configurations]
-SELECT database_id         = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id         = DB_ID()
       ,configuration_id
       ,name                = name                                        COLLATE ' + @collation + N' -- nvarchar(60)
       ,value               = CONVERT(NVARCHAR(1000),value              ) COLLATE ' + @collation + N' -- sqlvariant
@@ -1616,7 +1624,7 @@ ELSE  -- version < SQL 2016
 BEGIN
    IF @i = 1
    SELECT TOP (0)
-          database_id         = @database_id
+          database_id         = CONVERT(INT           ,NULL)
          ,configuration_id    = CONVERT(INT           ,NULL)
          ,name                = CONVERT(SYSNAME       ,NULL)
          ,value               = CONVERT(NVARCHAR(1000),NULL)
@@ -1673,7 +1681,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_automatic_tuning_options]' + N'
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id        = DB_ID()
       ,name               = name               COLLATE ' + @collation + N'
       ,desired_state
       ,desired_state_desc = desired_state_desc COLLATE ' + @collation + N'
@@ -1765,7 +1773,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_query_store_options]' + N'
-SELECT database_id                                = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                                = DB_ID()
       ,desired_state                              = desired_state
       ,desired_state_desc                         = desired_state_desc                         COLLATE ' + @collation + N'
       ,actual_state                               = actual_state
@@ -1866,7 +1874,7 @@ BEGIN
    DECLARE @sql NVARCHAR(MAX);
    SET @sql = N''
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables]
-SELECT database_id          = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id          = DB_ID()
       ,object_id
       ,version
       ,source_object_id
@@ -1934,8 +1942,8 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_schemas]')
     + N'
   FROM (-- columns from [sys].[schemas]
-SELECT database_id   = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
-      ,name          = name COLLATE ' + @collation + N'
+SELECT database_id = DB_ID() 
+      ,name        = name COLLATE ' + @collation + N'
       ,schema_id
       ,principal_id
   FROM [sys].[schemas] AS s
@@ -2051,7 +2059,7 @@ SELECT -- SQL 2012+ ------------------------------------------------------------
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[tables], [change_tracking_tables]
-SELECT database_id                        = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                        = DB_ID()
       ,name                               = name                                COLLATE ' + @collation + N'
       ,object_id                          = t.object_id
       ,principal_id
@@ -2124,13 +2132,13 @@ SELECT database_id                        = ' + IIF(@EngineEdition = 5,N'5',N'DB
 
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables] AS cs -- source [dbo].[SQLXL_Index_cdc_change_tables] created above
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = cs.database_id
+    ON DB_ID()     = cs.database_id
    AND t.object_id = cs.source_object_id
    AND 1           = cs.capture_instance_ID
 
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables] AS ct -- target [dbo].[SQLXL_Index_cdc_change_tables] created above
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = ct.database_id
+    ON DB_ID()     = ct.database_id
    AND t.object_id = ct.object_id
    AND 1           = ct.capture_instance_ID
 
@@ -2199,7 +2207,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_internal_tables]' + N'
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id              = DB_ID()
       ,object_id
       ,internal_type
       ,internal_type_desc
@@ -2418,7 +2426,7 @@ SELECT -- SQL 2014 ----------------------------------------
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[objects],[views],[sql_modules],[internal_tables],[triggers],[table_types] & [cdc].[change_tables]
-SELECT database_id      = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id      = DB_ID()
       ----------------------------------------------------------
       -- [sys].[objects]
       ----------------------------------------------------------
@@ -2585,7 +2593,7 @@ SELECT database_id      = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
                    IN (-- Change data capture (CDC) "CHANGE" tables
                        SELECT object_id
                          FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables]
-                        WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = database_id
+                        WHERE DB_ID() = database_id
                       )
                ) -- aligns with open parenthesis inmmediately after WHERE
            AND NOT (    o.type    = N''IF''               -- omitting since we cannot do anything to change them
@@ -2629,12 +2637,12 @@ SELECT database_id      = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
           FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_tables]
          WHERE history_table_id IS NOT NULL
        )                   AS tht
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = tht.database_id
+    ON DB_ID()     = tht.database_id
    AND o.object_id = tht.history_table_id
 
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables] AS cct
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = cct.database_id
+    ON DB_ID()     = cct.database_id
    AND o.object_id = cct.object_id
    AND 1           = cct.capture_instance_ID
 
@@ -2770,7 +2778,7 @@ SELECT qry.*
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[data_spaces],[filegroups],[database_files],[partition_schemes],[partition_functions]
-SELECT database_id                        = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                        = DB_ID()
       -- [sys].[data_spaces] ------------------------------------------
       ,data_space_id                      = ds.data_space_id
       ,data_space_name                    = ds.name                   COLLATE ' + @collation + N'
@@ -2876,7 +2884,7 @@ DECLARE @Pattern NVARCHAR(15)  = ''%[^'' + NCHAR(9) + NCHAR(13) + NCHAR(10) + NC
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_default_constraints]')
     + N'
   FROM (-- columns from [sys].[default_constraints]
-SELECT database_id      = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id      = DB_ID()
       ,parent_object_id
       ,object_id
       ,type             = type      COLLATE ' + @collation + N'
@@ -2934,7 +2942,7 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_types]')
     + N'
   FROM (-- columns from [sys].[types]
-        SELECT database_id       = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+        SELECT database_id       = DB_ID()
               ,name              = name           COLLATE ' + @collation + N'
               ,system_type_id
               ,user_type_id
@@ -3026,7 +3034,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_sql_expression_dependencies]' + N'
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id               = DB_ID()
       ,referencing_id
       ,referencing_minor_id
       ,referencing_class
@@ -3131,7 +3139,7 @@ SELECT -- SQL 2016+, Azure SQL Database ----------------------------------------
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[columns],[identity_columns],[computed_columns],[sequences],[dm_sql_referencing_entities]
-SELECT database_id             = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id             = DB_ID()
       ,object_id               = c.object_id
       ,name                    = c.name                                COLLATE ' + @collation + N'
       ,c.column_id
@@ -3234,14 +3242,14 @@ SELECT database_id             = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N
   JOIN (-- Get database defined COLLATION
         SELECT collation_name
           FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_databases]
-         WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = database_id
+         WHERE DB_ID() = database_id
        ) AS d
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects] AS o
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = o.database_id
+    ON DB_ID()     = o.database_id
    AND c.object_id = o.object_id
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_types]   AS t
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = t.database_id
+    ON DB_ID()        = t.database_id
    AND c.user_type_id = t.user_type_id
   LEFT OUTER
   JOIN (-- additional columns only from [sys].[identity_columns]
@@ -3294,7 +3302,7 @@ SELECT database_id             = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N
                   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_schemas] AS s
                     ON o.database_id = s.database_id
                    AND o.SCHEMA_ID   = s.schema_id
-                 WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = o.database_id
+                 WHERE DB_ID()       = o.database_id
                    AND o.type IN (N''AF'' -- Aggregate function (CLR)
                                  ,N''FN'' -- SQL scalar function
                                  ,N''FS'' -- Assembly (CLR) scalar-function
@@ -3333,16 +3341,16 @@ SELECT database_id             = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N
           FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_default_constraints]         AS dfc
           LEFT OUTER
           JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_sql_expression_dependencies] AS dep
-            ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = dep.database_id
-           AND dfc.object_id     = dep.referencing_id
+            ON DB_ID()       = dep.database_id
+           AND dfc.object_id = dep.referencing_id
           LEFT OUTER
           JOIN sys.sequences                                                      AS seq
-            ON dep.referenced_id  = seq.object_id
+            ON dep.referenced_id = seq.object_id
           LEFT OUTER
           JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_types]                       AS typ
-            ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = typ.database_id
-           AND seq.user_type_id  = typ.user_type_id
-         WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = dfc.database_id
+            ON DB_ID()          = typ.database_id
+           AND seq.user_type_id = typ.user_type_id
+         WHERE DB_ID()          = dfc.database_id
        ) AS seq
     ON c.default_object_id = seq.default_object_id
    AND c.column_id         = seq.parent_column_id
@@ -3405,7 +3413,7 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_column_type_usages]
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id   = DB_ID()
       ,object_id
       ,column_id
       ,user_type_id
@@ -3470,7 +3478,7 @@ INSERT
       ,lock_on_bulk_load
       ,has_unchecked_assembly_data
       )
-SELECT database_id = @database_id
+SELECT database_id                 = DB_ID()
       ,o.object_id
       ,o.schema_id
       ,o.name
@@ -3545,7 +3553,7 @@ DECLARE @Pattern   NVARCHAR(15)  = ''%[^'' + NCHAR(9) + NCHAR(13) + NCHAR(10) + 
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_check_constraints]')
     + N'
   FROM (-- columns from [sys].[check_constraints]
-SELECT database_id             = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id             = DB_ID()
       ,parent_object_id
       ,object_id
       ,type                    = type      COLLATE ' + @collation + N'
@@ -3572,7 +3580,7 @@ SELECT database_id             = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N
           JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_schemas] AS s
             ON o.database_id = s.database_id
            AND o.schema_id   = s.schema_id
-         WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = o.database_id
+         WHERE DB_ID() = o.database_id
            AND o.type IN (N''AF'' -- Aggregate function (CLR)
                          ,N''FN'' -- SQL scalar function
                          ,N''FS'' -- Assembly (CLR) scalar-function
@@ -3642,7 +3650,7 @@ SELECT is_enforced = CONVERT(BIT,NULL)
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[key_constraints]
-SELECT database_id      = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id      = DB_ID()
       ,parent_object_id
       ,object_id
       ,type             = type      COLLATE ' + @collation + N'
@@ -3718,7 +3726,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_edge_constraints]' + N'
-SELECT database_id      = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id      = DB_ID()
       ,parent_object_id
       ,object_id
       ,index_id         = object_id
@@ -3793,7 +3801,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_edge_constraint_clauses]' + N'
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id    = DB_ID()
       ,object_id
       ,from_object_id
       ,to_object_id
@@ -3862,7 +3870,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_indexes]' + N'
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id             = DB_ID()
       ,object_id
       ,index_id
       ,spatial_index_type
@@ -3944,7 +3952,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_index_tessellations]' + N'
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id         = DB_ID()
       ,object_id
       ,index_id
       ,tessellation_scheme
@@ -4029,7 +4037,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_xml_indexes]' + N'
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                = DB_ID()
       ,object_id
       ,index_id
       ,xml_index_type
@@ -4102,7 +4110,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_hash_indexes]' + N'
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id  = DB_ID()
       ,object_id
       ,index_id
       ,type
@@ -4180,7 +4188,7 @@ SELECT -- SQL 2016+ --------------------------------------
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[indexes],[spatial_indexes],[spatial_index_tessellations],[xml_indexes],[hash_indexes]
-SELECT database_id                     = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                     = DB_ID()
       ,object_id                       = i.object_id
       ,name                            = i.name                               COLLATE ' + @collation + N'
       ,i.index_id
@@ -4233,7 +4241,7 @@ SELECT database_id                     = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID
   FROM [sys].[indexes]                                     AS i
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects] AS o -- filters out SYSTEM objects
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = o.database_id
+    ON DB_ID()     = o.database_id
    AND i.object_id = o.object_id
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_indexes]             AS si
@@ -4313,7 +4321,7 @@ SELECT property_list_id = CONVERT(INT,NULL)
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[fulltext_indexes]
-SELECT database_id                = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                = DB_ID()
       -- [sys].[fulltext_indexes] -----------------------------------------------------------
       ,object_id                  = fi.object_id
       ,unique_index_id
@@ -4392,7 +4400,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_fulltext_catalogs]' + N'
-SELECT database_id                = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                = DB_ID()
       ,fulltext_catalog_id
       ,name                       = name COLLATE ' + @collation + N'
       ,is_default
@@ -4451,7 +4459,7 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_foreign_keys]')
     + N'
   FROM (-- columns from sys].[foreign_keys]
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                    = DB_ID()
       ,parent_object_id
       ,object_id
       ,name                           = name                           COLLATE ' + @collation + N'
@@ -4524,7 +4532,7 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_foreign_key_columns]')
     + N'
   FROM (-- columns from [sys].[foreign_key_columns]
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id           = DB_ID()
       ,constraint_object_id
       ,constraint_column_id
       ,parent_object_id
@@ -4589,7 +4597,7 @@ SELECT column_store_order_ordinal = CONVERT(INT,NULL)
   FROM newcol
  CROSS
  APPLY (-- get list of all columns across all "index" objects
-SELECT database_id                = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                = DB_ID()
       ,object_id                  = ic.object_id
       ,ic.index_id
       ,type                       = CAST(i.type AS NVARCHAR(2)) COLLATE ' + @collation + N'
@@ -4614,11 +4622,11 @@ SELECT database_id                = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') 
       ,is_index_column_filtered   = CAST(0 AS BIT)
   FROM [sys].[index_columns]                          AS ic
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects] AS o
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = o.database_id
+    ON DB_ID()      = o.database_id
    AND ic.object_id = o.object_id
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_indexes] AS i
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = i.database_id
+    ON DB_ID()      = i.database_id
    AND ic.object_id = i.object_id
    AND ic.index_id  = i.index_id
 ) AS qry -- from CROSS APPLY
@@ -4683,7 +4691,7 @@ INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_index_columns]
       ,statistical_semantics
       ,column_store_order_ordinal
       )
-SELECT database_id                = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                = DB_ID()
       ,object_id
       ,index_id
       ,type
@@ -4712,7 +4720,7 @@ SELECT database_id                = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') 
               ,language_id                = NULL
               ,statistical_semantics      = NULL
           FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_missing_index_columns]
-         WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = database_id
+         WHERE DB_ID() = database_id
         UNION ALL -- fulltext_index_columns - also used to get list of columns to get statistics for
         SELECT type                       = N''90''
               ,object_id                  = object_id
@@ -4800,13 +4808,13 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_extended_properties]')
     + N'
   FROM (-- columns from [sys].[extended_properties]
-SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id = DB_ID()
       ,class
-      ,class_desc = class_desc                    COLLATE ' + @collation + N'
-      ,major_id
-      ,minor_id
-      ,name       = name                          COLLATE ' + @collation + N'
-      ,value      = CONVERT(NVARCHAR(MAX),value)  COLLATE ' + @collation + N' -- NOTE: is type SQL_VARIANT
+      ,class_desc  = class_desc                   COLLATE ' + @collation + N'
+      ,major_id    
+      ,minor_id    
+      ,name        = name                         COLLATE ' + @collation + N'
+      ,value       = CONVERT(NVARCHAR(MAX),value) COLLATE ' + @collation + N' -- NOTE: is type SQL_VARIANT
   FROM [sys].[extended_properties]
  WHERE CHARINDEX(N''MS_DiagramPane'',name) = 0
 ) AS qry
@@ -4881,7 +4889,7 @@ SELECT -- SQL 2012 -------------------------------------------------------------
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[stats]
-SELECT database_id                  = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                  = DB_ID()
       ,object_id                    = s.object_id
       ,name                         = s.name                       COLLATE ' + @collation + N'
       ,s.stats_id
@@ -4898,7 +4906,7 @@ SELECT database_id                  = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()'
       ,auto_drop
   FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects] AS o
   JOIN [sys].[stats]                            AS s
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = o.database_id
+    ON DB_ID()     = o.database_id
    AND s.object_id = o.object_id
 ) AS qry -- from CROSS APPLY
 OPTION (MAXDOP 1);'
@@ -4953,14 +4961,14 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_stats_columns]')
     + N'
   FROM (-- columns from [sys].[stats_columns]
-SELECT database_id       = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id       = DB_ID()
       ,object_id         = s.object_id
       ,s.stats_id
       ,s.stats_column_id
       ,s.column_id
   FROM [sys].[stats_columns]                AS s
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects] AS o
-    ON ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'= o.database_id
+    ON DB_ID()= o.database_id
    AND s.object_id = o.object_id
 ) AS qry
 OPTION (MAXDOP 1);'
@@ -5017,7 +5025,7 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_partition_stats]')
     + N'
   FROM (-- columns from [sys].[dm_db_partition_stats]
-SELECT database_id                    = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                    = DB_ID()
       ,object_id                      = ps.object_id
       ,index_id                       = ps.index_id
       ,Partition_CNT                  = COUNT(ps.partition_id)
@@ -5099,11 +5107,11 @@ SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
         SELECT object_id
               ,stats_id
           FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_stats]
-         WHERE database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+         WHERE database_id = DB_ID()
        ) AS i
  CROSS
  APPLY (-- get [sys].[dm_db_stats_properties] for each index
-        SELECT database_id      = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+        SELECT database_id      = DB_ID()
               ,object_id
               ,stats_id
               ,partition_number = CONVERT(INT,0)
@@ -5204,11 +5212,11 @@ SELECT dsp.*
         SELECT object_id
               ,index_id
           FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_indexes]
-         WHERE database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+         WHERE database_id = DB_ID()
        ) AS i
  CROSS
  APPLY (-- get [sys].[dm_db_incremental_stats_properties] for indexes
-        SELECT database_id = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+        SELECT database_id              = DB_ID()
               ,object_id
               ,stats_id
               ,partition_number
@@ -5286,7 +5294,7 @@ SELECT xml_compression = CONVERT(BIT,NULL)
   FROM newcol
  CROSS
  APPLY (-- aggregate columns from [sys].[partitions]
-        SELECT database_id             = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+        SELECT database_id             = DB_ID()
               ,object_id               = object_id
               ,index_id
               ,hobt_id
@@ -5420,7 +5428,7 @@ SELECT qry.*
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[internal_partitions]
-        SELECT database_id               = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+        SELECT database_id               = DB_ID()
               ,partition_id
               ,object_id
               ,index_id
@@ -5545,7 +5553,7 @@ SELECT qry.*
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[dm_db_xtp_index_stats]
-        SELECT database_id           = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+        SELECT database_id         = DB_ID() 
               ,object_id           = t.object_id
               ,table_name          = t.name                      COLLATE ' + @collation + N'
               ,i.index_id
@@ -5589,8 +5597,8 @@ SELECT qry.*
                       ,object_id   = object_id
                       ,name        = name
                   FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_tables]
-                 WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = database_id
-                   AND 1 = is_memory_optimized -- only returns tables that are memory optimized
+                 WHERE DB_ID() = database_id
+                   AND 1       = is_memory_optimized -- only returns tables that are memory optimized
                ) AS t
           LEFT OUTER
           JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_indexes] AS i
@@ -5725,7 +5733,7 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors_EXT]')
     + N'
   FROM (-- convert buffer allocations to physical objects
-        SELECT database_id       = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+        SELECT database_id       = DB_ID()
               ,object_id         = o.object_id
               ,obj_name          = o.name          COLLATE ' + @collation + N'
               ,index_id          = i.index_id
@@ -5744,7 +5752,7 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
                       ,buffer_total_KB
                       ,read_microsec_AVG
                   FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors]
-                 WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = database_id
+                 WHERE DB_ID() = database_id
                )                                   AS obd
           LEFT OUTER
           JOIN [sys].[allocation_units]            AS au
@@ -5853,7 +5861,7 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats]' + N'
-SELECT database_id                         = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id                         = DB_ID()
       ,object_id                           = object_id
       ,index_id
       ,partition_number
@@ -5959,7 +5967,7 @@ SELECT qry.*
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[dm_db_column_store_row_group_operational_stats]
-        SELECT database_id             = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+        SELECT database_id             = DB_ID()
               ,object_id               = object_id
               ,index_id
               ,partition_CNT           = COUNT(partition_number       )
@@ -6049,7 +6057,7 @@ BEGIN
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_index_resumable_operations]' + N'
-SELECT database_id          = ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+SELECT database_id          = DB_ID()
       ,object_id            = object_id
       ,index_id
       ,state_desc           = state_desc                COLLATE ' + @collation + N'
@@ -6275,7 +6283,7 @@ SELECT c.database_id
                       ,index_id
                       ,name
                   FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_indexes]
-                 WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = database_id
+                 WHERE DB_ID() = database_id
                    AND name   IS NOT NULL
                 UNION -- get Full text indexes
                 SELECT database_id
@@ -6283,7 +6291,7 @@ SELECT c.database_id
                       ,unique_index_id
                       ,name          = N''FULLTEXT''
                   FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_fulltext_indexes]
-                 WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = database_id
+                 WHERE DB_ID() = database_id
                ) AS i
           JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects] AS o
             ON i.database_id = o.database_id
@@ -6311,7 +6319,7 @@ SELECT c.database_id
                       ,object_id
                       ,column_id
                   FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_stats_columns] -- all columns that have statistics created on them
-                 WHERE ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N' = database_id
+                 WHERE DB_ID() = database_id
                  GROUP BY
                        database_id
                       ,object_id
@@ -6416,7 +6424,7 @@ DBCC SHOW_STATISTICS ('''''' + @object_name        + N'''''','' + @stats_target_
              ELSE N''
         END + N'
             )
-      SELECT ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+      SELECT DB_ID()
             ,@object_id
             ,@object_name
             ,@stats_target_name
@@ -6469,7 +6477,7 @@ DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''','' + @stats_target_name + 
       -- insert into persisted table ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_ShowStatistics_DensityVector]
       INSERT
         INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_ShowStatistics_DensityVector]
-      SELECT ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+      SELECT DB_ID()
             ,@object_id
             ,@object_name
             ,@stats_target_name
@@ -6517,7 +6525,7 @@ DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''','' + @stats_target_name + 
       -----------------------------------------------------------------------------------------------------------------------------------
       -- insert into persisted table [dbo].[SQLXL_Index_sys_ShowStatistics_Histogram_summary]
       INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_ShowStatistics_Histogram_summary]
-      SELECT ' + IIF(@EngineEdition = 5,N'5',N'DB_ID()') + N'
+      SELECT DB_ID()
             ,@object_id
             ,@object_name
             ,@stats_target_name
@@ -21714,6 +21722,88 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @exec_dttm = GETDATE();
 END
 
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- RETAIN - Nonclustered indexes with NO WRITES & Poor usage or operational activity
+--------------------------------------------------------------------------------------------------------------------------------------------
+UPDATE i
+   SET
+/*** LOCAL TESTING ***
+SELECT i.database_id
+      ,i.parent_object_id
+      ,i.object_id
+      ,i.index_id
+      ,i.type,
+--*/
+       prescription = N'Retain' + NCHAR(92) + N' No Writes'
+  FROM (--
+        SELECT *
+          FROM [dbo].[SQLXL_Index_Compilation]
+         WHERE rec_type = N'I'
+       ) AS i
+  JOIN (--
+        SELECT *
+          FROM [dbo].[SQLXL_Index_Compilation]
+         WHERE rec_type = N'P'
+       )  AS p
+    ON i.database_id      = p.database_id
+   AND i.parent_object_id = p.parent_object_id
+   AND i.object_id        = p.parent_object_id
+ WHERE i.prescription    IS NULL
+   ---------------------------------------------------------------------------
+   AND i.obj_type                   = N'U'
+   AND i.type                       = N'2' -- Nonclustered index
+   AND i.tbl_is_heap                = 0
+   AND (   p.ius_User_total_CNT     > 0    -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
+       )
+   AND i.row_CNT                    > 0
+   ---------------------------------------------------------
+   AND COALESCE(i.ops_total_read_CNT,0)     = 0
+   AND COALESCE(i.ius_user_updates_CNT,0)   = 0
+   AND COALESCE(i.ius_read_to_parent_PCT,0) < 0.50
+   AND COALESCE(i.ops_read_to_parent_PCT,0) < 0.50;
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- REMOVE - Nonclustered indexes with Poor usage or operational activity
+--------------------------------------------------------------------------------------------------------------------------------------------
+UPDATE i
+   SET
+/*** LOCAL TESTING ***
+SELECT i.database_id
+      ,i.parent_object_id
+      ,i.object_id
+      ,i.index_id
+      ,i.type,
+--*/
+       prescription = N'Remove' + NCHAR(92) + N' Lo/No Activity'
+  FROM (--
+        SELECT *
+          FROM [dbo].[SQLXL_Index_Compilation]
+         WHERE rec_type = N'I'
+       ) AS i
+  JOIN (--
+        SELECT *
+          FROM [dbo].[SQLXL_Index_Compilation]
+         WHERE rec_type = N'P'
+       )  AS p
+    ON i.database_id      = p.database_id
+   AND i.parent_object_id = p.parent_object_id
+   AND i.object_id        = p.parent_object_id
+ WHERE i.prescription    IS NULL
+   ---------------------------------------------------------------------------
+   AND i.obj_type                   = N'U'
+   AND i.type                       = N'2' -- Nonclustered index
+   AND i.tbl_is_heap                = 0
+   AND (   p.ius_User_total_CNT     > 0    -- gotta hafta be used
+        OR p.ops_total_contacts_CNT > 0    -- gotta hafta be used
+       )
+   AND i.row_CNT                    > 0
+   ---------------------------------------------------------
+   AND COALESCE(i.ops_total_read_CNT,0)     > 0
+   AND COALESCE(i.ius_user_updates_CNT,0)   > 0
+   AND COALESCE(i.ius_read_to_parent_PCT,0) < 0.50
+   AND COALESCE(i.ops_read_to_parent_PCT,0) < 0.50;
+
 /******************************************************************************************************************************************\
 -- Update all RETAINed objects up to this point
 \******************************************************************************************************************************************/
@@ -22923,6 +23013,8 @@ SELECT i.database_id
        )
    AND i.row_CNT                    > 0
    ---------------------------------------------------------
+   AND COALESCE(i.ops_total_read_CNT,0)     > 0
+   AND COALESCE(i.ius_user_updates_CNT,0)   > 0
    AND COALESCE(i.ius_read_to_parent_PCT,0) < 0.50
    AND COALESCE(i.ops_read_to_parent_PCT,0) < 0.50;
 
@@ -25267,13 +25359,6 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
             + N' Added diagnostic records to [SQLXL_Index_Compilation]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
--- End of the procedure - run time
-   RAISERROR(N'',0,0) WITH NOWAIT;
-   SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@collection_DTTM,GETDATE()),0))
-            + N' End of procedure [dbo].[SQLXL_Index]'
-   RAISERROR(@msg,0,0) WITH NOWAIT;
-
-   SET @exec_dttm = GETDATE(); -- unneeded since last step
 END
 
 /******************************************************************************************************************************************\
