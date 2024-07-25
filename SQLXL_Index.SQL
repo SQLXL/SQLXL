@@ -8,6 +8,17 @@ ALSO NOTE: Please connect to a database with SQL 2012 or higher compatibility - 
 EXEC [dbo].[SQLXL_Index]                                        -- runs for all USER databases
 EXEC [dbo].[SQLXL_Index] @database_name = N'*'                  -- runs for ALL databases
 EXEC [dbo].[SQLXL_Index] @database_name = N'WideWorldImporters' -- runs for a SINGLE database
+
+SQLCMD -Q "EXEC [dbo].[SQLXL_Index_Present]" -s"ª" -y 0 -a 8000 -o "D:\TEMP\out.txt" -S HV10-SQL2022 -d "WideWorldImporters" -U "demo" -P "demo"
+Parameters:
+-Q = SQL command to execute                - "EXEC [dbo].[SQLXL_Index_Present]"
+-s = column delimiter                      - ASCII CHAR(166) is used to avoid collisions "ª"
+-y = variable length type display width    - 0 = ALL
+-a = network packet size                   - 8000 bytes
+-o = output file and destination directory - "D:\TEMP\out.txt"
+-d = SQL database to connect to (if not the user default) - "WideWorldImporters"
+-U = User ID if not windows authentication
+-P = User password if not windows authentication
 --*/
 
 /******************************************************************************************************************************************\
@@ -639,7 +650,8 @@ END
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
             + N' [sys].[databases],[change_tracking_databases] -'
-            + CAST(@rowcount AS NVARCHAR(11)) + N'database(s) found'
+            + CAST(@rowcount AS NVARCHAR(11)) 
+            + N' database(s) found'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END
