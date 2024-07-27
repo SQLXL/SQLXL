@@ -10573,7 +10573,6 @@ SELECT icol.database_id
                       ,srt                = 1
                       ,column_id
                   FROM [dbo].[SQLXL_Index_sys_index_columns]
-                 WHERE is_included_column = 0
                 ----------------------------------------------------------------------------------------------------------------------------
                 UNION ALL -- Foreign Key Constraint columns
                 ----------------------------------------------------------------------------------------------------------------------------
@@ -10929,6 +10928,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
            AND ic.object_id   = ac.object_id
            -- No parent_object_id column in XL_IDX_column
            AND ic.column_id   = ac.column_id
+         WHERE 1 = 1
          GROUP BY
                ic.database_id
               ,ic.object_id
@@ -26569,7 +26569,7 @@ STUFF(CASE WHEN i.type     = N'3'  -- XML Index
                + N' LEN '
                + [dbo].[SQLXL_3SD](COALESCE(i.key_total_datatype_length_bytes,0.0),N'B')
                + NCHAR(167)
-               + N'INC    ' -- extra space added to make 2nd column in cell align
+               + N'INC   ' -- extra space added to make 2nd column in cell align
                + TRY_CAST(COALESCE(i.Included_Columns_CNT,0) AS NVARCHAR(20))
                + N' LEN ' + [dbo].[SQLXL_3SD](COALESCE(i.inc_total_datatype_length_bytes,0),N'I') + N'B'
 
