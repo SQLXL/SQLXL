@@ -1,4 +1,4 @@
--- VERSION 2024.07.24
+-- VERSION 2024.07.29
 /******************************************************************************************************************************************\
 PLEASE NOTE: All SQLXL objects are created in in the database your SSMS or ADS session is connected to.
 ALSO NOTE: Please connect to a database with SQL 2012 or higher compatibility - this tool uses TRY_CAST & TRY_COVERT which came in SQL 2012
@@ -141,40 +141,68 @@ GO
 /******************************************************************************************************************************************\
 -- Creation Session settings
 \******************************************************************************************************************************************/
-SET ANSI_NULLS               ON;
-SET ANSI_NULL_DFLT_ON        ON;
-SET ANSI_PADDING             ON;
-SET ANSI_WARNINGS            ON;
-SET ARITHABORT               ON;
-SET CONCAT_NULL_YIELDS_NULL  ON;
-SET CURSOR_CLOSE_ON_COMMIT   ON;
-SET NOCOUNT                  ON;
-SET QUOTED_IDENTIFIER        ON;
-SET XACT_ABORT               ON;
-
+SET ANSI_NULLS              ON;
+SET ANSI_WARNINGS           ON;
+SET ARITHABORT              ON;
 SET ARITHIGNORE             OFF;
+SET CURSOR_CLOSE_ON_COMMIT  OFF;
+SET DATEFORMAT              YMD;
+SET DEADLOCK_PRIORITY       -10; -- Lowest priority
 SET FMTONLY                 OFF;
 SET FORCEPLAN               OFF;
 SET IMPLICIT_TRANSACTIONS   OFF;
+SET LOCK_TIMEOUT           1000; -- in milliseconds
+SET NOCOUNT                 ON;
 SET NOEXEC                  OFF;
 SET NUMERIC_ROUNDABORT      OFF;
-SET STATISTICS IO,PROFILE,TIME,XML OFF;
-
-SET DATEFORMAT              YMD;
-SET DEADLOCK_PRIORITY       -10; -- Lowest priority
-SET LOCK_TIMEOUT          10000; -- in milliseconds
 SET QUERY_GOVERNOR_COST_LIMIT 0; -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
-SET ROWCOUNT                  0;
-SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum
+SET QUOTED_IDENTIFIER        ON;
+SET ROWCOUNT                  0; -- all rows are returned
+SET STATISTICS IO,PROFILE,TIME,XML OFF;
+SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum character count
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED; -- read rows that have been modified by other transactions but not yet committed
+SET XACT_ABORT               ON;
 
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+/******************************************************************************************************************************************/
+-- function dbo.SQLXL_DTTM_HMSM - return a DATETIME type formatted elapsed value
+-- If >= 24 hours returns time in days
+-- If >= 60 minutes returns time in Hours
+-- If <  60 minutes returns time in MI:SS.mmm
+/******************************************************************************************************************************************/
+IF OBJECT_ID(N'dbo.SQLXL_DTTM_HMSM') IS NULL
+   EXEC(N'CREATE FUNCTION dbo.SQLXL_DTTM_HMSM() RETURNS BIT AS BEGIN RETURN 0 END');
+GO
+
+ALTER FUNCTION dbo.SQLXL_DTTM_HMSM
+     (@dt DATETIME
+     )
+/* Returns elapsed date & time value as "#.## Day" -or- "#.## Hour" -or- "MM:SS:mmm" */
+RETURNS NVARCHAR(20)
+AS
+BEGIN
+   IF @dt IS NULL RETURN N''
+
+   DECLARE @df FLOAT = CONVERT(FLOAT,@dt,1)
+
+   RETURN RTRIM(
+
+   CASE WHEN @df  =  -1          THEN N'NO LIMIT '
+        WHEN @df  =   0          THEN N'00:00:000'
+        WHEN @df >= 365.0        THEN LEFT(CAST(CONVERT(MONEY,@df / 365.0,1) AS NVARCHAR(10)) + N'yy      ',9)
+        WHEN @df >=   1.0        THEN LEFT(CAST(CONVERT(MONEY,@df        ,1) AS NVARCHAR(10)) + N'dd      ',9)
+        WHEN @df >=   1.0/(24.0) THEN LEFT(CAST(CONVERT(MONEY,@df * 24.0 ,1) AS NVARCHAR(10)) + N'hh      ',9)
+        ELSE RIGHT(CONVERT(NVARCHAR(12),@dt,114),9)
+   END COLLATE DATABASE_DEFAULT)
+
+END;
+GO
+
+RAISERROR (N'Created function dbo.SQLXL_DTTM_HMSM',0,0) WITH NOWAIT;
 
 /******************************************************************************************************************************************\
 -- Drop all previous SQLXL_Index (SQLXL_Index_%) tables in case of data structure change with latest version.
 -- TRUNCATE/REBUILD is used to clear out any missing index recommendations that were created for those objects
 \******************************************************************************************************************************************/
-IF @@TRANCOUNT > 0 COMMIT;
-
 DECLARE @sql        NVARCHAR(MAX)
        ,@run_value  NVARCHAR(4000)
        ,@ssms_ads   TINYINT       = 1
@@ -217,15 +245,12 @@ BEGIN
 
    BEGIN TRY
       EXECUTE sp_executesql @sql;
-      IF @@TRANCOUNT > 0 COMMIT;
    END TRY
    BEGIN CATCH
       SET @run_value = N'FAIL on ' + @sql
       RAISERROR (@run_value,0,0) WITH NOWAIT;
    END CATCH
 END
-
-IF @@TRANCOUNT > 0 COMMIT;
 
 /******************************************************************************************************************************************\
 -- Temporarily create other procs & functions called to avoid warning messages
@@ -284,33 +309,27 @@ AS
 /******************************************************************************************************************************************\
 -- Procedure Environment settings
 \******************************************************************************************************************************************/
-SET ANSI_NULLS               ON;
-SET ANSI_NULL_DFLT_ON        ON;
-SET ANSI_PADDING             ON;
-SET ANSI_WARNINGS            ON;
-SET ARITHABORT               ON;
-SET CONCAT_NULL_YIELDS_NULL  ON;
-SET CURSOR_CLOSE_ON_COMMIT   ON;
-SET NOCOUNT                  ON;
-SET QUOTED_IDENTIFIER        ON;
-SET XACT_ABORT               ON;
-
+SET ANSI_NULLS              ON;
+SET ANSI_WARNINGS           ON;
+SET ARITHABORT              ON;
 SET ARITHIGNORE             OFF;
+SET CURSOR_CLOSE_ON_COMMIT  OFF;
+SET DATEFORMAT              YMD;
+SET DEADLOCK_PRIORITY       -10; -- Lowest priority
 SET FMTONLY                 OFF;
 SET FORCEPLAN               OFF;
 SET IMPLICIT_TRANSACTIONS   OFF;
+SET LOCK_TIMEOUT           1000; -- in milliseconds
+SET NOCOUNT                 ON;
 SET NOEXEC                  OFF;
 SET NUMERIC_ROUNDABORT      OFF;
-SET STATISTICS IO,PROFILE,TIME,XML OFF;
-
-SET DATEFORMAT              YMD;
-SET DEADLOCK_PRIORITY       -10; -- Lowest priority
-SET LOCK_TIMEOUT          10000; -- in milliseconds
 SET QUERY_GOVERNOR_COST_LIMIT 0; -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
-SET ROWCOUNT                  0;
-SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum
-
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SET QUOTED_IDENTIFIER        ON;
+SET ROWCOUNT                  0; -- all rows are returned
+SET STATISTICS IO,PROFILE,TIME,XML OFF;
+SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum character count
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED; -- read rows that have been modified by other transactions but not yet committed
+SET XACT_ABORT               ON;
 
 /******************************************************************************************************************************************\
 -- Local Procedure variables
@@ -1070,13 +1089,13 @@ SELECT TOP (0)
       -- last_statement_sql_handle -- Used by Query Store, references the statement_sql_handle
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_missing_index_group_stats_query];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[dm_db_missing_index_group_stats_query]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
-   SET @sql = N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
+   SET @sql = N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_missing_index_group_stats_query]' + N'
 SELECT group_handle
@@ -1141,7 +1160,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF OBJECT_ID('[sys].[dm_db_missing_index_group_stats_query]') IS NOT NULL
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -1558,7 +1577,7 @@ BEGIN
     INTO @database_id
         ,@database_name_quoted;
 
-   IF @@Fetch_Status < 0 BREAK;
+   IF @@FETCH_STATUS < 0 BREAK;
 
    IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -1581,7 +1600,7 @@ DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databa
        ,@engineedition INT           = 4
        ,@exec_dttm     DATETIME      = GETDATE()
        ,@i             INT           = 1
-       ,@sql           NVARCHAR(MAX)
+       ,@sql           NVARCHAR(MAX)                                                                          
        ,@ssms_ads      TINYINT       = 2
        ,@tgtDB         NVARCHAR(131) = N'[tempdb].'
 
@@ -1591,7 +1610,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_database_scoped_configurations]') IS NOT N
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
@@ -1626,7 +1645,7 @@ OPTION (MAXDOP 1);'
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 END
 
@@ -1681,14 +1700,14 @@ SELECT TOP (0)
       ,reason_desc        = CAST(NULL AS NVARCHAR(60))  COLLATE ' + @collation + N'
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_automatic_tuning_options];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[database_automatic_tuning_options]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_automatic_tuning_options]' + N'
 SELECT database_id        = DB_ID()
@@ -1715,7 +1734,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -1773,14 +1792,14 @@ SELECT TOP(0)
       ,capture_policy_stale_threshold_hours       = CAST(NULL AS INT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_query_store_options];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[database_query_store_options]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_query_store_options]' + N'
 SELECT database_id                                = DB_ID()
@@ -1822,7 +1841,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -1871,14 +1890,14 @@ SELECT TOP (0)
       ,capture_instance_ID  = CAST(NULL AS INT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables];'
 
-  EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+  EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- check if [cdc].[change_tables] exists. If so collect it
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(SERVERPROPERTY(N'EngineEdition') <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 IF OBJECT_ID(N''[cdc].[change_tables]'') IS NOT NULL
 BEGIN
    DECLARE @sql NVARCHAR(MAX);
@@ -1901,11 +1920,11 @@ SELECT database_id          = DB_ID()
                                                 )
   FROM [cdc].[change_tables]'';
 
-  EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR(''### BLAMMO ! ###'',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+  EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR(''### BLAMMO ! ###'',0,0) WITH NOWAIT; END
 
 END'
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
 BEGIN
@@ -1943,7 +1962,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_schemas]') IS NOT NULL
 --*/
 -------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_schemas]'
@@ -1968,7 +1987,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -2022,7 +2041,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_tables]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2012+ -----------------------------------------------------------------------------
@@ -2166,7 +2185,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -2207,14 +2226,14 @@ SELECT TOP (0)
       ,filestream_data_space_id = CAST(NULL AS INT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_internal_tables];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[internal_tables]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_internal_tables]' + N'
 SELECT database_id              = DB_ID()
@@ -2241,7 +2260,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -2280,7 +2299,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_objects]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 DECLARE @ssms_ads  TINYINT = 1
        ,@msg       NVARCHAR(1000)
@@ -2344,7 +2363,7 @@ BEGIN TRY
      INTO #sys_sql_modules
      FROM newcol
     CROSS
-    APPLY (SELECT object_id
+    APPLY (SELECT m.object_id
                  ,definition = STUFF(definition,1,ISNULL(NULLIF(PATINDEX(@Pattern,definition),0)-1,0),N'''') COLLATE ' + @collation + N'
                  ,uses_ansi_nulls
                  ,uses_quoted_identifier
@@ -2357,18 +2376,23 @@ BEGIN TRY
                  ,inline_type
                  ,is_inlineable
              FROM [sys].[sql_modules] AS m WITH (READCOMMITTED,READPAST)
-          ) AS sm
-     JOIN #sys_objects AS o
-       ON sm.object_id  = o.object_id
-    WHERE o.type
-       IN (--------------------------------------------------------------------------------------------------------------
-           -- "Indexable"
-           --------------------------------------------------------------------------------------------------------------
-           N''F''  -- Foreign Key Constraint
-          ,N''IT'' -- Internal Table
-          ,N''U''  -- Table (user-defined)
-          ,N''V''  -- View
-          )
+             JOIN #sys_objects AS o
+               ON m.object_id  = o.object_id
+            WHERE o.type
+               IN (N''AF'' -- Aggregate function (CLR)
+                  ,N''FN'' -- SQL scalar function
+                  ,N''FS'' -- Assembly (CLR) scalar-function
+                  ,N''FT'' -- Assembly (CLR) table-valued function
+                  ,N''IF'' -- SQL inline table-valued function
+                  ,N''TF'' -- SQL table valued function SQL 2012+
+                  ,N''P''  -- SQL stored procedure
+                  ,N''PC'' -- Assembly (CLR) stored-procedure
+                  ,N''R''  -- Rule (old-style, stand-alone)
+                  ,N''X''  -- Extended stored procedure
+                  ,N''TA'' -- Assembly (CLR) DML trigger
+                  ,N''TR'' -- SQL DML trigger
+                  )
+          ) AS sm;
 
    IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
       SET @msg = ' + @tgtDB + N'[dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -2413,8 +2437,6 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @exec_dttm = GETDATE();
 END
 
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
---------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2014 ----------------------------------------
        is_memory_optimized     = CONVERT(BIT,NULL)
@@ -2520,6 +2542,7 @@ SELECT database_id      = DB_ID()
                               --------------------------------------------------------------------------------------------------------------
                               N''F''  -- Foreign Key Constraint (can be supported by index)
                              ,N''IT'' -- Internal Table
+                             ,N''TF'' -- SQL table valued function SQL 2012+
                              ,N''U''  -- Table (user-defined)
                              ,N''V''  -- View (can be indexed)
                               --------------------------------------------------------------------------------------------------------------
@@ -2565,6 +2588,7 @@ SELECT database_id      = DB_ID()
                               --------------------------------------------------------------------------------------------------------------
                               N''F''  -- Foreign Key Constraint (can be supported by index)
                              ,N''IT'' -- Internal Table
+                             ,N''TF'' -- SQL table-valued-function SQL 2012+
                              ,N''U''  -- Table (user-defined)
                              ,N''V''  -- View (can be indexed)
                               --------------------------------------------------------------------------------------------------------------
@@ -2588,7 +2612,6 @@ SELECT database_id      = DB_ID()
                              ,N''PC'' -- Assembly (CLR) stored-procedure
                              ,N''R''  -- Rule (old-style, stand-alone)
                              ,N''TA'' -- Assembly (CLR) DML trigger
-                             ,N''TF'' -- SQL table-valued-function SQL 2012+
                              ,N''X''  -- Extended stored procedure
                              ,N''TR'' -- SQL DML trigger
                              ,N''TT'' -- Table types, can also be memory optimized
@@ -2672,7 +2695,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -2765,7 +2788,7 @@ SELECT TOP (0)
       ,partition_function_modify_date     = CAST(NULL AS DATETIME)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_data_spaces];'
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 END -- IF @i = 1
 
@@ -2777,7 +2800,7 @@ AND OBJECT_ID('[sys].[partition_functions]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2012 -------------------------------------
@@ -2859,7 +2882,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -2886,7 +2909,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_default_constraints]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 DECLARE @Pattern NVARCHAR(15)  = ''%[^'' + NCHAR(9) + NCHAR(13) + NCHAR(10) + NCHAR(32) + '']%'';'
 
@@ -2919,7 +2942,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -2946,7 +2969,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_types]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_types]'
@@ -2984,7 +3007,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -3037,14 +3060,14 @@ SELECT TOP (0)
       ,is_ambiguous              = CAST(NULL AS BIT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_sql_expression_dependencies];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[sql_expression_dependencies]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_sql_expression_dependencies]' + N'
 SELECT database_id               = DB_ID()
@@ -3079,7 +3102,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -3120,7 +3143,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_columns]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;IF @@TRANCOUNT > 0 COMMIT;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2016+, Azure SQL Database -------------------------------------------------------
@@ -3295,18 +3318,18 @@ SELECT database_id             = DB_ID()
           FROM ' + @tgtDB + N'[sys].[computed_columns] AS cc
          OUTER
          APPLY (-- look for computed columns using FUNCTIONS or PROCEDURES
-                SELECT uses_sql_proc = SUM(IIF(o.type IN (N''P''  -- SQL Stored Procedure
-                                                         ,N''PC'' -- Assembly (CLR) stored-procedure
-                                                         ,N''X''  -- Extended stored procedure
-                                                         )
-                                              ,1
-                                              ,0))
-                      ,uses_sql_ftn  = SUM(IIF(o.type IN (N''AF'' -- Aggregate function (CLR)
+                SELECT uses_sql_ftn  = SUM(IIF(o.type IN (N''AF'' -- Aggregate function (CLR)
                                                          ,N''FN'' -- SQL scalar function
                                                          ,N''FS'' -- Assembly (CLR) scalar-function
                                                          ,N''FT'' -- Assembly (CLR) table-valued function
                                                          ,N''IF'' -- SQL inline table-valued function (TVF)
                                                          ,N''TF'' -- SQL table-valued-function SQL 2012+
+                                                         )
+                                              ,1
+                                              ,0))
+                      ,uses_sql_proc = SUM(IIF(o.type IN (N''P''  -- SQL Stored Procedure
+                                                         ,N''PC'' -- Assembly (CLR) stored-procedure
+                                                         ,N''X''  -- Extended stored procedure
                                                          )
                                               ,1
                                               ,0))
@@ -3327,8 +3350,12 @@ SELECT database_id             = DB_ID()
                                  ,N''PC'' -- Assembly (CLR) stored-procedure
                                  ,N''X''  -- Extended stored procedure
                                  )
-                   AND CHARINDEX(QUOTENAME(s.name) + N''.'' + QUOTENAME(o.name) COLLATE ' + @collation + N'
-                                ,cc.definition COLLATE ' + @collation + N') > 0
+                   AND CHARINDEX(s.name + N''.'' + o.name COLLATE ' + @collation + N'
+                                ,REPLACE(
+                                 REPLACE(cc.definition
+                                        ,N''['',N'''')
+                                        ,N'']'',N'''') COLLATE ' + @collation + N'
+                                ) > 0 
                ) AS pf
        ) AS cc
     ON c.object_id = cc.object_id
@@ -3379,7 +3406,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -3415,7 +3442,7 @@ SELECT TOP (0)
       ,user_type_id = CAST(NULL AS INT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_column_type_usages];'
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 END -- IF @i = 1
 
@@ -3423,7 +3450,7 @@ IF OBJECT_ID('[sys].[column_type_usages]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_column_type_usages]
 SELECT database_id   = DB_ID()
@@ -3444,7 +3471,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -3463,7 +3490,7 @@ DECLARE @database_id INT = DB_ID(N'WideWorldImporters')
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 INSERT
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_tables]
@@ -3555,7 +3582,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_check_constraints]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 DECLARE @Pattern   NVARCHAR(15)  = ''%[^'' + NCHAR(9) + NCHAR(13) + NCHAR(10) + NCHAR(32) + '']%'';'
 
@@ -3620,7 +3647,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -3649,7 +3676,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_key_constraints]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT is_enforced = CONVERT(BIT,NULL)
@@ -3685,7 +3712,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -3729,14 +3756,14 @@ SELECT TOP (0)
       ,is_system_named                = CONVERT(BIT    ,NULL)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_edge_constraints];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[dm_db_column_store_row_group_physical_stats]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_edge_constraints]' + N'
 SELECT database_id      = DB_ID()
@@ -3766,7 +3793,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -3804,14 +3831,14 @@ SELECT TOP (0)
       ,clause_number  = CONVERT(INT,NULL)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_edge_constraint_clauses];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[edge_constraint_clauses]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_edge_constraint_clauses]' + N'
 SELECT database_id    = DB_ID()
@@ -3834,7 +3861,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -3873,14 +3900,14 @@ SELECT TOP (0)
       ,tessellation_scheme     = CAST(NULL AS SYSNAME)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_indexes];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[spatial_indexes]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_indexes]' + N'
 SELECT database_id             = DB_ID()
@@ -3905,7 +3932,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -3955,14 +3982,14 @@ SELECT TOP (0)
       ,cells_per_object    = CAST(NULL AS INT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_index_tessellations];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[spatial_index_tessellations]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_index_tessellations]' + N'
 SELECT database_id         = DB_ID()
@@ -3998,7 +4025,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -4040,14 +4067,14 @@ SELECT TOP (0)
       ,path_id                    = CAST(NULL AS INT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_xml_indexes];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[spatial_indexes]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_xml_indexes]' + N'
 SELECT database_id                = DB_ID()
@@ -4075,7 +4102,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -4113,14 +4140,14 @@ SELECT TOP(0)
       ,bucket_count = CAST(NULL AS INT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_hash_indexes];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[hash_indexes]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_hash_indexes]' + N'
 SELECT database_id  = DB_ID()
@@ -4144,7 +4171,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -4176,7 +4203,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_indexes]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 DECLARE @Pattern   NVARCHAR(15)  = ''%[^'' + NChar(9) + NCHAR(10) + NCHAR(13) + NCHAR(32) + '']%'';
 
@@ -4290,7 +4317,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4320,7 +4347,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_fulltext_indexes]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT property_list_id = CONVERT(INT,NULL)
@@ -4364,7 +4391,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4403,14 +4430,14 @@ SELECT TOP (0)
       ,is_importing             = CAST(NULL AS BIT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_fulltext_catalogs];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[fulltext_catalogs]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_fulltext_catalogs]' + N'
 SELECT database_id                = DB_ID()
@@ -4435,7 +4462,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -4463,7 +4490,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_foreign_keys]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_foreign_keys]'
@@ -4508,7 +4535,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4536,7 +4563,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_foreign_key_columns]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_foreign_key_columns]'
@@ -4565,7 +4592,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4596,7 +4623,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_index_columns]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT column_store_order_ordinal = CONVERT(INT,NULL)
@@ -4654,7 +4681,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4681,7 +4708,7 @@ DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databa
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT statistical_semantics = CONVERT(INT,NULL)
@@ -4759,7 +4786,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4812,7 +4839,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_extended_properties]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_extended_properties]'
@@ -4842,7 +4869,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4877,7 +4904,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_stats]') IS NOT NULL
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 DECLARE @Pattern   NVARCHAR(15)  = ''%[^'' + NChar(9) + NCHAR(10) + NCHAR(13) + NCHAR(32) + '']%'';
 
@@ -4933,7 +4960,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4965,7 +4992,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_stats_columns]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_stats_columns]'
@@ -4995,7 +5022,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -5029,7 +5056,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_db_partition_stats]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_partition_stats]'
@@ -5068,7 +5095,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -5103,7 +5130,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_db_stats_properties]') IS NOT NULL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
@@ -5152,7 +5179,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -5212,7 +5239,7 @@ IF OBJECT_ID('[sys].[dm_db_incremental_stats_properties]') IS NOT NULL
 BEGIN
 -----------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -----------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
@@ -5257,7 +5284,7 @@ OPTION (MAXDOP 1);'
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END;
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -5293,7 +5320,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_partitions]') IS NOT NULL
 --*/
 -----------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT xml_compression = CONVERT(BIT,NULL)
@@ -5345,7 +5372,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -5431,7 +5458,7 @@ IF OBJECT_ID('[sys].[internal_partitions]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT optimize_for_sequential_key = CONVERT(BIT,NULL) -- SQL 2019+, Azure SQL Database
@@ -5556,7 +5583,7 @@ IF OBJECT_ID('[sys].[dm_db_xtp_index_stats]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT uses_key_normalization = CONVERT(BIT   ,NULL) -- 2016+
@@ -5703,7 +5730,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -5737,7 +5764,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors_EXT]') IS NOT NUL
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors_EXT]'
@@ -5810,7 +5837,7 @@ IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
          ,sql3 = SUBSTRING(@sql,32768,16383);
    SET @exec_dttm = GETDATE();
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -5863,7 +5890,7 @@ SELECT TOP (0)
       ,closed_time                         = CAST(NULL AS DATETIME)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats];'
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 END -- IF @i = 1
 
@@ -5871,7 +5898,7 @@ IF OBJECT_ID('[sys].[dm_db_column_store_row_group_physical_stats]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats]' + N'
 SELECT database_id                         = DB_ID()
@@ -5908,7 +5935,7 @@ BEGIN
    SET @exec_dttm = GETDATE();
 END
 
-EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
 END
 
@@ -5959,14 +5986,14 @@ SELECT TOP (0)
       ,input_groupby_row_CNT   = CAST(NULL AS BIGINT)
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[dm_db_column_store_row_group_operational_stats]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2019+ -----------------------------------
@@ -6015,7 +6042,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -6060,14 +6087,14 @@ SELECT TOP (0)
       ,sql_text             = CAST(NULL AS NVARCHAR(MAX)) COLLATE ' + @collation + N'
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_index_resumable_operations];'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[index_resumable_operations]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_index_resumable_operations]' + N'
 SELECT database_id          = DB_ID()
@@ -6102,7 +6129,7 @@ OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced beca
       SET @exec_dttm = GETDATE();
    END
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 END
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -6142,7 +6169,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_ShowStatistics_Histogram_summary]') IS NOT
 --*/
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
-+N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET ANSI_DEFAULTS ON;SET NOCOUNT ON;
++N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 SET XACT_ABORT ON;             -- automatically roll back the current transaction when a statement raises a run-time error
 SET IMPLICIT_TRANSACTIONS OFF; -- occasionally implicit transactions are created by the DBCC SHOW_STATISTICS function
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -6474,7 +6501,6 @@ DBCC SHOW_STATISTICS ('''''' + @object_name        + N'''''','' + @stats_target_
                ,INDEX_ID        = @index_ID
                ,COLUMN_ID       = @column_id
                ,STATISTICS_NAME = @stats_target_name;
-      IF @@TRANCOUNT > 0 COMMIT;
    END CATCH
 
    BEGIN TRY
@@ -6512,7 +6538,6 @@ DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''','' + @stats_target_name + 
                ,INDEX_ID        = @index_ID
                ,COLUMN_ID       = @column_id
                ,STATISTICS_NAME = @stats_target_name;
-      IF @@TRANCOUNT > 0 COMMIT;
    END CATCH
 
    BEGIN TRY
@@ -6573,7 +6598,6 @@ DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''','' + @stats_target_name + 
                ,INDEX_ID        = @index_ID
                ,COLUMN_ID       = @column_id
                ,STATISTICS_NAME = @stats_target_name;
-      IF @@TRANCOUNT > 0 COMMIT;
    END CATCH
 
    -- Reset temp table for next batch of statistics
@@ -6586,7 +6610,7 @@ END
 CLOSE stats_crsr;
 DEALLOCATE stats_crsr;'
 
-   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END; IF @@TRANCOUNT > 0 COMMIT;
+   EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
 
    SET @i = @i + 1;
 
@@ -26039,41 +26063,41 @@ GO
 
 RAISERROR (N'Created function dbo.SQLXL_3SD',0,0) WITH NOWAIT;
 
-/******************************************************************************************************************************************/
--- function dbo.SQLXL_DTTM_HMSM - return a DATETIME type formatted elapsed value
--- If >= 24 hours returns time in days
--- If >= 60 minutes returns time in Hours
--- If <  60 minutes returns time in MI:SS.mmm
-/******************************************************************************************************************************************/
-IF OBJECT_ID(N'dbo.SQLXL_DTTM_HMSM') IS NULL
-   EXEC(N'CREATE FUNCTION dbo.SQLXL_DTTM_HMSM() RETURNS BIT AS BEGIN RETURN 0 END');
-GO
-
-ALTER FUNCTION dbo.SQLXL_DTTM_HMSM
-     (@dt DATETIME
-     )
-/* Returns absolute date & time value as "#.## Day" -or- "#.## Hour" -or- "MM:SS:mmm" */
-RETURNS NVARCHAR(20)
-AS
-BEGIN
-   IF @dt IS NULL RETURN N''
-
-   DECLARE @df FLOAT = CONVERT(FLOAT,@dt,1)
-
-   RETURN RTRIM(
-
-   CASE WHEN @df  =  -1               THEN N'NO LIMIT'
-        WHEN @df  =   0               THEN N'00:00:000'
-        WHEN @df >= 365.0             THEN dbo.SQLXL_3SD(@df / 365.0      ,N'N') + N'yy      ' -- extra space added to make columns line up
-        WHEN @df >=   1.0             THEN dbo.SQLXL_3SD(@df              ,N'N') + N'dd      ' -- extra space added to make columns line up
-        WHEN @df >=   1.0/(24.0)      THEN dbo.SQLXL_3SD(@df * 24.0       ,N'N') + N'hh      ' -- extra space added to make columns line up
-        ELSE RIGHT(CONVERT(NVARCHAR(12),@dt,114),9)
-   END COLLATE DATABASE_DEFAULT)
-
-END;
-GO
-
-RAISERROR (N'Created function dbo.SQLXL_DTTM_HMSM',0,0) WITH NOWAIT;
+-- /******************************************************************************************************************************************/
+-- -- function dbo.SQLXL_DTTM_HMSM - return a DATETIME type formatted elapsed value
+-- -- If >= 24 hours returns time in days
+-- -- If >= 60 minutes returns time in Hours
+-- -- If <  60 minutes returns time in MI:SS.mmm
+-- /******************************************************************************************************************************************/
+-- IF OBJECT_ID(N'dbo.SQLXL_DTTM_HMSM') IS NULL
+--    EXEC(N'CREATE FUNCTION dbo.SQLXL_DTTM_HMSM() RETURNS BIT AS BEGIN RETURN 0 END');
+-- GO
+-- 
+-- ALTER FUNCTION dbo.SQLXL_DTTM_HMSM
+--      (@dt DATETIME
+--      )
+-- /* Returns elapsed date & time value as "#.## Day" -or- "#.## Hour" -or- "MM:SS:mmm" */
+-- RETURNS NVARCHAR(20)
+-- AS
+-- BEGIN
+--    IF @dt IS NULL RETURN N''
+-- 
+--    DECLARE @df FLOAT = CONVERT(FLOAT,@dt,1)
+-- 
+--    RETURN RTRIM(
+-- 
+--    CASE WHEN @df  =  -1               THEN N'NO LIMIT'
+--         WHEN @df  =   0               THEN N'00:00:000'
+--         WHEN @df >= 365.0             THEN dbo.SQLXL_3SD(@df / 365.0      ,N'N') + N'yy      ' -- extra space added to make columns line up
+--         WHEN @df >=   1.0             THEN dbo.SQLXL_3SD(@df              ,N'N') + N'dd      ' -- extra space added to make columns line up
+--         WHEN @df >=   1.0/(24.0)      THEN dbo.SQLXL_3SD(@df * 24.0       ,N'N') + N'hh      ' -- extra space added to make columns line up
+--         ELSE RIGHT(CONVERT(NVARCHAR(12),@dt,114),9)
+--    END COLLATE DATABASE_DEFAULT)
+-- 
+-- END;
+-- GO
+-- 
+-- RAISERROR (N'Created function dbo.SQLXL_DTTM_HMSM',0,0) WITH NOWAIT;
 
 /******************************************************************************************************************************************/
 -- function dbo.SQLXL_INT_DTTM - Converts BIGINT time count to elapsed DATETIME (e.g. MILLISECONDS -> HOURS)
@@ -26159,33 +26183,27 @@ SQL Server EngineEditions including Azure
 /******************************************************************************************************************************************\
 -- Session Environment settings
 \******************************************************************************************************************************************/
-SET ANSI_NULLS               ON;
-SET ANSI_NULL_DFLT_ON        ON;
-SET ANSI_PADDING             ON;
-SET ANSI_WARNINGS            ON;
-SET ARITHABORT               ON;
-SET CONCAT_NULL_YIELDS_NULL  ON;
-SET CURSOR_CLOSE_ON_COMMIT   ON;
-SET NOCOUNT                  ON;
-SET QUOTED_IDENTIFIER        ON;
-SET XACT_ABORT               ON;
-
+SET ANSI_NULLS              ON;
+SET ANSI_WARNINGS           ON;
+SET ARITHABORT              ON;
 SET ARITHIGNORE             OFF;
+SET CURSOR_CLOSE_ON_COMMIT  OFF;
+SET DATEFORMAT              YMD;
+SET DEADLOCK_PRIORITY       -10; -- Lowest priority
 SET FMTONLY                 OFF;
 SET FORCEPLAN               OFF;
 SET IMPLICIT_TRANSACTIONS   OFF;
+SET LOCK_TIMEOUT           1000; -- in milliseconds
+SET NOCOUNT                 ON;
 SET NOEXEC                  OFF;
 SET NUMERIC_ROUNDABORT      OFF;
-SET STATISTICS IO,PROFILE,TIME,XML OFF;
-
-SET DATEFORMAT              YMD;
-SET DEADLOCK_PRIORITY       -10; -- Lowest priority
-SET LOCK_TIMEOUT          10000; -- in milliseconds
 SET QUERY_GOVERNOR_COST_LIMIT 0; -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
-SET ROWCOUNT                  0;
-SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum
-
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SET QUOTED_IDENTIFIER        ON;
+SET ROWCOUNT                  0; -- all rows are returned
+SET STATISTICS IO,PROFILE,TIME,XML OFF;
+SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum character count
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED; -- read rows that have been modified by other transactions but not yet committed
+SET XACT_ABORT               ON;
 
 /******************************************************************************************************************************************\
 Create table to store computed & formatted metric values. Needed for creation script below
@@ -26252,33 +26270,27 @@ AS
 /******************************************************************************************************************************************\
 -- Procedure Environment settings
 \******************************************************************************************************************************************/
-SET ANSI_NULLS               ON;
-SET ANSI_NULL_DFLT_ON        ON;
-SET ANSI_PADDING             ON;
-SET ANSI_WARNINGS            ON;
-SET ARITHABORT               ON;
-SET CONCAT_NULL_YIELDS_NULL  ON;
-SET CURSOR_CLOSE_ON_COMMIT   ON;
-SET NOCOUNT                  ON;
-SET QUOTED_IDENTIFIER        ON;
-SET XACT_ABORT               ON;
-
+SET ANSI_NULLS              ON;
+SET ANSI_WARNINGS           ON;
+SET ARITHABORT              ON;
 SET ARITHIGNORE             OFF;
+SET CURSOR_CLOSE_ON_COMMIT  OFF;
+SET DATEFORMAT              YMD;
+SET DEADLOCK_PRIORITY       -10; -- Lowest priority
 SET FMTONLY                 OFF;
 SET FORCEPLAN               OFF;
 SET IMPLICIT_TRANSACTIONS   OFF;
+SET LOCK_TIMEOUT           1000; -- in milliseconds
+SET NOCOUNT                 ON;
 SET NOEXEC                  OFF;
 SET NUMERIC_ROUNDABORT      OFF;
-SET STATISTICS IO,PROFILE,TIME,XML OFF;
-
-SET DATEFORMAT              YMD;
-SET DEADLOCK_PRIORITY       -10; -- Lowest priority
-SET LOCK_TIMEOUT          10000; -- in milliseconds
 SET QUERY_GOVERNOR_COST_LIMIT 0; -- 0 (the default) turns off the query governor, queries of any cost are allowed to execute.
-SET ROWCOUNT                  0;
-SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum
-
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SET QUOTED_IDENTIFIER        ON;
+SET ROWCOUNT                  0; -- all rows are returned
+SET STATISTICS IO,PROFILE,TIME,XML OFF;
+SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum character count
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED; -- read rows that have been modified by other transactions but not yet committed
+SET XACT_ABORT               ON;
 
 SELECT
 /******************************************************************************************************************************************\
@@ -26289,7 +26301,7 @@ P - Parent object - rowstore table, clustered columnstore, View, SQL Table Value
 S - internal table or system object
 I - Index, foreign key, missing index,
 
-Column Format Control - Append "|" (pipe) character for number format:
+Excel Column Format Control - Append "|" (pipe) character for number format:
   |D... - Date &/or Time
   |E    - Exponent no decimals (same as E0)
   |E#   - Exponent with # decimals
@@ -26300,14 +26312,14 @@ Column Format Control - Append "|" (pipe) character for number format:
   |URL  - format cell as LINK
   |HTML - format cell as LINK
 
-column names with "\" (backslash) character code to identify columns to be formatted with a COLOR SCALE:
+Excel column names with "\" (backslash) character code to identify columns to be formatted with a COLOR SCALE:
   \B - a number with LARGEST VALUE BAD - RED
   \G - a number with LARGEST VALUE GOOD - GREEN
 
-Column Label Format
+Excel Column Label Format
   "!"  (exclamation) character code to identify columns to be formatted BOLD
   "!H" Bold Font and bigger size
-  "~" (tilda) character code to identify locations of Line feeds (CHRW(10))
+  "~" (tilda) character code to identify locations of Line feeds to be replaced with CHRW(10)
 
 \******************************************************************************************************************************************/
 
