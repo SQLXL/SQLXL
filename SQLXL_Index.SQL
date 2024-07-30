@@ -1,4 +1,4 @@
--- VERSION 2024.07.29.2
+-- VERSION 2024.07.30.0
 /******************************************************************************************************************************************\
 PLEASE NOTE: All SQLXL objects are created in in the database your SSMS or ADS session is connected to.
 ALSO NOTE: Please connect to a database with SQL 2012 or higher compatibility - this tool uses TRY_CAST & TRY_COVERT which came in SQL 2012
@@ -75,6 +75,7 @@ Let the user know if this won't run on their version of SQL Server
 *NOTE* TRY_CONVERT & TRY_CAST introduced in SQL 2012. If a database has COMPATIBILITY LEVEL < SQL 2012 they will not work.
        They are omitted here.
 \******************************************************************************************************************************************/
+
 --------------------------------------------------------------------------------------------------------------------------
 -- SQLXL does not support on-premise SQL Server prior to 2012
 --------------------------------------------------------------------------------------------------------------------------
@@ -139,7 +140,7 @@ IF CAST(SERVERPROPERTY(N'EngineEdition') AS INT) IN ( 6 -- Azure Synapse Analyti
 GO
 
 /******************************************************************************************************************************************\
--- Creation Session settings
+ Creation Session settings
 \******************************************************************************************************************************************/
 SET ANSI_NULLS              ON;
 SET ANSI_WARNINGS           ON;
@@ -163,12 +164,12 @@ SET TEXTSIZE         2147483647;  -- Use 32767 on export to Excel - cell maximum
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED; -- read rows that have been modified by other transactions but not yet committed
 SET XACT_ABORT               ON;
 
-/******************************************************************************************************************************************/
--- function dbo.SQLXL_DTTM_HMSM - return a DATETIME type formatted elapsed value
--- If >= 24 hours returns time in days
--- If >= 60 minutes returns time in Hours
--- If <  60 minutes returns time in MI:SS.mmm
-/******************************************************************************************************************************************/
+/******************************************************************************************************************************************\
+ Function dbo.SQLXL_DTTM_HMSM - return a DATETIME type formatted elapsed value
+ If >= 24 hours returns time in days
+ If >= 60 minutes returns time in Hours
+ If <  60 minutes returns time in MI:SS.mmm
+\******************************************************************************************************************************************/
 IF OBJECT_ID(N'dbo.SQLXL_DTTM_HMSM') IS NULL
    EXEC(N'CREATE FUNCTION dbo.SQLXL_DTTM_HMSM() RETURNS BIT AS BEGIN RETURN 0 END');
 GO
@@ -188,9 +189,9 @@ BEGIN
 
    CASE WHEN @df  =  -1          THEN N'NO LIMIT '
         WHEN @df  =   0          THEN N'00:00:000'
-        WHEN @df >= 365.0        THEN LEFT(CAST(CONVERT(MONEY,@df / 365.0,1) AS NVARCHAR(10)) + N'yy      ',9)
-        WHEN @df >=   1.0        THEN LEFT(CAST(CONVERT(MONEY,@df        ,1) AS NVARCHAR(10)) + N'dd      ',9)
-        WHEN @df >=   1.0/(24.0) THEN LEFT(CAST(CONVERT(MONEY,@df * 24.0 ,1) AS NVARCHAR(10)) + N'hh      ',9)
+        WHEN @df >= 365.0        THEN LEFT(CAST(CONVERT(MONEY,@df / 365.0,1) AS NVARCHAR(10)) + N'yy      ',9) /* padding for same length */
+        WHEN @df >=   1.0        THEN LEFT(CAST(CONVERT(MONEY,@df        ,1) AS NVARCHAR(10)) + N'dd      ',9) /* padding for same length */
+        WHEN @df >=   1.0/(24.0) THEN LEFT(CAST(CONVERT(MONEY,@df * 24.0 ,1) AS NVARCHAR(10)) + N'hh      ',9) /* padding for same length */
         ELSE RIGHT(CONVERT(NVARCHAR(12),@dt,114),9)
    END COLLATE DATABASE_DEFAULT)
 
@@ -200,8 +201,8 @@ GO
 RAISERROR (N'Created function dbo.SQLXL_DTTM_HMSM',0,0) WITH NOWAIT;
 
 /******************************************************************************************************************************************\
--- Drop all previous SQLXL_Index (SQLXL_Index_%) tables in case of data structure change with latest version.
--- TRUNCATE/REBUILD is used to clear out any missing index recommendations that were created for those objects
+ Drop all previous SQLXL_Index (SQLXL_Index_%) tables in case of data structure change with latest version.
+ TRUNCATE/REBUILD is used to clear out any missing index recommendations that were created for those objects
 \******************************************************************************************************************************************/
 DECLARE @sql        NVARCHAR(MAX)
        ,@run_value  NVARCHAR(4000)
@@ -253,13 +254,13 @@ BEGIN
 END
 
 /******************************************************************************************************************************************\
--- Temporarily create other procs & functions called to avoid warning messages
+ Temporarily create other procs & functions called to avoid warning messages
 \******************************************************************************************************************************************/
 IF OBJECT_ID('[dbo].[SQLXL_Instance]') IS NULL EXEC ('CREATE PROCEDURE [dbo].[SQLXL_Instance] AS RETURN 0;');
 GO
 
 /******************************************************************************************************************************************\
--- Create the procedure [dbo].[SQLXL_Index] - captures source index data, organizes, and investigates for improvement opportunities
+ Create the procedure [dbo].[SQLXL_Index] - captures source index data, organizes, and investigates for improvement opportunities
 \******************************************************************************************************************************************/
 IF OBJECT_ID('[dbo].[SQLXL_Index]') IS NULL EXEC ('CREATE PROCEDURE [dbo].[SQLXL_Index] AS RETURN 0;');
 GO -- required since 'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
@@ -307,7 +308,7 @@ GO -- required since 'CREATE/ALTER PROCEDURE' must be the first statement in a q
 AS
 
 /******************************************************************************************************************************************\
--- Procedure Environment settings
+ Procedure Environment settings
 \******************************************************************************************************************************************/
 SET ANSI_NULLS              ON;
 SET ANSI_WARNINGS           ON;
@@ -332,7 +333,7 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED; -- read rows that have been mo
 SET XACT_ABORT               ON;
 
 /******************************************************************************************************************************************\
--- Local Procedure variables
+ Local Procedure variables
 \******************************************************************************************************************************************/
 DECLARE @collation            SYSNAME  = (SELECT collation_name FROM [sys].[databases] WHERE name = DB_NAME())
        ,@collection_DTTM      DATETIME = GETDATE()
@@ -373,8 +374,8 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- TRUNCATE/REBUILD previous SQLXL index source data stores (SQLXL_Index_%)
--- TRUNCATE/REBUILD is used to clear out any missing index recommendations that were created from the last execution(s)
+ TRUNCATE/REBUILD previous SQLXL index source data stores (SQLXL_Index_%)
+ TRUNCATE/REBUILD is used to clear out any missing index recommendations that were created from the last execution(s)
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @sql        NVARCHAR(MAX)
@@ -430,7 +431,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Create persisted tables to capture platform information.
+ Create persisted tables to capture platform information.
 \******************************************************************************************************************************************/
 -- Instance Startup Parameters
 SELECT collation        = @collation
@@ -457,8 +458,8 @@ In Azure SQL Database:
 sys.database_service_objectives. These two views return database_id values that are unique within the logical server, while DB_ID
 and the database_id column in other system views return values that are unique within a single database or within an elastic pool.
 
-- [sys].[databases] is available in the master database and in user databases. In the master database, this view returns the 
-information on the master database and all user databases on the server. In a user database, this view returns information only on 
+- [sys].[databases] is available in the master database and in user databases. In the master database, this view returns the
+information on the master database and all user databases on the server. In a user database, this view returns information only on
 the current database and the master database.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
@@ -669,7 +670,7 @@ END
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
             + N' [sys].[databases],[change_tracking_databases] -'
-            + CAST(@rowcount AS NVARCHAR(11)) 
+            + CAST(@rowcount AS NVARCHAR(11))
             + N' database(s) found'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
@@ -700,7 +701,7 @@ BEGIN
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[availability_replicas]
+ Collect [sys].[availability_replicas]
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
@@ -791,7 +792,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[dm_hadr_availability_replica_states]
+ Collect [sys].[dm_hadr_availability_replica_states]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -840,7 +841,7 @@ SELECT replica_id
 --    ,current_configuration_commit_start_time_utc -- Omitted since unused
   FROM [sys].[dm_hadr_availability_replica_states]
 ) AS qry -- from CROSS APPLY
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);
 
 ELSE
@@ -979,7 +980,7 @@ BEGIN
 END
 
 /******************************************************************************************************************************************\
--- Missing index columns - [sys].[dm_db_missing_index_columns]
+ Missing index columns - [sys].[dm_db_missing_index_columns]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -1021,13 +1022,13 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Missing index Group Stats Query & query text - SQL 2019+, Azure SQL Database, Azure SQL Managed Instance
--- Only get 1 query for each missing index, based on the query with highest benefit from the missing index
---      and get the details for the plan with the most total reads in [sys].[dm_exec_query_stats] (if more than 1 found)
--- Note from Brent Ozar:
--- "The DMV is only supposed to have 600 rows in it
---  If it's got more, they could see performance slowdowns from flushing out buffer and query cache due to over large memory grant"
---  https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/issues/3085
+ Missing index Group Stats Query & query text - SQL 2019+, Azure SQL Database, Azure SQL Managed Instance
+ Only get 1 query for each missing index, based on the query with highest benefit from the missing index
+      and get the details for the plan with the most total reads in [sys].[dm_exec_query_stats] (if more than 1 found)
+ Note from Brent Ozar:
+ "The DMV is only supposed to have 600 rows in it
+  If it's got more, they could see performance slowdowns from flushing out buffer and query cache due to over large memory grant"
+  https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/issues/3085
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    RAISERROR(N'    Start [sys].[dm_db_missing_index_group_stats] - Most read query & query_text - Azure,SQL 2019',0,0) WITH NOWAIT;
@@ -1057,13 +1058,13 @@ SELECT TOP (0)
       ,last_sql_handle             = CAST(NULL AS VARBINARY(64))
       ,last_statement_start_offset = CAST(NULL AS INT)
       ,last_statement_end_offset   = CAST(NULL AS INT)
-      --------------------------------------------------------------------------------------------------
+      /* -----------------------------------------------------------------------------------------------
       -- from [sys].[dm_exec_query_stats]
-      --------------------------------------------------------------------------------------------------
+      ----------------------------------------------------------------------------------------------- */
       ,plan_handle                 = CAST(NULL AS NVARCHAR(100)) COLLATE ' + @collation + N'
       ,query_plan                  = CAST(NULL AS NVARCHAR(MAX)) COLLATE ' + @collation + N'
       ,query_text                  = CAST(NULL AS NVARCHAR(MAX)) COLLATE ' + @collation + N'
-      --------------------------------------------------------------------------------------------------
+      /* -----------------------------------------------------------------------------------------------
       -- redundant columns OMITTED from [sys].[dm_db_missing_index_group_stats_query]
       -- May be included in a separate table in future version
       --------------------------------------------------------------------------------------------------
@@ -1087,6 +1088,7 @@ SELECT TOP (0)
       -- last_statement_start_offset
       -- last_statement_end_offset
       -- last_statement_sql_handle -- Used by Query Store, references the statement_sql_handle
+      ----------------------------------------------------------------------------------------------- */
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_missing_index_group_stats_query];'
 
    EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END
@@ -1125,27 +1127,27 @@ SELECT group_handle
                                                             * avg_user_impact)
                                                             * (   user_seeks
                                                                + (user_scans * 4.0)
-                                                              ) DESC  -- scans count 4X seeks
+                                                              ) DESC  /*  scans count 4X seeks */
                                               )
                  FROM [sys].[dm_db_missing_index_group_stats_query]
                ) AS migs
           WHERE migs.rn = 1
        ) AS migs
  OUTER
- APPLY (-- get top query plan from [sys].[dm_exec_query_stats] for query_hash with the most reads and worker time if in-memory (XTP)
+ APPLY (/* get top query plan from [sys].[dm_exec_query_stats] for query_hash with the most reads and worker time if in-memory (XTP) */
         SELECT TOP (1)
                qs.plan_handle
           FROM [sys].[dm_exec_query_stats] AS qs
          WHERE migs.query_hash = qs.query_hash
          ORDER BY
-               (qs.total_physical_reads + qs.total_logical_reads) DESC -- total reads. Will always be 0 querying a memory-optimized table.
+               (qs.total_physical_reads + qs.total_logical_reads) DESC /* total reads. Will always be 0 querying a memory-optimized table */
               ,qs.total_worker_time                               DESC
        ) qs
  OUTER
  APPLY [sys].[dm_exec_query_plan] (qs.plan_handle)     AS qp
  OUTER
  APPLY [sys].[dm_exec_sql_text] (migs.last_sql_handle) AS st
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -1173,8 +1175,8 @@ END
 /******************************************************************************************************************************************\
 Collect [sys].[dm_db_index_usage_stats] for one or all user databases
 ---------------------------------------------------------------------
-In Azure SQL Database, dynamic management views cannot expose information that would impact database containment or expose information 
-about other databases the user has access to. To avoid exposing this information, every row that contains data that doesn't belong to the 
+In Azure SQL Database, dynamic management views cannot expose information that would impact database containment or expose information
+about other databases the user has access to. To avoid exposing this information, every row that contains data that doesn't belong to the
 connected tenant is filtered out.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
@@ -1220,7 +1222,7 @@ SELECT database_id       = IIF(@EngineEdition = 5,DB_ID(),ius.database_id)
   JOIN [dbo].[SQLXL_Index_sys_databases] AS d   -- only collect usage statistice from databases we are looking for
     ON ius.database_id = IIF(@EngineEdition = 5,DB_ID(),d.database_id) -- EngineEdition = 5 Azure SQL Database
 ) AS qry
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -1254,9 +1256,9 @@ BEGIN
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[dm_db_index_operational_stats]
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[dm_db_index_operational_stats]
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    RAISERROR(N'    Start [sys].[dm_db_index_operational_stats]',0,0) WITH NOWAIT;
@@ -1349,7 +1351,7 @@ SELECT database_id                           = IIF(@EngineEdition = 5,DB_ID(),io
  CROSS
  APPLY (-- required to avoid error "Aggregates on the right side of an APPLY cannot reference columns from the left side" referencing
         -- columns from the "newcol" CTE
-        SELECT database_id       -- NOTE: In Azure SQL Database, the values are unique within a single database or an elastic pool, 
+        SELECT database_id       -- NOTE: In Azure SQL Database, the values are unique within a single database or an elastic pool,
                                  -- but not within a logical server.
               ,object_id
               ,index_id
@@ -1441,8 +1443,8 @@ BEGIN
 END
 
 /******************************************************************************************************************************************\
--- Aggregate [sys].[dm_os_buffer_descriptors]
--- NOTE: SQL 2022+ columns [op_history],[buffer_address],[latch_address] not found in BOL
+ Aggregate [sys].[dm_os_buffer_descriptors]
+ NOTE: SQL 2022+ columns [op_history],[buffer_address],[latch_address] not found in BOL
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    RAISERROR(N'    Start [sys].[dm_os_buffer_descriptors]',0,0) WITH NOWAIT;
@@ -1517,7 +1519,7 @@ END
 ##   -- NULL for all user (non-system) databases                                                                                          ##
 ##   -- "database name" for a single database                                                                                             ##
 ##                                                                                                                                        ##
-## ***NOTE *** if the DATABASE COMPATIBILITY level is less than 11 (SQL 2012) CONVERT & CAST DO NOT WORK!                         ##
+## ***NOTE *** if the DATABASE COMPATIBILITY level is less than 11 (SQL 2012) TRY_CONVERT & TRY_CAST DO NOT WORK!                         ##
 ##                                                                                                   ------------                         ##
 ## Omitted Sources & reasons:                                                                                                             ##
 ## sys dm_exec_function_stats       BOL "does not return information about table valued functions,                                        ##
@@ -1528,8 +1530,8 @@ END
 ##########################################################################################################################################*/
 
 /******************************************************************************************************************************************\
--- Create local variables & Cursor
--- List of databases to run through was previously filtered when creating [dbo].[SQLXL_Index_sys_databases]
+ Create local variables & Cursor
+ List of databases to run through was previously filtered when creating [dbo].[SQLXL_Index_sys_databases]
 \******************************************************************************************************************************************/
 DECLARE db_crsr CURSOR LOCAL FAST_FORWARD FOR
 SELECT d.database_id
@@ -1587,9 +1589,9 @@ BEGIN
    END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[database_scoped_configurations] - Introduced in SQL 2016
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[database_scoped_configurations] - Introduced in SQL 2016
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 IF @ProductMajorVersion >= 13  -- SQL 2016+
 BEGIN -- SQL 2016+, AZURE
@@ -1600,7 +1602,7 @@ DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databa
        ,@engineedition INT           = 4
        ,@exec_dttm     DATETIME      = GETDATE()
        ,@i             INT           = 1
-       ,@sql           NVARCHAR(MAX)                                                                          
+       ,@sql           NVARCHAR(MAX)
        ,@ssms_ads      TINYINT       = 2
        ,@tgtDB         NVARCHAR(131) = N'[tempdb].'
 
@@ -1611,9 +1613,9 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_database_scoped_configurations]') IS NOT N
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
-SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
+SELECT is_value_default = CONVERT(BIT,NULL) /* added SQL 2017 */
 )'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_scoped_configurations]'
@@ -1626,12 +1628,12 @@ SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
  APPLY (-- columns from [sys].[database_scoped_configurations]
 SELECT database_id         = DB_ID()
       ,configuration_id
-      ,name                = name                                        COLLATE ' + @collation + N' -- nvarchar(60)
-      ,value               = CONVERT(NVARCHAR(1000),value              ) COLLATE ' + @collation + N' -- sqlvariant
-      ,value_for_secondary = CONVERT(NVARCHAR(1000),value_for_secondary) COLLATE ' + @collation + N' -- sqlvariant
+      ,name                = name                                        COLLATE ' + @collation + N' /* nvarchar(60) */
+      ,value               = CONVERT(NVARCHAR(1000),value              ) COLLATE ' + @collation + N' /* sqlvariant   */
+      ,value_for_secondary = CONVERT(NVARCHAR(1000),value_for_secondary) COLLATE ' + @collation + N' /* sqlvariant   */
       ,is_value_default
   FROM [sys].[database_scoped_configurations] -- SQL Server 2016 (13.x) and later
-) AS qry -- from CROSS APPLY
+) AS qry /* from CROSS APPLY */
 OPTION (MAXDOP 1);'
 
    IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -1670,7 +1672,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[database_automatic_tuning_options] - Introduced in SQL 2017
+ Collect [sys].[database_automatic_tuning_options] - Introduced in SQL 2017
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -1708,7 +1710,7 @@ IF OBJECT_ID('[sys].[database_automatic_tuning_options]') IS NOT NULL
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_automatic_tuning_options]' + N'
 SELECT database_id        = DB_ID()
       ,name               = name               COLLATE ' + @collation + N'
@@ -1719,7 +1721,7 @@ SELECT database_id        = DB_ID()
       ,reason
       ,reason_desc        = reason_desc        COLLATE ' + @collation + N'
   FROM [sys].[database_automatic_tuning_options]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -1745,9 +1747,9 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[database_query_store_options] Introduced in SQL 2016
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[database_query_store_options] Introduced in SQL 2016
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -1800,7 +1802,7 @@ IF OBJECT_ID('[sys].[database_query_store_options]') IS NOT NULL
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_database_query_store_options]' + N'
 SELECT database_id                                = DB_ID()
       ,desired_state                              = desired_state
@@ -1826,7 +1828,7 @@ SELECT database_id                                = DB_ID()
       ,capture_policy_total_execution_cpu_time_ms = capture_policy_total_execution_cpu_time_ms
       ,capture_policy_stale_threshold_hours       = capture_policy_stale_threshold_hours
   FROM [sys].[database_query_store_options]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -1852,10 +1854,10 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- [cdc].[change_tables] - ONLY if Change Data Capture (CDC) has been enabled for this database
--- BOL: We recommend that you don't query the system tables directly.
---      Instead, execute the [sys] [sp_cdc_help_change_data_capture] stored procedure
---      NOTE: Up to two rows can be returned for each source table, one row for each capture instance.
+ [cdc].[change_tables] - ONLY if Change Data Capture (CDC) has been enabled for this database
+ BOL: We recommend that you don't query the system tables directly.
+      Instead, execute the [sys] [sp_cdc_help_change_data_capture] stored procedure
+      NOTE: Up to two rows can be returned for each source table, one row for each capture instance.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -1898,6 +1900,7 @@ END
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(SERVERPROPERTY(N'EngineEdition') <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 IF OBJECT_ID(N''[cdc].[change_tables]'') IS NOT NULL
 BEGIN
    DECLARE @sql NVARCHAR(MAX);
@@ -1916,7 +1919,7 @@ SELECT database_id          = DB_ID()
       ,create_date
       ,partition_switch
       ,capture_instance_ID  = ROW_NUMBER() OVER (PARTITION BY source_object_id
-                                                     ORDER BY create_date      -- 1 Change table per source
+                                                     ORDER BY create_date      /* 1 Change table per source */
                                                 )
   FROM [cdc].[change_tables]'';
 
@@ -1945,7 +1948,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[schemas]
+ Collect [sys].[schemas]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -1963,15 +1966,15 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_schemas]') IS NOT NULL
 -------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------'
+/* ------------------------------------------------------------------------------------------------------------------------------------- */'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_schemas]'
     + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
     , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
     + NCHAR(13) + NCHAR(10) + N'  INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_schemas]')
     + N'
-  FROM (-- columns from [sys].[schemas]
-SELECT database_id = DB_ID() 
+  FROM (/* columns from [sys].[schemas] */
+SELECT database_id = DB_ID()
       ,name        = name COLLATE ' + @collation + N'
       ,schema_id
       ,principal_id
@@ -2042,24 +2045,24 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_tables]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
-SELECT -- SQL 2012+ -----------------------------------------------------------------------------
+SELECT /* SQL 2012+ ------------------------------------------- */
        is_filetable                       = CONVERT(BIT     ,NULL)
-       -- SQL 2014+ -----------------------------------------------------------------------------
+       /* SQL 2014+ ------------------------------------------- */
       ,is_memory_optimized                = CONVERT(BIT     ,NULL)
       ,durability                         = CONVERT(TINYINT ,NULL)
       ,durability_desc                    = CONVERT(SYSNAME ,NULL)    COLLATE ' + @collation + N'
-       -- SQL 2016+ -----------------------------------------------------------------------------
+       /* SQL 2016+ ------------------------------------------- */
       ,temporal_type                      = CONVERT(TINYINT ,NULL)
       ,temporal_type_desc                 = CONVERT(SYSNAME ,NULL)    COLLATE ' + @collation + N'
       ,history_table_id                   = CONVERT(INT     ,NULL)
       ,is_remote_data_archive_enabled     = CONVERT(BIT     ,NULL)
       ,is_external                        = CONVERT(BIT     ,NULL)
-       -- SQL 2017+ -----------------------------------------------------------------------------
+       /* SQL 2017+ ------------------------------------------- */
       ,is_node                            = CONVERT(BIT     ,NULL)
       ,is_edge                            = CONVERT(BIT     ,NULL)
-       -- SQL 2022+, Azure SQL Database ---------------------------------------------------------
+       /* SQL 2022+, Azure SQL Database ----------------------- */
       ,history_retention_period           = CONVERT(INT     ,NULL)
       ,history_retention_period_unit      = CONVERT(INT     ,NULL)
       ,history_retention_period_unit_desc = CONVERT(SYSNAME ,NULL)    COLLATE ' + @collation + N'
@@ -2067,7 +2070,7 @@ SELECT -- SQL 2012+ ------------------------------------------------------------
       ,ledger_type_desc                   = CONVERT(SYSNAME ,NULL)    COLLATE ' + @collation + N'
       ,ledger_view_id                     = CONVERT(INT     ,NULL)
       ,is_dropped_ledger_table            = CONVERT(BIT     ,NULL)
-       -- If change data capture (CDC) enabled on database --------------------------------------
+       /* If change data capture (CDC) enabled on database ---- */
       ,version                            = CONVERT(INT     ,NULL)
       ,capture_instance                   = CONVERT(SYSNAME ,NULL)    COLLATE ' + @collation + N'
       ,supports_net_changes               = CONVERT(BIT     ,NULL)
@@ -2076,7 +2079,7 @@ SELECT -- SQL 2012+ ------------------------------------------------------------
       ,filegroup_name                     = CONVERT(SYSNAME ,NULL)    COLLATE ' + @collation + N'
       ,create_date                        = CONVERT(DATETIME,NULL)
       ,partition_switch                   = CONVERT(BIT     ,NULL)
-      -- Computed above -------------------------------------------------------------------------
+      /* Computed above --------------------------------------- */
       ,capture_instance_ID                = CONVERT(INT     ,NULL)
 )'
 +IIF(@i > 1
@@ -2087,7 +2090,7 @@ SELECT -- SQL 2012+ ------------------------------------------------------------
     + N'
   FROM newcol
  CROSS
- APPLY (-- columns from [sys].[tables], [change_tracking_tables]
+ APPLY (/* columns from [sys].[tables], [change_tracking_tables] */
 SELECT database_id                        = DB_ID()
       ,name                               = name                                COLLATE ' + @collation + N'
       ,object_id                          = t.object_id
@@ -2124,11 +2127,11 @@ SELECT database_id                        = DB_ID()
       ,history_table_id
       ,is_remote_data_archive_enabled
       ,is_external
-       ------------------------------------------------------------------------------------------------------
+      /* ---------------------------------------------------------------------------------------------------- */
       ,is_internal                        = CONVERT(BIT,0)    -- to be used for internal tables below
       ,internal_parent_id                 = CONVERT(INT,NULL) -- to be used for internal tables below
       ,internal_parent_minor_id           = CONVERT(INT,NULL) -- to be used for internal tables below
-       ------------------------------------------------------------------------------------------------------
+      /* ---------------------------------------------------------------------------------------------------- */
       ,history_retention_period
       ,history_retention_period_unit
       ,history_retention_period_unit_desc = history_retention_period_unit_desc  COLLATE ' + @collation + N'
@@ -2138,13 +2141,9 @@ SELECT database_id                        = DB_ID()
       ,ledger_type_desc                   = ledger_type_desc                    COLLATE ' + @collation + N'
       ,ledger_view_id
       ,is_dropped_ledger_table
-       ------------------------------------------------------------------------------------------------------
-       -- [sys].[change_tracking_tables]
-       ------------------------------------------------------------------------------------------------------
+      /* [sys].[change_tracking_tables] --------------------------------------------------------------------- */
       ,ctt_is_track_columns_updated_on    = ctt.is_track_columns_updated_on
-       ------------------------------------------------------------------------------------------------------
-       -- [cdc].[change_tables] (source & target)
-       ------------------------------------------------------------------------------------------------------
+      /* [cdc].[change_tables] (source & target) ------------------------------------------------------------ */
       ,cdc_capture_instance               = COALESCE(cs.capture_instance,ct.capture_instance) COLLATE ' + @collation + N'
       ,cdc_supports_net_changes           = ct.supports_net_changes
       ,cdc_role_name                      = COALESCE(cs.role_name,ct.role_name)               COLLATE ' + @collation + N'
@@ -2160,20 +2159,20 @@ SELECT database_id                        = DB_ID()
     ON t.object_id = ctt.object_id
 
   LEFT OUTER
-  JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables] AS cs -- source [dbo].[SQLXL_Index_cdc_change_tables] created above
+  JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables] AS cs /* source [dbo].[SQLXL_Index_cdc_change_tables] created above */
     ON DB_ID()     = cs.database_id
    AND t.object_id = cs.source_object_id
    AND 1           = cs.capture_instance_ID
 
   LEFT OUTER
-  JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables] AS ct -- target [dbo].[SQLXL_Index_cdc_change_tables] created above
+  JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_cdc_change_tables] AS ct /* target [dbo].[SQLXL_Index_cdc_change_tables] created above */
     ON DB_ID()     = ct.database_id
    AND t.object_id = ct.object_id
    AND 1           = ct.capture_instance_ID
 
- WHERE is_external = 0                                      -- <FUTURE> potential acquisition since can have statistics
-) AS qry -- from CROSS APPLY
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+ WHERE is_external = 0                                            /* <FUTURE> potential acquisition since can have statistics */
+) AS qry /* from CROSS APPLY */
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);'
 
 IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -2230,7 +2229,7 @@ SELECT TOP (0)
 END -- IF @i = 1
 
 IF OBJECT_ID('[sys].[internal_tables]') IS NOT NULL
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 BEGIN
    SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
@@ -2245,7 +2244,7 @@ SELECT database_id              = DB_ID()
       ,lob_data_space_id
       ,filestream_data_space_id
   FROM [sys].[internal_tables]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -2300,7 +2299,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_objects]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 DECLARE @ssms_ads  TINYINT = 1
        ,@msg       NVARCHAR(1000)
        ,@exec_dttm DATETIME      = GETDATE()
@@ -2426,10 +2425,10 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect <database>.[sys].[objects]
--- includes columns from [sys].[views],[sql_modules],[internal_tables],[triggers],[table_types] & [cdc].[change_tables]
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand''s
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect <database>.[sys].[objects]
+ includes columns from [sys].[views],[sql_modules],[internal_tables],[triggers],[table_types] & [cdc].[change_tables]
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand''s
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    RAISERROR(N''           Start ' + @database_name_quoted + N'.[sys].[objects],[views],[sql_modules],[internal_tables],[triggers],[table_types]''
@@ -2683,7 +2682,7 @@ SELECT database_id      = DB_ID()
    AND 1           = cct.capture_instance_ID
 
 ) AS qry -- from CROSS APPLY
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);';
 
 IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -2800,7 +2799,7 @@ AND OBJECT_ID('[sys].[partition_functions]') IS NOT NULL
 BEGIN
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2012 -------------------------------------
        is_system                     = CONVERT(BIT,NULL)
@@ -2891,7 +2890,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[default_constraints] - used below for SEQUENCES, so get it here & reuse below - only grab from source once
+ Collect [sys].[default_constraints] - used below for SEQUENCES, so get it here & reuse below - only grab from source once
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -2951,7 +2950,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[types]
+ Collect [sys].[types]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -2969,7 +2968,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_types]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------'
+/* ------------------------------------------------------------------------------------------------------------------------------------- */'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_types]'
     + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
@@ -3015,7 +3014,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[sql_expression_dependencies]
+ Collect [sys].[sql_expression_dependencies]
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N'.[sys].[sql_expression_dependencies]'
@@ -3086,7 +3085,7 @@ SELECT database_id               = DB_ID()
       ,is_caller_dependent
       ,is_ambiguous
   FROM [sys].[sql_expression_dependencies]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -3143,7 +3142,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_columns]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2016+, Azure SQL Database -------------------------------------------------------
        generated_always_type               = CONVERT(TINYINT,NULL)
@@ -3354,7 +3353,7 @@ SELECT database_id             = DB_ID()
                                  REPLACE(cc.definition
                                         ,N''['',N'''')
                                         ,N'']'',N'''') COLLATE ' + @collation + N'
-                                ) > 0 
+                                ) > 0
                ) AS pf
        ) AS cc
     ON c.object_id = cc.object_id
@@ -3415,7 +3414,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[column_type_usages]
+ Collect [sys].[column_type_usages]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -3450,14 +3449,14 @@ IF OBJECT_ID('[sys].[column_type_usages]') IS NOT NULL
 BEGIN
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_column_type_usages]
 SELECT database_id   = DB_ID()
       ,object_id
       ,column_id
       ,user_type_id
   FROM [sys].[column_type_usages]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);'
 END
 
@@ -3480,8 +3479,8 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Add Internal Tables to [sys].[tables] collection in SQLXL_Index_sys_tables - used for downstream data compilation
--- NOTE: Internal Tables not found in [sys].[tables]
+ Add Internal Tables to [sys].[tables] collection in SQLXL_Index_sys_tables - used for downstream data compilation
+ NOTE: Internal Tables not found in [sys].[tables]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @database_id INT = DB_ID(N'WideWorldImporters')
@@ -3490,7 +3489,7 @@ DECLARE @database_id INT = DB_ID(N'WideWorldImporters')
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 INSERT
   INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_tables]
       (database_id
@@ -3564,7 +3563,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[check_constraints]
+ Collect [sys].[check_constraints]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -3582,7 +3581,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_check_constraints]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 DECLARE @Pattern   NVARCHAR(15)  = ''%[^'' + NCHAR(9) + NCHAR(13) + NCHAR(10) + NCHAR(32) + '']%'';'
 
 +IIF(@i > 1
@@ -3656,9 +3655,9 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[key_constraints]
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[key_constraints]
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -3721,7 +3720,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[edge_constraints] - Introduced in SQL 2019
+ Collect [sys].[edge_constraints] - Introduced in SQL 2019
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -3778,7 +3777,7 @@ SELECT database_id      = DB_ID()
       ,delete_referential_action_desc = delete_referential_action_desc COLLATE ' + @collation + N'
       ,is_system_named
   FROM [sys].[edge_constraints]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);'
 
    IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -3803,7 +3802,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[edge_constraint_clauses] - Introduced in SQL 2019
+ Collect [sys].[edge_constraint_clauses] - Introduced in SQL 2019
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -3846,7 +3845,7 @@ SELECT database_id    = DB_ID()
       ,to_object_id
       ,clause_number
   FROM [sys].[edge_constraint_clauses]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);'
 
    IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -3916,7 +3915,7 @@ SELECT database_id             = DB_ID()
       ,spatial_index_type_desc
       ,tessellation_scheme
   FROM [sys].[spatial_indexes]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -4009,7 +4008,7 @@ SELECT database_id         = DB_ID()
       ,level_4_grid_desc
       ,cells_per_object
   FROM [sys].[spatial_index_tessellations]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -4086,7 +4085,7 @@ SELECT database_id                = DB_ID()
       ,secondary_type_desc
       ,path_id
   FROM [sys].[xml_indexes]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -4155,7 +4154,7 @@ SELECT database_id  = DB_ID()
       ,type
       ,bucket_count
   FROM [sys].[hash_indexes]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -4203,7 +4202,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_indexes]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 DECLARE @Pattern   NVARCHAR(15)  = ''%[^'' + NChar(9) + NCHAR(10) + NCHAR(13) + NCHAR(32) + '']%'';
 
 ;WITH newcol AS (-- columns added after SQL Server 2005
@@ -4304,7 +4303,7 @@ SELECT database_id                     = DB_ID()
    AND i.index_id    = hi.index_id
    AND i.type        = hi.type
 ) AS qry -- from CROSS APPLY
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);'
 
 IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -4347,7 +4346,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_fulltext_indexes]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT property_list_id = CONVERT(INT,NULL)
 )'
@@ -4447,7 +4446,7 @@ SELECT database_id                = DB_ID()
       ,principal_id
       ,is_importing
   FROM [sys].[fulltext_catalogs]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);'
 
    IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -4490,7 +4489,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_foreign_keys]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------'
+/* ------------------------------------------------------------------------------------------------------------------------------------- */'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_foreign_keys]'
     + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
@@ -4544,7 +4543,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[foreign_key_columns]
+ Collect [sys].[foreign_key_columns]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @sql           NVARCHAR(MAX)
@@ -4563,7 +4562,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_foreign_key_columns]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------'
+/* ------------------------------------------------------------------------------------------------------------------------------------- */'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_foreign_key_columns]'
     + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
@@ -4601,11 +4600,11 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[index_columns]
--- NOTE: will contain column list for "index" objects with columns - indexes, fulltext indexes, missing indexes, Foreign Key Constraints
--- NOTE: Used to drive the list of columns to get statistics details for the cursored routine below
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[index_columns]
+ NOTE: will contain column list for "index" objects with columns - indexes, fulltext indexes, missing indexes, Foreign Key Constraints
+ NOTE: Used to drive the list of columns to get statistics details for the cursored routine below
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -4623,7 +4622,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_index_columns]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT column_store_order_ordinal = CONVERT(INT,NULL)
 )'
@@ -4692,10 +4691,10 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Add index columns for additional index objects - missing indexes, fulltext indexes
--- NOTE: Foreign Key Constraints and table functions handled separately
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Add index columns for additional index objects - missing indexes, fulltext indexes
+ NOTE: Foreign Key Constraints and table functions handled separately
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -4710,7 +4709,7 @@ DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databa
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT statistical_semantics = CONVERT(INT,NULL)
 )
@@ -4823,7 +4822,7 @@ IF @i = 1 BEGIN -- only execute on first database if more than one
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[extended_properties]
+ Collect [sys].[extended_properties]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -4841,7 +4840,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_extended_properties]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------'
+/* ------------------------------------------------------------------------------------------------------------------------------------- */'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_extended_properties]'
     + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
@@ -4852,8 +4851,8 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 SELECT database_id = DB_ID()
       ,class
       ,class_desc  = class_desc                   COLLATE ' + @collation + N'
-      ,major_id    
-      ,minor_id    
+      ,major_id
+      ,minor_id
       ,name        = name                         COLLATE ' + @collation + N'
       ,value       = CONVERT(NVARCHAR(MAX),value) COLLATE ' + @collation + N' -- NOTE: is type SQL_VARIANT
   FROM [sys].[extended_properties]
@@ -4879,9 +4878,9 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[stats]
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[stats]
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N'.[sys].[stats]'
@@ -4890,23 +4889,23 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /*** LOCAL TESTING ***
-DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
-       ,@database_name_quoted NVARCHAR(MAX) = N'[WideWorldImporters]'
+DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE database_id = DB_ID())
+       ,@database_name_quoted NVARCHAR(MAX) = N''
        ,@engineedition INT           = 4
        ,@exec_dttm     DATETIME      = GETDATE()
        ,@i             INT           = 1
        ,@sql           NVARCHAR(MAX)
        ,@ssms_ads      TINYINT       = 2
-       ,@tgtDB         NVARCHAR(131) = N'[tempdb].'
+       ,@tgtDB         NVARCHAR(131) = N''
 
 IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_stats]') IS NOT NULL
    DROP TABLE [dbo].[SQLXL_Index_sys_stats];
 --*/
 
 --------------------------------------------------------------------------------------------------------------------------------------------
-SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
+SET @sql = IIF(@EngineEdition <> 5 AND @database_name_quoted <> N'',N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 DECLARE @Pattern   NVARCHAR(15)  = ''%[^'' + NChar(9) + NCHAR(10) + NCHAR(13) + NCHAR(32) + '']%'';
 
 ;WITH newcol AS (-- columns added after SQL Server 2005
@@ -4970,7 +4969,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[stats_columns]
+ Collect [sys].[stats_columns]
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N'.[sys].[stats_columns]'
@@ -4994,7 +4993,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_stats_columns]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------'
+/* ------------------------------------------------------------------------------------------------------------------------------------- */'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_stats_columns]'
     + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
@@ -5032,8 +5031,8 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[dm_db_partition_stats]
--- NOTE: memory optimized table row_counts don't show up in [sys].[dm_db_partition_stats]
+ Collect [sys].[dm_db_partition_stats]
+ NOTE: memory optimized table row_counts don't show up in [sys].[dm_db_partition_stats]
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N'.[sys].[dm_db_partition_stats]'
@@ -5058,7 +5057,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_db_partition_stats]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------'
+/* ------------------------------------------------------------------------------------------------------------------------------------- */'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_db_partition_stats]'
     + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
@@ -5105,9 +5104,9 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[dm_db_stats_properties]
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[dm_db_stats_properties]
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N'.[sys].[dm_db_stats_properties]'
@@ -5132,7 +5131,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_db_stats_properties]') IS NOT NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
 )'
@@ -5168,7 +5167,7 @@ SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
          FROM [sys].[dm_db_stats_properties] (i.object_id, i.stats_id)
        ) AS dsp
  WHERE dsp.last_updated IS NOT NULL
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);'
 
 IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -5189,11 +5188,11 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[dm_db_incremental_stats_properties]
--- This function was introduced in SQL Server 2014 (12.x) Service Pack 2 and SQL Server 2016 (13.x) Service Pack 1.
--- Function returns same basic structure as above
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[dm_db_incremental_stats_properties]
+ This function was introduced in SQL Server 2014 (12.x) Service Pack 2 and SQL Server 2016 (13.x) Service Pack 1.
+ Function returns same basic structure as above
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N'.[sys].[dm_db_incremental_stats_properties]'
@@ -5296,9 +5295,9 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[partitions]
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[partitions]
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N'.[sys].[partitions]'
@@ -5322,7 +5321,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_partitions]') IS NOT NULL
 -----------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -------------------------------------------------------------------------------------------------------------------------------------- */
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT xml_compression = CONVERT(BIT,NULL)
 )'
@@ -5415,9 +5414,9 @@ BEGIN
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[internal_partitions] - Introduced in SQL 2016
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[internal_partitions] - Introduced in SQL 2016
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -5484,7 +5483,7 @@ SELECT qry.*
               ,optimize_for_sequential_key
           FROM [sys].[internal_partitions]
        ) AS qry -- from CROSS APPLY
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -5510,13 +5509,13 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect In-Memory (XTP) Objects
--- NOTE: [sys].[dm_db_xtp_hash_index_stats] ARE OMITTED, since it scans the entire table
---       Used to understand and tune the HASH bucket counts. It can also be used to detect cases where the index key has many duplicates.
--- Columns marked "Internal use only" are omitted
--- Column "xtp_object_id" is the Internal ID corresponding to the current version of the object. Note: Applies to SQL Server 2016 (13.x)
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect In-Memory (XTP) Objects
+ NOTE: [sys].[dm_db_xtp_hash_index_stats] ARE OMITTED, since it scans the entire table
+       Used to understand and tune the HASH bucket counts. It can also be used to detect cases where the index key has many duplicates.
+ Columns marked "Internal use only" are omitted
+ Column "xtp_object_id" is the Internal ID corresponding to the current version of the object. Note: Applies to SQL Server 2016 (13.x)
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -5594,7 +5593,7 @@ SELECT qry.*
   FROM newcol
  CROSS
  APPLY (-- columns from [sys].[dm_db_xtp_index_stats]
-        SELECT database_id         = DB_ID() 
+        SELECT database_id         = DB_ID()
               ,object_id           = t.object_id
               ,table_name          = t.name                      COLLATE ' + @collation + N'
               ,i.index_id
@@ -5716,7 +5715,7 @@ SELECT qry.*
             ON i.object_id                             = mc.object_id
            AND i.index_id                              = mc.index_id
       ) AS qry -- from CROSS APPLY
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -5741,8 +5740,8 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect partition & object/index name info to [sys].[dm_os_buffer_descriptors]
--- to create SQLXL_Index_sys_dm_os_buffer_descriptors_EXT
+ Collect partition & object/index name info to [sys].[dm_os_buffer_descriptors]
+ to create SQLXL_Index_sys_dm_os_buffer_descriptors_EXT
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N'.[sys].[dm_os_buffer_descriptors] (database aggregates)'
@@ -5766,7 +5765,7 @@ IF OBJECT_ID(N'[dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors_EXT]') IS NOT NUL
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
--------------------------------------------------------------------------------------------------------------------------------------------'
+/* ------------------------------------------------------------------------------------------------------------------------------------- */'
 +IIF(@i > 1
     , NCHAR(13) + NCHAR(10) + N'INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_dm_os_buffer_descriptors_EXT]'
     + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
@@ -5922,7 +5921,7 @@ SELECT database_id                         = DB_ID()
       ,created_time
       ,closed_time
   FROM [sys].[dm_db_column_store_row_group_physical_stats]
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);'
 
 IF @ssms_ads > 1 AND @i = 1 -- SSMS and first database only
@@ -5948,9 +5947,9 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[dm_db_column_store_row_group_operational_stats] - SQL 2016+
--- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
---       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+ Collect [sys].[dm_db_column_store_row_group_operational_stats] - SQL 2016+
+ NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -6028,7 +6027,7 @@ SELECT qry.*
                object_id
               ,index_id
       ) AS qry -- from CROSS APPLY
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -6054,7 +6053,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Collect [sys].[index_resumable_operations] - SQL 2017+
+ Collect [sys].[index_resumable_operations] - SQL 2017+
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @collation     SYSNAME       = (SELECT collation_name FROM [sys].[databases] WHERE name = N'tempdb')
@@ -6115,7 +6114,7 @@ SELECT database_id          = DB_ID()
        object_id
       ,index_id
       ,state_desc
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1
        );'
 
@@ -6140,8 +6139,8 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************\
--- Cursor through all statistics procedures for all indexes, Foreign Key Constraints & Columns used across indexable objects
--- Statistics are not returned on all objects - e.g. Column Stores, empty tables
+ Cursor through all statistics procedures for all indexes, Foreign Key Constraints & Columns used across indexable objects
+ Statistics are not returned on all objects - e.g. Column Stores, empty tables
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = N'           Start ' + @database_name_quoted + N' DBCC SHOW_STATISTICS - DensityVector,StatHeader,Histogram'
@@ -6173,9 +6172,9 @@ SET @sql = IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 SET XACT_ABORT ON;             -- automatically roll back the current transaction when a statement raises a run-time error
 SET IMPLICIT_TRANSACTIONS OFF; -- occasionally implicit transactions are created by the DBCC SHOW_STATISTICS function
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -----------------------------------------------------------------------------------------------------------------------------------------
 -- [dbo].[SQLXL_Index_sys_ShowStatistics_StatHeader]
---------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------- */
 IF OBJECT_ID(N''.#XL_IDX_sys_ShowStatistics_StatHeader'') IS NOT NULL
    DROP TABLE #XL_IDX_sys_ShowStatistics_StatHeader;
 
@@ -6219,9 +6218,9 @@ CREATE
     ,N'')
 
 + N'
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -----------------------------------------------------------------------------------------------------------------------------------------
 -- [dbo].[SQLXL_Index_sys_ShowStatistics_DensityVector]
---------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------- */
 IF OBJECT_ID(N''.#XL_IDX_sys_ShowStatistics_DensityVector'') IS NOT NULL
    DROP TABLE #XL_IDX_sys_ShowStatistics_DensityVector;
 
@@ -6251,9 +6250,9 @@ CREATE
     ,N'')
 
 + N'
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -----------------------------------------------------------------------------------------------------------------------------------------
 -- [dbo].[SQLXL_Index_sys_ShowStatistics_Histogram
---------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------- */
 IF OBJECT_ID(N''.#XL_IDX_sys_ShowStatistics_Histogram'') IS NOT NULL
    DROP TABLE #XL_IDX_sys_ShowStatistics_Histogram;
 
@@ -6284,9 +6283,9 @@ CREATE
     ,N'')
 
 + N'
---------------------------------------------------------------------------------------------------------------------------------------------
+/* -----------------------------------------------------------------------------------------------------------------------------------------
 -- Local Variables
---------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------- */
 DECLARE @database_id       INT
        ,@database_name     SYSNAME       = N'''' COLLATE ' + @collation + N'
        ,@object_id         INT
@@ -6344,9 +6343,9 @@ SELECT c.database_id
                                N''TT'' -- Table Type
                               ,N''TF'' -- SQL table-valued-function (TVF)
                               )
-        -------------------------------------------------------------------------------------------------------------------------------------
+        /* ---------------------------------------------------------------------------------------------------------------------------------
         -- Columns that have stats computed for them
-        -------------------------------------------------------------------------------------------------------------------------------------
+        --------------------------------------------------------------------------------------------------------------------------------- */
         UNION
         SELECT ic.database_id
               ,ic.object_id
@@ -6386,7 +6385,7 @@ SELECT c.database_id
        object_id
       ,index_ID
       ,column_id
-OPTION (FORCE ORDER -- Force order eliminates "Warning: join order enforced because a local join hint is used."
+OPTION (FORCE ORDER /* Force order eliminates "Warning: join order enforced because a local join hint is used." */
        ,MAXDOP 1);
 
 OPEN stats_crsr;
@@ -6407,9 +6406,9 @@ BEGIN
       BREAK
 
    BEGIN TRY
-      -----------------------------------------------------------------------------------------------------------------------------------
+      /* -----------------------------------------------------------------------------------------------------------------------------------
       -- [dbo].[SQLXL_Index_sys_ShowStatistics_StatHeader]
-      -----------------------------------------------------------------------------------------------------------------------------------
+      ----------------------------------------------------------------------------------------------------------------------------------- */
       INSERT
         INTO #XL_IDX_sys_ShowStatistics_StatHeader
             (Name
@@ -6422,10 +6421,9 @@ BEGIN
             ,String_index
             ,Filter_Expression
             ,Unfiltered_Rows'
-            + CASE WHEN (    @ProductMajorVersion     >= 14     -- SQL 2017+
-                         ------------------------------------------------------------------------------
-                         OR (    @ProductMajorVersion  = 13     -- SQL 2016 SP1
-                             AND @ProductBuild        >= 4446   -- SQL 2016 SP1 CU4+
+            + CASE WHEN (    @ProductMajorVersion     >= 14    /* SQL 2017+         */
+                         OR (    @ProductMajorVersion  = 13    /* SQL 2016 SP1      */
+                             AND @ProductBuild        >= 4446  /* SQL 2016 SP1 CU4+ */
                             )
                         )
                    THEN N',Persisted_Sample_Percent'
@@ -6436,7 +6434,7 @@ BEGIN
 DBCC SHOW_STATISTICS ('''''' + @object_name        + N'''''','' + @stats_target_name + N'')
      WITH STAT_HEADER, NO_INFOMSGS'')
 
-      -- insert into persisted table [dbo].[SQLXL_Index_sys_ShowStatistics_StatHeader]
+      /* -- insert into persisted table [dbo].[SQLXL_Index_sys_ShowStatistics_StatHeader] ------- */
       INSERT
         INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_ShowStatistics_StatHeader]
             (database_id
@@ -6456,7 +6454,6 @@ DBCC SHOW_STATISTICS ('''''' + @object_name        + N'''''','' + @stats_target_
             ,Filter_Expression
             ,Unfiltered_Rows'
       + CASE WHEN (        @ProductMajorVersion >= 14   -- SQL 2017+
-                   ------------------------------------------------------------------------------
                    OR (    @ProductMajorVersion  = 13   -- SQL 2016
                        AND @ProductBuild        >= 4446 -- SQL 2016 SP1 CU4+
                       )
@@ -6482,7 +6479,6 @@ DBCC SHOW_STATISTICS ('''''' + @object_name        + N'''''','' + @stats_target_
             ,Filter_Expression
             ,Unfiltered_Rows'
       + CASE WHEN (        @ProductMajorVersion >= 14   -- SQL 2017+
-                   ------------------------------------------------------------------------------
                    OR (    @ProductMajorVersion  = 13   -- SQL 2016
                        AND @ProductBuild        >= 4446 -- SQL 2016 SP1 CU4+
                       )
@@ -6505,9 +6501,9 @@ DBCC SHOW_STATISTICS ('''''' + @object_name        + N'''''','' + @stats_target_
    END CATCH
 
    BEGIN TRY
-      -----------------------------------------------------------------------------------------------------------------------------------
+      /* -----------------------------------------------------------------------------------------------------------------------------------
       -- [dbo].[SQLXL_Index_sys_ShowStatistics_DensityVector]
-      -----------------------------------------------------------------------------------------------------------------------------------
+      ----------------------------------------------------------------------------------------------------------------------------------- */
       INSERT
         INTO #XL_IDX_sys_ShowStatistics_DensityVector
         EXEC(''' + IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'') + N'
@@ -6542,16 +6538,16 @@ DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''','' + @stats_target_name + 
    END CATCH
 
    BEGIN TRY
-      -----------------------------------------------------------------------------------------------------------------------------------
+      /* -----------------------------------------------------------------------------------------------------------------------------------
       -- [dbo].[SQLXL_Index_sys_ShowStatistics_Histogram
-      -----------------------------------------------------------------------------------------------------------------------------------
+      ----------------------------------------------------------------------------------------------------------------------------------- */
       INSERT
         INTO #XL_IDX_sys_ShowStatistics_Histogram
         EXEC(''' + IIF(@EngineEdition <> 5,N'USE ' + @database_name_quoted + N';',N'') + N'
 DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''','' + @stats_target_name + N'')
      WITH HISTOGRAM, NO_INFOMSGS'')
 
-      -----------------------------------------------------------------------------------------------------------------------------------
+      /* -----------------------------------------------------------------------------------------------------------------------------------
       -- Insert into [dbo].[SQLXL_Index_sys_ShowStatistics_Histogram
       -- BOL says:
       -- "AVG_RANGE_ROWS = Average number of rows with duplicate column values within a histogram step, excluding the upper bound.
@@ -6561,7 +6557,7 @@ DBCC SHOW_STATISTICS ('''''' + @object_name + N'''''','' + @stats_target_name + 
       -- Since the histogram "upper bound" is not included in the AVG_RANGE_ROWS, compute parameter sniffing range by adding
       --    the EQ_ROWS to the RANGE_ROWS to get all records in a histogram step,
       --    then divide by the DISTINCT_RANGE_ROWS plus 1 to account for the upper bound.
-      -----------------------------------------------------------------------------------------------------------------------------------
+      ----------------------------------------------------------------------------------------------------------------------------------- */
       -- insert into persisted table [dbo].[SQLXL_Index_sys_ShowStatistics_Histogram_summary]
       INSERT INTO ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_ShowStatistics_Histogram_summary]
       SELECT DB_ID()
@@ -6625,7 +6621,9 @@ DEALLOCATE stats_crsr;'
 END -- database cursor
 
 /******************************************************************************************************************************************\
--- END of database cursor
+********************************************************************************************************************************************
+ END of database cursor
+********************************************************************************************************************************************
 \******************************************************************************************************************************************/
 CLOSE db_crsr;
 DEALLOCATE db_crsr;
@@ -26583,7 +26581,8 @@ Excel Column Label Format
 /******************************************************************************************************************************************\
 -- Index Element Uniqueness, in increasing key order
 \******************************************************************************************************************************************/
-,[Idx Element Uniqueness~Stats Density X RowCount~F = Filtered~(%) of Table Rows|N2] = i.element_uniqueness
+,[Idx Element Uniqueness~Stats Density X RowCount~F = Filtered~(%) of Table Rows|N2] 
+= IIF(i.rec_type = N'P',i.index_elements,i.element_uniqueness)
 
 /******************************************************************************************************************************************\
 -- Index Key and Included Column Details
@@ -26591,7 +26590,7 @@ Excel Column Label Format
 ,[Columns~CX(#) Clustered Idx&Key~Name~Type+bytes~Identity & attributes~ANSI settings~Partition~(Uniqueness)~Statistics Steps]
                  = i.key_column_info
                   +IIF(i.Included_column_info IS NOT NULL
-                      ,IIF(i.TYPE IN (N'2',N'5',N'M')
+                      ,IIF(i.TYPE IN (N'2',N'5',N'6',N'M')
                           ,NCHAR(167) + N'-- Included --------------------------'
                           ,N'')
                       + NCHAR(167) +i.Included_column_info
