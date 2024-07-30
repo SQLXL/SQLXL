@@ -1,4 +1,4 @@
--- VERSION 2024.07.30.0
+-- VERSION 2024.07.30.1
 /******************************************************************************************************************************************\
 PLEASE NOTE: All SQLXL objects are created in in the database your SSMS or ADS session is connected to.
 ALSO NOTE: Please connect to a database with SQL 2012 or higher compatibility - this tool uses TRY_CAST & TRY_COVERT which came in SQL 2012
@@ -2580,7 +2580,6 @@ SELECT database_id      = DB_ID()
                       SELECT object_id
                         FROM #sys_objects
                        WHERE is_ms_shipped = 0
---<BS>                              OR ' + @database_name + N' = N''*''
                          AND type
                           IN (--------------------------------------------------------------------------------------------------------------
                               -- "Indexable"
