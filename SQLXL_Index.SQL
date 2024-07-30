@@ -1,4 +1,4 @@
--- VERSION 2024.07.30.1
+ï»¿-- VERSION 2024.07.30.1
 /******************************************************************************************************************************************\
 PLEASE NOTE: All SQLXL objects are created in in the database your SSMS or ADS session is connected to.
 ALSO NOTE: Please connect to a database with SQL 2012 or higher compatibility - this tool uses TRY_CAST & TRY_COVERT which came in SQL 2012
@@ -9,10 +9,10 @@ EXEC [dbo].[SQLXL_Index]                                        -- runs for all 
 EXEC [dbo].[SQLXL_Index] @database_name = N'*'                  -- runs for ALL databases
 EXEC [dbo].[SQLXL_Index] @database_name = N'WideWorldImporters' -- runs for a SINGLE database
 
-SQLCMD -Q "EXEC [dbo].[SQLXL_Index_Present]" -s"ª" -y 0 -a 8000 -o "D:\TEMP\out.txt" -S HV10-SQL2022 -d "WideWorldImporters" -U "demo" -P "demo"
+SQLCMD -Q "EXEC [dbo].[SQLXL_Index_Present]" -s"ï¿½" -y 0 -a 8000 -o "D:\TEMP\out.txt" -S HV10-SQL2022 -d "WideWorldImporters" -U "demo" -P "demo"
 Parameters:
 -Q = SQL command to execute                - "EXEC [dbo].[SQLXL_Index_Present]"
--s = column delimiter                      - ASCII CHAR(166) is used to avoid collisions "ª"
+-s = column delimiter                      - ASCII CHAR(166) is used to avoid collisions "ï¿½"
 -y = variable length type display width    - 0 = ALL
 -a = network packet size                   - 8000 bytes
 -o = output file and destination directory - "D:\TEMP\out.txt"
@@ -27,13 +27,13 @@ All rights reserved.
 
 MIT License, http://www.opensource.org/licenses/mit-license.php
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
-(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge,
+(the ï¿½Softwareï¿½), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge,
 publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+THE SOFTWARE IS PROVIDED ï¿½AS ISï¿½, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -4325,8 +4325,8 @@ END
 
 /******************************************************************************************************************************************\
 Collect [sys].[fulltext_indexes]
-NOTE: The “incremental_timestamp” column in sys.fulltext_indexes is stored as a binary data type, which represents a rowversion
-      (also known as timestamp). However, it’s important to note that this rowversion is not related to date and time; it’s merely an
+NOTE: The ï¿½incremental_timestampï¿½ column in sys.fulltext_indexes is stored as a binary data type, which represents a rowversion
+      (also known as timestamp). However, itï¿½s important to note that this rowversion is not related to date and time; itï¿½s merely an
       incrementing number used for version-stamping table rows. It does not preserve a date or time.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
@@ -10152,15 +10152,15 @@ SELECT database_id       = ic.database_id
         SELECT kc.database_id
               ,kc.object_id
               ,kc.column_id
-              ,idx = LTRIM( IIF(CX_Lead_CNT > 0,N' CXLead ' + CAST(CX_Lead_CNT AS NVARCHAR(20)),N'')  
-                          + IIF(CX_Key_CNT  > 0,N' CXKey '  + CAST(CX_Key_CNT  AS NVARCHAR(20)),N'')  
-                          + IIF(lead_CNT    > 0,N' Lead '   + CAST(lead_CNT    AS NVARCHAR(20)),N'')  
-                          + IIF(key_CNT     > 0,N' Key '    + CAST(key_CNT     AS NVARCHAR(20)),N'')  
-                          + IIF(include_CNT > 0,N' Inc '    + CAST(include_CNT AS NVARCHAR(20)),N'')  
-                          + IIF(desc_CNT    > 0,N' Dsc '    + CAST(desc_CNT    AS NVARCHAR(20)),N'')  
-                          + IIF(filter_CNT  > 0,N' Flt '    + CAST(filter_CNT  AS NVARCHAR(20)),N'')  
-                          + IIF(MIX_Key_CNT > 0,N' MXKey '  + CAST(MIX_Key_CNT AS NVARCHAR(20)),N'')  
-                          + IIF(MIX_Inc_CNT > 0,N' MXInc '  + CAST(MIX_Inc_CNT AS NVARCHAR(20)),N'')  
+              ,idx = LTRIM( IIF(CX_Lead_CNT > 0,N' CXLead ' + CAST(CX_Lead_CNT AS NVARCHAR(20)),N'')
+                          + IIF(CX_Key_CNT  > 0,N' CXKey '  + CAST(CX_Key_CNT  AS NVARCHAR(20)),N'')
+                          + IIF(lead_CNT    > 0,N' Lead '   + CAST(lead_CNT    AS NVARCHAR(20)),N'')
+                          + IIF(key_CNT     > 0,N' Key '    + CAST(key_CNT     AS NVARCHAR(20)),N'')
+                          + IIF(include_CNT > 0,N' Inc '    + CAST(include_CNT AS NVARCHAR(20)),N'')
+                          + IIF(desc_CNT    > 0,N' Dsc '    + CAST(desc_CNT    AS NVARCHAR(20)),N'')
+                          + IIF(filter_CNT  > 0,N' Flt '    + CAST(filter_CNT  AS NVARCHAR(20)),N'')
+                          + IIF(MIX_Key_CNT > 0,N' MXKey '  + CAST(MIX_Key_CNT AS NVARCHAR(20)),N'')
+                          + IIF(MIX_Inc_CNT > 0,N' MXInc '  + CAST(MIX_Inc_CNT AS NVARCHAR(20)),N'')
                           + IIF(NCS_CNT     > 0,N' NCS'                                        ,N'')
                           )
           FROM (
@@ -10179,7 +10179,7 @@ SELECT database_id       = ic.database_id
                       ,NCS_CNT       = SUM(IIF(type = N'6'                            ,1,0))
                   FROM dbo.SQLXL_Index_sys_index_columns AS ic
                  WHERE 1 = 1
-                 GROUP BY 
+                 GROUP BY
                        database_id
                       ,object_id
                       ,column_id
@@ -26117,7 +26117,7 @@ RAISERROR (N'Created function dbo.SQLXL_3SD',0,0) WITH NOWAIT;
 -- IF OBJECT_ID(N'dbo.SQLXL_DTTM_HMSM') IS NULL
 --    EXEC(N'CREATE FUNCTION dbo.SQLXL_DTTM_HMSM() RETURNS BIT AS BEGIN RETURN 0 END');
 -- GO
--- 
+--
 -- ALTER FUNCTION dbo.SQLXL_DTTM_HMSM
 --      (@dt DATETIME
 --      )
@@ -26126,11 +26126,11 @@ RAISERROR (N'Created function dbo.SQLXL_3SD',0,0) WITH NOWAIT;
 -- AS
 -- BEGIN
 --    IF @dt IS NULL RETURN N''
--- 
+--
 --    DECLARE @df FLOAT = CONVERT(FLOAT,@dt,1)
--- 
+--
 --    RETURN RTRIM(
--- 
+--
 --    CASE WHEN @df  =  -1               THEN N'NO LIMIT'
 --         WHEN @df  =   0               THEN N'00:00:000'
 --         WHEN @df >= 365.0             THEN dbo.SQLXL_3SD(@df / 365.0      ,N'N') + N'yy      ' -- extra space added to make columns line up
@@ -26138,10 +26138,10 @@ RAISERROR (N'Created function dbo.SQLXL_3SD',0,0) WITH NOWAIT;
 --         WHEN @df >=   1.0/(24.0)      THEN dbo.SQLXL_3SD(@df * 24.0       ,N'N') + N'hh      ' -- extra space added to make columns line up
 --         ELSE RIGHT(CONVERT(NVARCHAR(12),@dt,114),9)
 --    END COLLATE DATABASE_DEFAULT)
--- 
+--
 -- END;
 -- GO
--- 
+--
 -- RAISERROR (N'Created function dbo.SQLXL_DTTM_HMSM',0,0) WITH NOWAIT;
 
 /******************************************************************************************************************************************/
@@ -26274,7 +26274,7 @@ IF (OBJECT_ID(N'[dbo].[SQLXL_Index_Metrics]') IS NULL)
 /******************************************************************************************************************************************\
 Create function to return computed & formatted SQLXL_Index metric values
 \******************************************************************************************************************************************/
-IF OBJECT_ID('dbo.SQLXL_Index_Metric_tvf') IS NULL 
+IF OBJECT_ID('dbo.SQLXL_Index_Metric_tvf') IS NULL
    EXEC ('CREATE FUNCTION dbo.SQLXL_Index_Metric_tvf() RETURNS TABLE AS RETURN (SELECT id = 0)');
 GO
 
@@ -26580,8 +26580,7 @@ Excel Column Label Format
 /******************************************************************************************************************************************\
 -- Index Element Uniqueness, in increasing key order
 \******************************************************************************************************************************************/
-,[Idx Element Uniqueness~Stats Density X RowCount~F = Filtered~(%) of Table Rows|N2] 
-= IIF(i.rec_type = N'P',i.index_elements,i.element_uniqueness)
+,[Idx Element Uniqueness~Stats Density X RowCount~F = Filtered~(%) of Table Rows|N2] = i.element_uniqueness
 
 /******************************************************************************************************************************************\
 -- Index Key and Included Column Details
@@ -27697,13 +27696,13 @@ All rights reserved.
 
 MIT License, http://www.opensource.org/licenses/mit-license.php
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
-(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge,
+(the ï¿½Softwareï¿½), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge,
 publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+THE SOFTWARE IS PROVIDED ï¿½AS ISï¿½, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -28373,7 +28372,7 @@ BEGIN
                                                   WHERE server_id = 0
                                                 )
    ) AS qry (source,name,run_value);
-   
+
    INSERT
      INTO [dbo].[SQLXL_Instance_info]
          (source
@@ -28858,4 +28857,3 @@ GO -- end of procedure
 \*########################################################################################################################################*/
 IF @@TRANCOUNT > 0 ROLLBACK;
 RAISERROR ('Created procedure dbo.SQLXL_Instance ...',0,0) WITH NOWAIT;
-
