@@ -1,4 +1,4 @@
--- VERSION 2024.07.29
+-- VERSION 2024.07.29.2
 /******************************************************************************************************************************************\
 PLEASE NOTE: All SQLXL objects are created in in the database your SSMS or ADS session is connected to.
 ALSO NOTE: Please connect to a database with SQL 2012 or higher compatibility - this tool uses TRY_CAST & TRY_COVERT which came in SQL 2012
@@ -2711,7 +2711,6 @@ If @I = 1 BEGIN -- only execute on first database
        ON [dbo].[SQLXL_Index_sys_objects]
          (database_id
          ,object_id
-         ,parent_object_id
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
 
@@ -3555,7 +3554,7 @@ SELECT database_id                 = DB_ID()
     ON o.database_id = c.database_id
    AND o.object_id   = c.object_id
  WHERE @database_id  = o.database_id
-   AND N''IT''         = o.type;'
+   AND N''IT''       = o.type;'
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -4286,22 +4285,22 @@ SELECT database_id                     = DB_ID()
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_indexes]             AS si
     ON o.database_id = si.database_id
-   AND i.object_id   = si.object_id
+   AND o.object_id   = si.object_id
    AND i.index_id    = si.index_id
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_spatial_index_tessellations] AS st
     ON o.database_id = st.database_id
-   AND i.object_id   = st.object_id
+   AND o.object_id   = st.object_id
    AND i.index_id    = st.index_id
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_xml_indexes]                 AS xi
     ON o.database_id = xi.database_id
-   AND i.object_id   = xi.object_id
+   AND o.object_id   = xi.object_id
    AND i.index_id    = xi.index_id
   LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_hash_indexes]                AS hi
     ON o.database_id = hi.database_id
-   AND i.object_id   = hi.object_id
+   AND o.object_id   = hi.object_id
    AND i.index_id    = hi.index_id
    AND i.type        = hi.type
 ) AS qry -- from CROSS APPLY
@@ -4649,7 +4648,9 @@ SELECT database_id                = DB_ID()
       ,ic.is_included_column
       ,column_store_order_ordinal
       -- added control elements -----------------------------------
-      ,key_column_sequence = IIF(ic.index_id = 1,ic.key_ordinal,ic.index_column_id) -- matches up key sequence with STATS column order
+      ,key_column_sequence = IIF(ic.index_id = 1
+                                ,ic.key_ordinal                -- matches up key sequence with STATS column order for clustered index
+                                ,COALESCE(ic.column_store_order_ordinal,ic.index_column_id))
       -- For Missing index ----------------------------------------
       ,column_usage        = CAST(NULL AS NVARCHAR(40))  COLLATE ' + @collation + N' -- also used for Missing index column usage
       -- For FULLTEXT ---------------------------------------------
@@ -4945,7 +4946,7 @@ SELECT database_id                  = DB_ID()
       ,stats_generation_method_desc = stats_generation_method_desc COLLATE ' + @collation + N'
       ,auto_drop
   FROM ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects] AS o
-  JOIN [sys].[stats]                            AS s
+  JOIN [sys].[stats]                                  AS s
     ON DB_ID()     = o.database_id
    AND s.object_id = o.object_id
 ) AS qry -- from CROSS APPLY
@@ -5008,7 +5009,7 @@ SELECT database_id       = DB_ID()
       ,s.column_id
   FROM [sys].[stats_columns]                AS s
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects] AS o
-    ON DB_ID()= o.database_id
+    ON DB_ID()     = o.database_id
    AND s.object_id = o.object_id
 ) AS qry
 OPTION (MAXDOP 1);'
@@ -6369,10 +6370,10 @@ SELECT c.database_id
             ON ic.database_id = o.database_id
            AND ic.object_id   = o.object_id                    -- want parent objects only
           JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_schemas] AS s
-            ON o.database_id  = s.database_id
+            ON ic.database_id = s.database_id
            AND o.schema_id    = s.schema_id
           JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_columns] AS c
-            ON o.database_id   = c.database_id
+            ON ic.database_id  = c.database_id
            AND ic.object_id    = c.object_id
            AND ic.column_id    = c.column_id
            AND N''timestamp'' <> c.user_type_name -- no statistics returned for TIMESTAMP
@@ -9834,7 +9835,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END
 
 /******************************************************************************************************************************************/
--- Update - [SQLXL_Index_Compilation] - Flag index columns that are filtered using [sys].[sql_expression_dependencies]
+-- Update - [SQLXL_Index_sys_index_columns] - Flag index columns that are filtered using [sys].[sql_expression_dependencies]
 /******************************************************************************************************************************************/
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    RAISERROR(N'    Start Flag index columns that are filtered using [sys].[sql_expression_dependencies]',0,0) WITH NOWAIT;
@@ -9923,6 +9924,8 @@ SELECT database_id       = ic.database_id
       ,is_sequence            = TRY_CAST(IIF(ic.seq_object_id > 0,1,0) AS BIT)
       ,is_newsequentialid     = TRY_CAST(IIF(dc.definition = N'(newsequentialid())',1,0) AS BIT)
       ,is_sparse              = COALESCE(ic.is_sparse,0)
+      --------------------------------------------------------------------------------------------------------------------------------------
+      ,index_elements         = kc.idx
       --------------------------------------------------------------------------------------------------------------------------------------
       -- Long Descriptors
       --------------------------------------------------------------------------------------------------------------------------------------
@@ -10048,8 +10051,8 @@ SELECT database_id       = ic.database_id
       + IIF(ic.is_sparse             = 1,N' ' + N'SPARSE'   ,N'')
       + IIF(ic.is_column_set         = 1,N' ' + N'COLSET'   ,N'')
        ----------------------------------------------------------------------
-      + IIF(ic.generated_always_type > 0,N' ' + N'GenAlwaysType(' +ic.generated_always_type_desc+ N')',N'')
-      + IIF(ic.graph_type            > 0,N' ' + N'GrphTyp ' +ic.graph_type_desc                       ,N'')
+      + IIF(ic.generated_always_type > 0,N' ' + N'GenAlwaysType(' + ic.generated_always_type_desc+ N')',N'')
+      + IIF(ic.graph_type            > 0,N' ' + N'GrphTyp ' + ic.graph_type_desc                       ,N'')
        -- Encryption --------------------------------------------------------
       + IIF(ic.column_encryption_key_id > 0,N' ' + N'ENCKEYID' + QUOTENAME(ic.column_encryption_key_id)  ,N'')
       + IIF(ic.column_encryption_key_database_name IS NOT NULL,N' ' + N'ENCKEYDB' + QUOTENAME(ic.column_encryption_key_database_name),N'')
@@ -10145,6 +10148,51 @@ SELECT database_id       = ic.database_id
    AND N'90'          = ftic.type
 
   ------------------------------------------------------------------------------------------------------------------------------------------
+  -- In index counts
+  ------------------------------------------------------------------------------------------------------------------------------------------
+  LEFT OUTER
+  JOIN (
+        SELECT kc.database_id
+              ,kc.object_id
+              ,kc.column_id
+              ,idx = LTRIM( IIF(CX_Lead_CNT > 0,N' CXLead ' + CAST(CX_Lead_CNT AS NVARCHAR(20)),N'')  
+                          + IIF(CX_Key_CNT  > 0,N' CXKey '  + CAST(CX_Key_CNT  AS NVARCHAR(20)),N'')  
+                          + IIF(lead_CNT    > 0,N' Lead '   + CAST(lead_CNT    AS NVARCHAR(20)),N'')  
+                          + IIF(key_CNT     > 0,N' Key '    + CAST(key_CNT     AS NVARCHAR(20)),N'')  
+                          + IIF(include_CNT > 0,N' Inc '    + CAST(include_CNT AS NVARCHAR(20)),N'')  
+                          + IIF(desc_CNT    > 0,N' Dsc '    + CAST(desc_CNT    AS NVARCHAR(20)),N'')  
+                          + IIF(filter_CNT  > 0,N' Flt '    + CAST(filter_CNT  AS NVARCHAR(20)),N'')  
+                          + IIF(MIX_Key_CNT > 0,N' MXKey '  + CAST(MIX_Key_CNT AS NVARCHAR(20)),N'')  
+                          + IIF(MIX_Inc_CNT > 0,N' MXInc '  + CAST(MIX_Inc_CNT AS NVARCHAR(20)),N'')  
+                          + IIF(NCS_CNT     > 0,N' NCS'                                        ,N'')
+                          )
+          FROM (
+                SELECT database_id
+                      ,object_id
+                      ,column_id
+                      ,CX_Lead_CNT   = SUM(IIF(type = N'1' AND key_column_sequence = 1,1,0))
+                      ,CX_Key_CNT    = SUM(IIF(type = N'1' AND key_column_sequence > 1,1,0))
+                      ,lead_CNT      = SUM(IIF(type = N'2' AND is_included_column  = 0 AND key_column_sequence = 1 ,1,0))
+                      ,key_CNT       = SUM(IIF(TYPE = N'2' AND is_included_column  = 0 AND key_column_sequence > 1 ,1,0))
+                      ,include_CNT   = SUM(IIF(type = N'2' AND is_included_column  = 1,1,0))
+                      ,desc_CNT      = SUM(IIF(is_descending_key = 1,1,0))
+                      ,filter_CNT    = SUM(IIF(is_index_column_filtered = 1,1,0))
+                      ,MIX_Key_CNT   = SUM(IIF(type = N'M' AND is_included_column  = 0,1,0))
+                      ,MIX_Inc_CNT   = SUM(IIF(type = N'M' AND is_included_column  = 1,1,0))
+                      ,NCS_CNT       = SUM(IIF(type = N'6'                            ,1,0))
+                  FROM dbo.SQLXL_Index_sys_index_columns AS ic
+                 WHERE 1 = 1
+                 GROUP BY 
+                       database_id
+                      ,object_id
+                      ,column_id
+               ) AS kc
+       ) AS kc
+    ON ic.database_id = kc.database_id
+   AND ic.object_id   = kc.object_id
+   AND ic.column_id   = kc.column_id
+
+ ------------------------------------------------------------------------------------------------------------------------------------------
   -- Column Statistics
   ------------------------------------------------------------------------------------------------------------------------------------------
   LEFT OUTER
