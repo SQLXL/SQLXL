@@ -1,4 +1,4 @@
--- VERSION 20240815
+-- VERSION 20240818
 /******************************************************************************************************************************************\
 PLEASE NOTE: All SQLXL objects are created in in the database your SSMS or ADS session is connected to.
 ALSO NOTE: Please connect to a database with SQL 2012 or higher compatibility - this tool uses TRY_CAST & TRY_COVERT which came in SQL 2012
@@ -3447,7 +3447,6 @@ SELECT database_id                     = DB_ID()
       -----------------------------------------------------------------
       ,hi_bucket_CNT                   = bucket_count
   FROM [sys].[indexes]                                                    AS i
---<BS> LEFT OUTER
   JOIN ' + @tgtDB + N'[dbo].[SQLXL_Index_sys_objects]                     AS o -- filters out SYSTEM objects
     ON DB_ID()     = o.database_id
    AND i.object_id = o.object_id
@@ -24610,7 +24609,8 @@ RAISERROR ('Created procedure dbo.SQLXL_Index ...',0,0) WITH NOWAIT;
 IF @@TRANCOUNT > 0 COMMIT;
 
 SET NOEXEC OFF
--- VERSION 240811
+-- VERSION 240818
+
 /******************************************************************************************************************************************\
 
 \******************************************************************************************************************************************/
@@ -27911,4 +27911,3 @@ END OF PROCEDURE
 \*########################################################################################################################################*/
 IF @@TRANCOUNT > 0 ROLLBACK;
 RAISERROR ('Created procedure dbo.SQLXL_Instance ...',0,0) WITH NOWAIT;
-
