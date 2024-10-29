@@ -1,3 +1,4 @@
+-- SQLXL_INDEX.SQL
 -- VERSION 24.09.30
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to,
@@ -4027,7 +4028,7 @@ END;
 select top (100) *
   from sys.stats AS s
   JOIN sys.stats_columns AS c
-	ON s.object_id = c.object_id
+"	ON s.object_id = c.object_id"
    and s.stats_id = c.stats_id
  where s.object_id = 407581136
    and s.has_filter = 0
