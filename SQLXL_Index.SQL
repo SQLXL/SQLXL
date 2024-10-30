@@ -1,4 +1,4 @@
--- VERSION 24.10.31.4
+-- VERSION 24.10.31.5
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to,
 since you can't create temporary (#) functions
@@ -639,7 +639,7 @@ OPTION (MAXDOP 1,RECOMPILE);
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
-IF OBJECT_ID('[sys].[availability_replicas]') IS NOT NULL
+IF object_id('[sys].[availability_replicas]') IS NOT NULL
 -------------------------------------------------------------------------
 WITH newcol AS (-- columns added after SQL Server 2005. Semicolon not needed since CTE is inside IF statement
 SELECT -- SQL 2019+ ---------------------------------
@@ -749,7 +749,7 @@ SELECT TOP (0)
   INTO [##SQLXL_Index_sys_dm_hadr_availability_replica_states]
 OPTION (MAXDOP 1,RECOMPILE);
 
-IF OBJECT_ID('[sys].[dm_hadr_availability_replica_states]') IS NOT NULL
+IF object_id('[sys].[dm_hadr_availability_replica_states]') IS NOT NULL
 WITH newcol AS (-- columns added after SQL Server 2005. Semicolon not needed since CTE is inside IF statement
 SELECT -- SQL 2017+ -------------------------------------------------------
        write_lease_remaining_ticks                 = CONVERT(BIGINT  ,NULL)
@@ -1001,7 +1001,7 @@ SELECT TOP (0)
   INTO [##SQLXL_Index_sys_dm_db_missing_index_group_stats_query]
 OPTION (MAXDOP 1,RECOMPILE);
 
-IF OBJECT_ID('[sys].[dm_db_missing_index_group_stats_query]') IS NOT NULL BEGIN
+IF object_id('[sys].[dm_db_missing_index_group_stats_query]') IS NOT NULL BEGIN
 --------------------------------------------------------------------------------------------------------------------------------------------
    SET @sql = N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -1065,7 +1065,7 @@ OPTION (MAXDOP 1,RECOMPILE);'
          ,sql3 = SUBSTRING(@sql,32768,16383);
 
    EXECUTE [sys].[sp_executesql] @sql; IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
-END; -- IF OBJECT_ID('[sys].[dm_db_missing_index_group_stats_query]') IS NOT NULL
+END; -- IF object_id('[sys].[dm_db_missing_index_group_stats_query]') IS NOT NULL
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -1540,7 +1540,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[database_scoped_configurations]'') IS NOT NULL
+IF object_id(''[sys].[database_scoped_configurations]'') IS NOT NULL
 WITH newcol AS (-- columns added after SQL Server 2005
 SELECT is_value_default = CONVERT(BIT,NULL) -- added SQL 2017
 )
@@ -1614,7 +1614,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[database_automatic_tuning_options]'') IS NOT NULL
+IF object_id(''[sys].[database_automatic_tuning_options]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_database_automatic_tuning_options]' + N'
 SELECT database_id        = DB_ID()
       ,name               = name               COLLATE ' + @collation + N'
@@ -1699,7 +1699,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[database_query_store_options]'') IS NOT NULL  -- added in SQL 2016
+IF object_id(''[sys].[database_query_store_options]'') IS NOT NULL  -- added in SQL 2016
 WITH newcol AS (-- columns added after SQL Server 2016
 SELECT query_capture_mode                         = CAST(NULL AS SMALLINT)
       ,query_capture_mode_desc                    = CAST(NULL AS NVARCHAR(60))   COLLATE ' + @collation + N'
@@ -1808,7 +1808,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(N''[cdc].[change_tables]'') IS NOT NULL
+IF object_id(N''[cdc].[change_tables]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_cdc_change_tables]
 SELECT database_id          = DB_ID()
       ,object_id
@@ -2389,11 +2389,11 @@ SELECT TOP (0)
    EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 END; -- IF @i = 1
 
-IF  OBJECT_ID('[sys].[data_spaces]')         IS NOT NULL -- BOL does not include AZURE SQL Database, does include SQL Managed Instance
-AND OBJECT_ID('[sys].[filegroups]')          IS NOT NULL -- BOL says in AZURE SQL Database, but this extends sys.data_spaces?
-AND OBJECT_ID('[sys].[database_files]')      IS NOT NULL -- BOL says in AZURE SQL Database & SQL Managed Instance
-AND OBJECT_ID('[sys].[partition_schemes]')   IS NOT NULL -- BOL does not include AZURE SQL Database, does include SQL Managed Instance
-AND OBJECT_ID('[sys].[partition_functions]') IS NOT NULL -- BOL says in AZURE SQL Database & SQL Managed Instance
+IF  object_id('[sys].[data_spaces]')         IS NOT NULL -- BOL does not include AZURE SQL Database, does include SQL Managed Instance
+AND object_id('[sys].[filegroups]')          IS NOT NULL -- BOL says in AZURE SQL Database, but this extends sys.data_spaces?
+AND object_id('[sys].[database_files]')      IS NOT NULL -- BOL says in AZURE SQL Database & SQL Managed Instance
+AND object_id('[sys].[partition_schemes]')   IS NOT NULL -- BOL does not include AZURE SQL Database, does include SQL Managed Instance
+AND object_id('[sys].[partition_functions]') IS NOT NULL -- BOL says in AZURE SQL Database & SQL Managed Instance
 --------------------------------------------------------------------------------------------------------------------------------------------
 SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL Database
               ,N'USE ' + @db_name_quoted + N';'
@@ -2606,7 +2606,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[sql_expression_dependencies]'') IS NOT NULL
+IF object_id(''[sys].[sql_expression_dependencies]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_sql_expression_dependencies]' + N'
 SELECT database_id                  = DB_ID()
       ,ed.referencing_id
@@ -3022,7 +3022,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID('' [sys].[edge_constraints]'') IS NOT NULL
+IF object_id('' [sys].[edge_constraints]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_edge_constraints]' + N'
 SELECT database_id      = DB_ID()
       ,parent_object_id
@@ -3089,7 +3089,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[edge_constraint_clauses]'') IS NOT NULL
+IF object_id(''[sys].[edge_constraint_clauses]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_edge_constraint_clauses]' + N'
 SELECT database_id    = DB_ID()
       ,object_id
@@ -3153,7 +3153,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[spatial_indexes]'') IS NOT NULL
+IF object_id(''[sys].[spatial_indexes]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_spatial_indexes]' + N'
 SELECT database_id             = DB_ID()
       ,object_id
@@ -3229,7 +3229,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[spatial_index_tessellations]'') IS NOT NULL
+IF object_id(''[sys].[spatial_index_tessellations]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_spatial_index_tessellations]' + N'
 SELECT database_id         = DB_ID()
       ,object_id
@@ -3308,7 +3308,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[spatial_indexes]'') IS NOT NULL
+IF object_id(''[sys].[spatial_indexes]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_xml_indexes]' + N'
 SELECT database_id                = DB_ID()
       ,object_id
@@ -3372,7 +3372,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[hash_indexes]'') IS NOT NULL
+IF object_id(''[sys].[hash_indexes]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_hash_indexes]' + N'
 SELECT database_id  = DB_ID()
       ,object_id
@@ -3670,7 +3670,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[fulltext_catalogs]'') IS NOT NULL
+IF object_id(''[sys].[fulltext_catalogs]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_fulltext_catalogs]' + N'
 SELECT database_id                = DB_ID()
       ,fulltext_catalog_id
@@ -4425,7 +4425,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -----------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[dm_db_incremental_stats_properties]'') IS NOT NULL
+IF object_id(''[sys].[dm_db_incremental_stats_properties]'') IS NOT NULL
 WITH newcol AS (-- columns added after SQL Server 2005
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
 )
@@ -4631,7 +4631,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[internal_partitions]'') IS NOT NULL
+IF object_id(''[sys].[internal_partitions]'') IS NOT NULL
 WITH newcol AS (-- columns added after SQL Server 2005
 SELECT optimize_for_sequential_key = CONVERT(BIT,NULL) -- SQL 2019+, Azure SQL Database
 )
@@ -4750,7 +4750,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[dm_db_xtp_index_stats]'') IS NOT NULL
+IF object_id(''[sys].[dm_db_xtp_index_stats]'') IS NOT NULL
 WITH newcol AS (-- columns added after SQL Server 2005
 SELECT uses_key_normalization = CONVERT(BIT   ,NULL) -- 2016+
 )
@@ -5068,7 +5068,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[dm_db_column_store_row_group_physical_stats]'') IS NOT NULL
+IF object_id(''[sys].[dm_db_column_store_row_group_physical_stats]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats]' + N'
 SELECT database_id                         = DB_ID()
       ,object_id                           = object_id
@@ -5154,7 +5154,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[dm_db_column_store_row_group_operational_stats]'') IS NOT NULL
+IF object_id(''[sys].[dm_db_column_store_row_group_operational_stats]'') IS NOT NULL
 WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2019+ -----------------------------------
        returned_row_COUNT        = CONVERT(BIGINT,NULL)
@@ -5263,7 +5263,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-IF OBJECT_ID(''[sys].[index_resumable_operations]'') IS NOT NULL
+IF object_id(''[sys].[index_resumable_operations]'') IS NOT NULL
 INSERT INTO [##SQLXL_Index_sys_index_resumable_operations]' + N'
 SELECT database_id          = DB_ID()
       ,object_id            = object_id
@@ -6445,13 +6445,13 @@ CREATE TABLE [##SQLXL_Index_Compilation]
 -- 'H' for History
 -- 'S' for System Internal Table
 -- 'I' for "Index"
--- Object_ID is same as parent except for Foreign Key Constraints, History (CDC, SVN, LDG) tables, and System Internal Tables
+-- object_id is same as parent except for Foreign Key Constraints, History (CDC, SVN, LDG) tables, and System Internal Tables
 -- Index Sub_Type sourced from [sys].[xml_indexes].[xml_index_type], [sys].[spatial_indexes].[spatial_index_type]
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,rec_type                                   NCHAR(1)       COLLATE DATABASE_DEFAULT NOT NULL
 ,database_ID                                SMALLINT                                    NULL -- KEY from [sys].[databases]
-,parent_object_ID                           BIGINT                                  NOT NULL -- KEY from [sys].[objects] - Parent level
-,object_ID                                  BIGINT                                  NOT NULL -- KEY from [sys].[objects] - Object level
+,parent_object_id                           BIGINT                                  NOT NULL -- KEY from [sys].[objects] - Parent level
+,object_id                                  BIGINT                                  NOT NULL -- KEY from [sys].[objects] - Object level
 ,index_id                                   BIGINT                                  NOT NULL -- KEY from [sys].[indexes] etc.
 ,type                                       NVARCHAR(2)    COLLATE DATABASE_DEFAULT NOT NULL
 ,sub_type                                   TINYINT                                 NOT NULL
@@ -6675,7 +6675,7 @@ CREATE TABLE [##SQLXL_Index_Compilation]
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- [sys].[foreign_keys]
 --------------------------------------------------------------------------------------------------------------------------------------------
-,fkc_referenced_object_ID                   BIGINT                                      NULL
+,fkc_referenced_object_id                   BIGINT                                      NULL
 ,fkc_referenced_index_ID                    BIGINT                                      NULL  -- ID of index supporting referenced object
 ,fkc_reference                              NVARCHAR(MAX)  COLLATE DATABASE_DEFAULT     NULL
 ,fkc_is_not_for_replication                 BIT                                         NULL
@@ -6992,7 +6992,7 @@ CREATE TABLE [##SQLXL_Index_Compilation]
 ,xtp_write_conflicts_CNT                    BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_unique_constraint_violations_CNT       BIGINT                                  NOT NULL DEFAULT(0)
 -- [sys].[dm_db_xtp_index_stats] --------------
-,xtp_object_ID                              INT                                         NULL
+,xtp_object_id                              INT                                         NULL
 ,xtp_scans_started_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_scans_retries_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
 ,xtp_rows_returned_CNT                      BIGINT                                  NOT NULL DEFAULT(0)
@@ -7039,7 +7039,7 @@ CREATE TABLE [##SQLXL_Index_Compilation]
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,data_space_ID                              BIGINT                                      NULL
  -- ID of the data space for this index. Data space is either a filegroup or partition scheme
- -- 0 = object_ID is a table-valued function or in-memory index
+ -- 0 = object_id is a table-valued function or in-memory index
  -- Also sys.fulltext_indexes.data_space_ID
 ,data_space_name                            SYSNAME        COLLATE DATABASE_DEFAULT     NULL
 ,data_space_logical_filename                SYSNAME        COLLATE DATABASE_DEFAULT     NULL
@@ -7278,7 +7278,7 @@ INSERT
       ----------------------------------------------------------------------------------------------------
       -- [sys].[foreign_keys]
       ----------------------------------------------------------------------------------------------------
-      ,fkc_referenced_object_ID
+      ,fkc_referenced_object_id
       ,fkc_referenced_index_ID
       ,fkc_is_not_for_replication
       ,fkc_delete_referential_action
@@ -7427,7 +7427,7 @@ SELECT rec_type                 = N'I'
       ----------------------------------------------------------------------------------------------------
       -- [sys].[foreign_keys
       ----------------------------------------------------------------------------------------------------
-      ,fkc_referenced_object_ID           = o.referenced_object_ID
+      ,fkc_referenced_object_id           = o.referenced_object_id
       ,fkc_referenced_index_ID            = o.key_index_id
       ,fkc_is_not_for_replication         = o.is_not_for_replication
       ,fkc_delete_referential_action      = o.delete_referential_action
@@ -7860,7 +7860,7 @@ END;
 CREATE UNIQUE CLUSTERED INDEX ixuc_SQLXL_Index_Compilation
     ON [##SQLXL_Index_Compilation]
       (database_id
-      ,object_ID
+      ,object_id
       ,index_ID
       ,type
       ,sub_type
@@ -7902,7 +7902,7 @@ UPDATE tgt
   JOIN ftx                         AS ftx
     ON tgt.database_id      = ftx.database_id
    AND tgt.parent_object_id = ftx.parent_object_id
-   AND tgt.object_ID        = ftx.object_ID
+   AND tgt.object_id        = ftx.object_id
    AND tgt.index_ID         = ftx.ftx_unique_index_ID
    AND tgt.type            IN (N'1' -- clustered rowstore index
                               ,N'2' -- nonclustered rowstore index
@@ -8449,19 +8449,19 @@ SELECT *
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_objects] AS op -- parent objects
     ON tgt.database_ID      = op.database_id
-   AND tgt.parent_object_ID = op.object_id
+   AND tgt.parent_object_id = op.object_id
 
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_objects] AS o -- objects
     ON tgt.database_ID = o.database_id
-   AND tgt.object_ID   = o.object_id
+   AND tgt.object_id   = o.object_id
 
   -----------------------------------------------------------
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_objects]   AS tbl -- all records get TABLE level information
     ON tgt.database_ID = tbl.database_id
    AND (   (    tgt.TYPE             = N'F' -- foreign key constraint
-            AND tgt.parent_object_ID = tbl.object_id
+            AND tgt.parent_object_id = tbl.object_id
            )
         OR (    tgt.TYPE            <> N'F' -- foreign key constraint
             AND tgt.object_id        = tbl.object_id
@@ -9350,7 +9350,7 @@ SELECT tgt.database_id,tgt.parent_object_id,
                                             JOIN [##SQLXL_Index_column]            AS eix
                                               ON ftic.database_id = eix.database_id
                                              AND ftic.object_id   = eix.object_id
-                                             -- No Object_ID column in XL_IDX_column
+                                             -- No object_id column in XL_IDX_column
                                              AND ftic.column_id   = eix.column_id
                                            WHERE tgt.Database_ID  = ftic.Database_ID
                                              AND tgt.object_id    = ftic.object_id
@@ -9754,7 +9754,7 @@ SELECT icol.database_id
                            AND is_unique = 0
                        ) AS u
                     ON i.database_id = u.database_id
-                   AND i.object_ID   = u.object_ID
+                   AND i.object_id   = u.object_id
                ) AS icol
           LEFT OUTER
           JOIN [##SQLXL_Index_column]            AS c                -- object all columns
@@ -10179,7 +10179,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.index_id,tgt.type,c.UNQ,c.column
           LEFT OUTER
           JOIN [##SQLXL_Index_sys_dm_db_index_usage_stats] AS ius
             ON i.database_ID      = ius.database_id
-           AND i.parent_object_ID = ius.object_id
+           AND i.parent_object_id = ius.object_id
            AND i.index_ID         = ius.index_id
          WHERE i.rec_type                 = N'I' -- index level composite record
            AND i.type                     = N'2' -- nonclustered rowstore index
@@ -12773,7 +12773,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.mix_Advantage_AMT
         HAVING SUM(ius_user_read_CNT) > 0
        ) usg
     ON tgt.database_id      = usg.database_id
-   AND tgt.parent_object_ID = usg.parent_object_ID
+   AND tgt.parent_object_id = usg.parent_object_id
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -14744,7 +14744,7 @@ SELECT c.name
   FROM [sys].[columns] c
   JOIN [sys].[types]   t
     ON c.system_type_id = t.system_type_id
- WHERE c.object_id = OBJECT_ID(N'tempDB..[##SQLXL_Index_Compilation]')
+ WHERE c.object_id = object_id(N'tempDB..[##SQLXL_Index_Compilation]')
     AND (   (t.name    = 'float'    AND RIGHT(c.name,4) = N'_AMT')
          OR (t.name LIKE N'%INT'    AND c.name LIKE N'%CNT%')
          OR (t.name    = 'DATETIME' AND c.name LIKE N'%_DTTM')
@@ -14784,7 +14784,7 @@ END;
 SELECT TOP 0
        database_id
       ,parent_object_id
-      ,object_ID
+      ,object_id
       ,index_ID
       ,type
       ,action_desc  = CAST(NULL AS NVARCHAR(20))
@@ -14797,7 +14797,7 @@ CREATE CLUSTERED INDEX ixuc_#prescription
     ON #prescription
       (database_id
       ,parent_object_id
-      ,OBJECT_ID
+      ,object_id
       ,index_id
       ,TYPE
       ,srt
@@ -16075,7 +16075,7 @@ SELECT *
          LEFT OUTER
          JOIN [##SQLXL_Index_sys_objects] AS t
            ON i.database_ID = t.database_id
-          AND i.object_ID   = t.object_id
+          AND i.object_id   = t.object_id
          LEFT OUTER
          JOIN [##SQLXL_Index_sys_objects] AS lv
            ON t.database_id    = lv.database_id
@@ -16309,15 +16309,15 @@ SELECT p.rec_type
                            )
          GROUP BY
                database_ID
-              ,parent_object_ID
+              ,parent_object_id
        ) AS hs
     ON p.database_ID      = hs.database_id
-   AND p.parent_object_ID = hs.parent_object_id
+   AND p.parent_object_id = hs.parent_object_id
 
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_objects] AS tbl
     ON p.database_ID = tbl.database_id
-   AND p.object_ID   = tbl.object_id
+   AND p.object_id   = tbl.object_id
 
   LEFT OUTER
   JOIN (-- get the "physical" respresentation of the underlying data
@@ -16469,7 +16469,7 @@ SELECT p.rec_type
   LEFT OUTER
   JOIN (-- get count of nonclustered rowstore indexes with less than 2% of table reads
         SELECT i.database_ID
-              ,i.parent_object_ID
+              ,i.parent_object_id
               ,i.object_id
               ,idx_cnt            = SUM(1)
           FROM (-- All nonclustered rowstores not tied to a clustered columnstore table
@@ -16484,19 +16484,19 @@ SELECT p.rec_type
                ) AS i
           JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS p  -- parent level composite record
             ON i.database_id      = p.database_id
-           AND i.parent_Object_Id = p.parent_Object_id
-           AND i.object_ID        = p.object_ID
+           AND i.parent_object_id = p.parent_object_id
+           AND i.object_id        = p.object_id
          WHERE IIF(p.ops_total_read_CNT > 0
                   ,100.0 * COALESCE(i.ops_total_read_CNT,0) / p.ops_total_read_CNT
                   ,0.0) < 2.0 -- 2 percent
          GROUP BY
                i.database_ID
-              ,i.parent_object_ID
-              ,i.object_ID
+              ,i.parent_object_id
+              ,i.object_id
        ) AS idx_rd
     ON p.database_ID      = idx_rd.database_ID
-   AND p.parent_object_ID = idx_rd.parent_object_ID
-   AND p.object_ID        = idx_rd.object_ID
+   AND p.parent_object_id = idx_rd.parent_object_id
+   AND p.object_id        = idx_rd.object_id
 ) AS p
  WHERE p.diagnostic IS NOT NULL
 OPTION (MAXDOP 1,RECOMPILE);
@@ -16548,7 +16548,7 @@ SELECT p.rec_type
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS p  -- parent level composite record
   JOIN [##SQLXL_Index_sys_objects] AS tbl
     ON p.database_id = tbl.database_id
-   AND p.object_ID   = tbl.object_id
+   AND p.object_id   = tbl.object_id
 
   LEFT OUTER
   JOIN (-- Data Spaces
@@ -16607,7 +16607,7 @@ INSERT
 SELECT rec_type         = N'P'           -- parent level composite record
       ,p.database_id
       ,parent_object_id = p.object_id
-      ,p.object_ID
+      ,p.object_id
       ,index_id   = p.object_id
       ,type       = N'U'                 -- User Table
       ,diagnostic = N'Large datatypes: '
@@ -16659,7 +16659,7 @@ INSERT
 SELECT rec_type         = N'P'               -- parent level composite record
       ,p.database_id
       ,parent_object_id = p.object_id
-      ,p.object_ID
+      ,p.object_id
       ,index_id   = p.object_id
       ,type       = N'U'                     -- User Table
       ,diagnostic = N'Deprecated datatypes: '
@@ -16737,7 +16737,7 @@ SELECT rec_type   = N'P'             -- parent level composite record
     ON N'I'               = i.rec_type       -- index level composite record
    AND p.database_id      = i.database_id
    AND p.parent_object_id = i.parent_object_id
-   AND p.object_id        = i.object_ID
+   AND p.object_id        = i.object_id
    AND i.type            IN (N'0' -- Rowstore HEAP
                             ,N'1' -- Rowstore Clustered
                             );    -- Clustered columnstores cannot have PK constraints
@@ -17106,7 +17106,7 @@ SELECT c.*
        ) AS c
   JOIN [##SQLXL_Index_sys_objects] AS t
     ON c.database_id = t.database_id
-   AND c.object_id   = t.OBJECT_ID
+   AND c.object_id   = t.object_id
    AND 0             = t.is_tracked_by_cdc
 OPTION (MAXDOP 1,RECOMPILE);
 
@@ -17147,7 +17147,7 @@ SELECT rec_type   = N'P'  -- parent level composite record
  WHERE i.index_id IS NULL
  GROUP BY
        s.database_id
-      ,s.OBJECT_ID
+      ,s.object_id
 HAVING SUM(IIF(s.has_filter = 1,1,0)) > 0
 OPTION (MAXDOP 1,RECOMPILE);
 
@@ -17300,14 +17300,15 @@ SELECT rec_type      = N'P'  -- parent level composite record
 + N' column ' + QUOTENAME(c.name)
 + IIF(c.increment_value IS NOT NULL OR c.seq_increment IS NOT NULL
      , IIF(LEN(c.name) > 57,NCHAR(167) + N'> ',N' ')
-     + N'at ' + CONVERT(NVARCHAR(6)
-                       , CAST(100.0 * CAST(COALESCE(c.Last_Value,c.seq_current_value,0) AS BIGINT)
-                       / cte.max_value AS MONEY)
-                       ) -- no check for zero, always > 0 from cte
-      + N'% Used: ' + [dbo].[SQLXL_3SD](COALESCE(CAST(c.Last_Value AS BIGINT)
-                                                       ,CAST(c.seq_current_value AS BIGINT)
-                                                       ,0
-                                                       ),N'I')
+     + N'at ' + [dbo].[SQLXL_3SD](100.0 * CAST(COALESCE(c.Last_Value,c.seq_current_value,0) AS BIGINT) / cte.max_value
+                                 ,N'N'
+                                 )         -- no check for zero, always > 0 from cte
+      + N'% Used: ' + [dbo].[SQLXL_3SD](COALESCE(CAST(c.Last_Value        AS BIGINT)
+                                                ,CAST(c.seq_current_value AS BIGINT)
+                                                ,0
+                                                )
+                                       ,N'I'
+                                       )
                    + N'/' + cte.max_fmt
       + IIF(   c.increment_value <> 1
             OR c.seed_value      <  1
@@ -17599,7 +17600,7 @@ SELECT i.rec_type
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_fulltext_indexes] AS ftx
     ON i.database_ID = ftx.database_id
-   AND i.object_ID   = ftx.object_id
+   AND i.object_id   = ftx.object_id
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_fulltext_catalogs] AS ftc
     ON ftx.database_id         = ftc.database_id
@@ -17617,8 +17618,8 @@ SELECT i.rec_type
               ,type
        ) AS ic
     ON i.database_ID      = ic.database_id
-   AND i.parent_object_ID = ic.object_id
-   AND i.object_ID        = ic.object_id
+   AND i.parent_object_id = ic.object_id
+   AND i.object_id        = ic.object_id
    AND i.index_ID         = ic.index_id
    AND i.type             = ic.type
  WHERE i.rec_type = N'I'   -- index level composite record
@@ -18191,7 +18192,7 @@ SELECT COUNT(1)
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_objects] AS o
     ON i.database_id = o.database_id
-   AND i.OBJECT_ID   = o.OBJECT_ID
+   AND i.object_id   = o.object_id
  WHERE i.rec_type NOT IN (N'A' -- instance level composite record
                          ,N'D' -- database level composite record
                          )
@@ -18462,7 +18463,7 @@ INSERT
       )
 SELECT N'I'                                                 -- index level composite record
       ,ic.database_id
-      ,cp.parent_object_ID
+      ,cp.parent_object_id
       ,cp.object_id
       ,cp.index_id
       ,cp.type
@@ -18486,7 +18487,7 @@ SELECT N'I'                                                 -- index level compo
         UNION ALL
         SELECT fkc.database_id
               ,fk.parent_object_id
-              ,object_ID = fkc.constraint_object_id
+              ,object_id = fkc.constraint_object_id
               ,index_id  = fkc.constraint_object_id
               ,type      = N'F'                     -- foreign key constraint
               ,obj_type  = N'F'                     -- foreign key constraint
@@ -18507,7 +18508,7 @@ SELECT N'I'                                                 -- index level compo
    AND N'TBL'         = cp.obj_type_short_label -- only get user indexes from [##SQLXL_Index_Compilation] - no history or internal tables
    AND ic.database_id = cp.database_ID
    AND ic.obj_type    = cp.obj_type
-   AND ic.object_id   = cp.object_ID
+   AND ic.object_id   = cp.object_id
    AND ic.index_id    = cp.index_ID
    AND ic.type        = cp.type
  WHERE 1 = 1
@@ -19049,7 +19050,7 @@ SELECT x.database_id
        ) AS ic
     ON x.database_id            = ic.database_id
    AND x.parent_object_id       = ic.parent_object_id
--- AND x.object_id              = ic.object_ID -- Commented out since we're only looking for filters on Table columns
+-- AND x.object_id              = ic.object_id -- Commented out since we're only looking for filters on Table columns
    AND sep.referenced_minor_id  = ic.column_id
   JOIN [##SQLXL_Index_sys_columns] AS c
     ON x.database_id            = c.database_id
@@ -19299,7 +19300,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
                   FROM [##SQLXL_Index_uniqueness]  AS u
                   JOIN [##SQLXL_Index_Compilation] AS c
                     ON u.database_id = c.database_id
-                   AND u.object_id   = c.object_ID
+                   AND u.object_id   = c.object_id
                    AND N'P'          = c.rec_type              -- parent level composite record
                    AND N'TBL'        = c.obj_type_short_label  -- tables only
                  WHERE u.type IN (N'1'                         -- clustered rowstore index
@@ -20774,7 +20775,7 @@ SELECT DISTINCT -- needed since a name can be flagged multiple times
        c.rec_type
       ,c.database_id
       ,c.parent_object_id
-      ,c.object_ID
+      ,c.object_id
       ,c.index_ID
       ,c.type
       ,diagnostic         = N'[POTENTIAL TEMPORARY OBJECT]'
@@ -21381,7 +21382,7 @@ SELECT DISTINCT
        ) AS x
     ON i.database_id      = x.database_id
    AND i.parent_object_id = x.parent_object_id
-   AND i.object_ID        = x.object_ID
+   AND i.object_id        = x.object_id
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -21410,7 +21411,7 @@ SELECT i.database_id
   JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS f
     ON i.database_id      = f.database_id
    AND i.parent_object_id = f.parent_object_id
-   AND i.object_ID        = f.object_ID
+   AND i.object_id        = f.object_id
    AND i.index_id         = f.ftx_unique_index_ID
 OPTION (MAXDOP 1,RECOMPILE);
 
@@ -21637,7 +21638,7 @@ SELECT i.database_id
                                 FROM #prescription    AS rex
                                WHERE i.database_id                = rex.database_id
                                  AND i.parent_object_id           = rex.parent_object_id
-                                 AND i.object_ID                  = rex.object_ID
+                                 AND i.object_id                  = rex.object_id
                                  AND i.index_ID                   = rex.index_ID
                                  AND i.type                       = rex.type
                                  AND N'Retain'                    = rex.action_desc
@@ -21656,7 +21657,7 @@ SELECT i.database_id
   JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS i  -- index level composite record
     ON ref.database_id            = i.database_id
    AND ref.parent_object_id       = i.parent_object_id
-   AND ref.object_ID              = i.object_ID
+   AND ref.object_id              = i.object_id
    AND ref.index_ID               = i.index_ID
    AND ref.type                   = i.type
    AND i.prescription IS NULL
@@ -21861,7 +21862,7 @@ SELECT i.database_id
   JOIN #prescription AS a
     ON i.database_id             = a.database_id
    AND i.parent_object_id        = a.parent_object_id
-   AND i.object_id               = a.object_ID
+   AND i.object_id               = a.object_id
    AND i.index_ID                = a.index_ID
    AND i.type                    = a.type
  WHERE i.parent_object_type      = N'U' -- User Table
@@ -21909,7 +21910,7 @@ SELECT i.database_id
   JOIN #prescription               AS a
     ON i.database_id                = a.database_id
    AND i.parent_object_id           = a.parent_object_id
-   AND i.object_id                  = a.object_ID
+   AND i.object_id                  = a.object_id
    AND i.index_ID                   = a.index_ID
    AND i.type                       = a.type
  WHERE i.parent_object_type         = N'U' -- User Table
@@ -21958,7 +21959,7 @@ SELECT i.database_id
   JOIN #prescription              AS a
     ON i.database_id               = a.database_id
    AND i.parent_object_id          = a.parent_object_id
-   AND i.object_id                 = a.object_ID
+   AND i.object_id                 = a.object_id
    AND i.index_ID                  = a.index_ID
    AND i.type                      = a.type
 
@@ -22003,7 +22004,7 @@ SELECT i.database_id
   JOIN #prescription     AS a
     ON i.database_id      = a.database_id
    AND i.parent_object_id = a.parent_object_id
-   AND i.object_id        = a.object_ID
+   AND i.object_id        = a.object_id
    AND i.index_ID         = a.index_ID
    AND i.type             = a.type
  WHERE i.parent_object_type = N'TF' -- SQL table-valued-function SQL 2012+
@@ -22037,7 +22038,7 @@ SELECT i.database_id
                           FROM #prescription     AS rex
                          WHERE i.database_id      = rex.database_id
                            AND i.parent_object_id = rex.parent_object_id
-                           AND i.object_ID        = rex.object_ID
+                           AND i.object_id        = rex.object_id
                            AND i.index_ID         = rex.index_ID
                            AND i.type             = rex.type
                            AND N'Request'         = rex.action_desc
@@ -22056,7 +22057,7 @@ SELECT i.database_id
        ) ref
     ON i.database_id      = ref.database_id
    AND i.parent_object_id = ref.parent_object_id
-   AND i.object_ID        = ref.object_ID
+   AND i.object_id        = ref.object_id
    AND i.index_ID         = ref.index_ID
    AND i.type             = ref.type
 OPTION (MAXDOP 1,RECOMPILE);
@@ -22141,7 +22142,7 @@ SELECT ic.database_id
   JOIN [##SQLXL_Index_column]            AS c
     ON ic.database_id = c.database_id
    AND ic.object_id   = c.object_id
-   -- No Object_ID column in XL_IDX_column table
+   -- No object_id column in XL_IDX_column table
    AND ic.column_id   = c.column_id
  WHERE 13 <= sis.ProductMajorVersion  -- SQL 2016+
    AND 2  <> sis.EngineEdition        -- standard edition
@@ -22195,7 +22196,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
   LEFT OUTER
   JOIN #index_Key_DataType_Not_Eligible_for_NCS AS x
     ON i.database_id                             = x.database_id
-   AND i.object_ID                               = x.object_id
+   AND i.object_id                               = x.object_id
    AND i.index_ID                                = x.index_id
  WHERE 1 = 1
    AND 13 <= sis.ProductMajorVersion -- SQL 2016+
@@ -22239,17 +22240,17 @@ SELECT * FROM #Candidate_indexes_for_NCS ORDER BY 1,2,4,3
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH cte AS (--
 SELECT database_id
-      ,object_ID
+      ,object_id
       ,ncx = SUM(IIF(type = N'2',1,0)) -- nonclustered rowstore index
       ,mix = SUM(IIF(type = N'M',1,0)) -- missing nonclustered rowstore index
   FROM #Candidate_indexes_for_NCS
  WHERE excluded = 0
  GROUP BY
        database_id
-      ,object_ID
+      ,object_id
 )
 SELECT database_id
-      ,object_ID
+      ,object_id
   INTO #Candidate_for_NCS
   FROM cte
  WHERE COALESCE(ncx,0) + COALESCE(mix,0) > 3
@@ -22293,13 +22294,13 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
               ,object_id
        ) AS ncs
     ON p.database_id       = ncs.database_id
-   AND p.parent_object_id  = ncs.object_ID
-   AND p.object_ID         = ncs.object_ID
+   AND p.parent_object_id  = ncs.object_id
+   AND p.object_id         = ncs.object_id
   JOIN #Candidate_for_NCS AS c
     ON p.database_id       = c.database_id
-   AND p.parent_object_id  = c.object_ID
-   AND p.object_ID         = c.object_ID
-   AND p.index_id          = c.object_ID
+   AND p.parent_object_id  = c.object_id
+   AND p.object_id         = c.object_id
+   AND p.index_id          = c.object_id
    AND p.type              = N'U' -- User Table
  WHERE 13 <= sis.ProductMajorVersion
    AND 2  <> (-- Can't run columnstore on STANDARD EDITION (2)
@@ -22308,7 +22309,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
                WHERE name   = N'EngineEdition'
                  AND source = N'SERVERPROPERTY'
              )
-  AND ncs.object_ID IS NULL  -- no existing Nonclustered columnstore on table
+  AND ncs.object_id IS NULL  -- no existing Nonclustered columnstore on table
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -22363,11 +22364,11 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
        ) AS p
     ON i.database_id                            = p.database_id
    AND i.parent_object_id                       = p.parent_object_id
-   AND i.object_ID                              = p.object_ID
+   AND i.object_id                              = p.object_id
   LEFT OUTER
   JOIN #index_Key_DataType_Not_Eligible_for_NCS AS x              -- Indexes that have columns unusable in Nonclustered columnstore
     ON i.database_id                            = x.database_id
-   AND i.object_ID                              = x.object_id
+   AND i.object_id                              = x.object_id
    AND i.index_ID                               = x.index_id
  WHERE 13 <= sis.ProductMajorVersion
    AND 2  <> (-- Can't run columnstore on STANDARD EDITION (2)
@@ -22503,7 +22504,7 @@ SELECT i.database_id
                                       )
                ,seq.database_id
                ,seq.parent_object_id
-               ,il.object_ID
+               ,il.object_id
                ,il.index_ID
                ,il.type
           FROM (-- Get list of all synergy SEQUENCES shared between Nonclustered rowstores. NOTE: only UNFILTERED indexes appear
@@ -22553,13 +22554,13 @@ SELECT i.database_id
           JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS il              -- index level composite record
             ON seq.database_id                   = il.database_id
            AND seq.parent_object_id              = il.parent_object_id
-           AND seq.parent_object_id              = il.object_ID
+           AND seq.parent_object_id              = il.object_id
            AND o.l_index_id                      = il.index_ID
            AND o.l_type                          = il.type
        ) ix
     ON i.database_id      = ix.database_id
    AND i.parent_object_id = ix.parent_object_id
-   AND i.object_ID        = ix.object_ID
+   AND i.object_id        = ix.object_id
    AND i.index_ID         = ix.index_ID
    AND i.type             = ix.type
  WHERE ix.rn = 1
@@ -22998,7 +22999,7 @@ SELECT i.database_id
   JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS p  -- parent level composite record
     ON i.database_id      = p.database_id
    AND i.parent_object_id = p.parent_object_id
-   AND i.object_ID        = p.object_ID
+   AND i.object_id        = p.object_id
    --------------------------------------
  WHERE i.obj_type_short_label    NOT IN (N'HST' -- Not a History/archive table
                                         ,N'IT'  -- Not a system internal table
@@ -23449,7 +23450,7 @@ SELECT i.database_id
                          FROM #prescription     AS rex
                         WHERE i.database_id      = rex.database_id
                           AND i.parent_object_id = rex.parent_object_id
-                          AND i.object_ID        = rex.object_ID
+                          AND i.object_id        = rex.object_id
                           AND i.index_ID         = rex.index_ID
                           AND i.type             = rex.type
                           AND N'Refactor'        = rex.action_desc
@@ -23466,7 +23467,7 @@ SELECT i.database_id
        ) AS ref
     ON i.database_id      = ref.database_id
    AND i.parent_object_id = ref.parent_object_id
-   AND i.object_ID        = ref.object_ID
+   AND i.object_id        = ref.object_id
    AND i.index_ID         = ref.index_ID
    AND i.type             = ref.type
  WHERE i.prescription LIKE N'Retain%'           -- only want to Refresh indexes marked to Retain
@@ -23784,7 +23785,7 @@ SELECT i.database_id
        ) AS i
   JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS p -- parent level composite record
     ON i.database_id      = p.database_id
-   AND i.parent_object_id = p.parent_object_ID
+   AND i.parent_object_id = p.parent_object_id
    AND i.object_id        = p.object_id
  WHERE 1 = 1
    ---------------------------------------------------------
@@ -24253,7 +24254,7 @@ SELECT i.database_id
                          FROM #prescription     AS rex
                         WHERE i.database_id      = rex.database_id
                           AND i.parent_object_id = rex.parent_object_id
-                          AND i.object_ID        = rex.object_ID
+                          AND i.object_id        = rex.object_id
                           AND i.index_ID         = rex.index_ID
                           AND i.type             = rex.type
                           AND N'Review'          = rex.action_desc
@@ -24275,7 +24276,7 @@ SELECT i.database_id
        ) ref
     ON i.database_id      = ref.database_id
    AND i.parent_object_id = ref.parent_object_id
-   AND i.object_ID        = ref.object_ID
+   AND i.object_id        = ref.object_id
    AND i.index_ID         = ref.index_ID
    AND i.type             = ref.type
 OPTION (MAXDOP 1,RECOMPILE);
@@ -24611,7 +24612,7 @@ SELECT i.database_id
                          FROM #prescription AS rex
                         WHERE i.database_id             = rex.database_id
                           AND i.parent_object_id        = rex.parent_object_id
-                          AND i.object_ID               = rex.object_ID
+                          AND i.object_id               = rex.object_id
                           AND i.index_ID                = rex.index_ID
                           AND i.type                    = rex.type
                           AND N'Refresh'               = rex.action_desc
@@ -24628,7 +24629,7 @@ SELECT i.database_id
        ) AS ref
     ON i.database_id      = ref.database_id
    AND i.parent_object_id = ref.parent_object_id
-   AND i.object_ID        = ref.object_ID
+   AND i.object_id        = ref.object_id
    AND i.index_ID         = ref.index_ID
    AND i.type             = ref.type
 OPTION (MAXDOP 1,RECOMPILE);
@@ -24899,11 +24900,11 @@ SELECT p.database_id,p.parent_object_id,p.object_id,p.obj_type,p.obj_name,
        ) AS p
   LEFT OUTER
   JOIN (-- Buffer cache usage as a percent of the weighted total
-        SELECT rec_type,parent_object_ID,object_id,index_id,type
+        SELECT rec_type,parent_object_id,object_id,index_id,type
               ,mem_log = (b.mem_log / SUM(b.mem_log) OVER ())
           FROM (--Buffer cache usage - weighted by percent of table+indexes in memory
                 --                     times the log of the reserved size of the table+indexes
-                SELECT rec_type,parent_object_ID,object_id,index_id,type
+                SELECT rec_type,parent_object_id,object_id,index_id,type
                       ,mem_log = LOG(c.reserved_page_PG_CNT) * c.buffer_total_KB_CNT / (c.reserved_page_PG_CNT * 8.0)
                   FROM [##SQLXL_Index_Compilation] AS c
                  WHERE c.rec_type                = N'P'     -- parent level composite record
@@ -24913,7 +24914,7 @@ SELECT p.database_id,p.parent_object_id,p.object_id,p.obj_type,p.obj_name,
        ) AS b
     ON p.rec_type         = b.rec_type
    AND p.rec_type         = b.rec_type
-   AND p.parent_object_ID = b.parent_object_ID
+   AND p.parent_object_id = b.parent_object_id
    AND p.object_id        = b.object_id
    AND p.index_id         = b.index_id
    AND p.type             = b.type
@@ -25255,7 +25256,7 @@ SET XACT_ABORT               ON;
 /******************************************************************************************************************************************\
  function [dbo].[SQLXL_Strip_Strings] - remove character elements found in a string
 \******************************************************************************************************************************************/
-IF OBJECT_ID(N'[dbo].[SQLXL_Strip_Strings]') IS NULL
+IF object_id(N'[dbo].[SQLXL_Strip_Strings]') IS NULL
    EXEC(N'CREATE FUNCTION [dbo].[SQLXL_Strip_Strings]() RETURNS BIT AS BEGIN RETURN 0 END');
 GO
 
@@ -25280,7 +25281,7 @@ GO
 /******************************************************************************************************************************************\
  function [dbo].[SQLXL_Keep_Strings] - keep only character elements found in a string
 \******************************************************************************************************************************************/
-IF OBJECT_ID(N'[dbo].[SQLXL_Keep_Strings]') IS NULL
+IF object_id(N'[dbo].[SQLXL_Keep_Strings]') IS NULL
    EXEC(N'CREATE FUNCTION [dbo].[SQLXL_Keep_Strings]() RETURNS BIT AS BEGIN RETURN 0 END');
 GO
 
@@ -25305,7 +25306,7 @@ GO
 /******************************************************************************************************************************************\
  function [dbo].[SQLXL_Parse_Strings] -  to, unh, parse strings using native functions if available or recursive CTE
 \******************************************************************************************************************************************/
-IF OBJECT_ID(N'[dbo].[SQLXL_Parse_Strings]') IS NULL
+IF object_id(N'[dbo].[SQLXL_Parse_Strings]') IS NULL
    EXEC(N'CREATE FUNCTION [dbo].[SQLXL_Parse_Strings]() RETURNS @t TABLE (r BIT, s BIT) AS BEGIN RETURN END');
 GO
 
@@ -25455,7 +25456,7 @@ GO
 /******************************************************************************************************************************************\
 -- function [dbo].[SQLXL_Numbers]
 \******************************************************************************************************************************************/
-IF OBJECT_ID(N'[dbo].[SQLXL_Numbers]') IS NULL
+IF object_id(N'[dbo].[SQLXL_Numbers]') IS NULL
    EXEC(N'CREATE FUNCTION [dbo].[SQLXL_Numbers]() RETURNS TABLE AS RETURN (SELECT id = 0)');
 GO
 
@@ -25485,7 +25486,7 @@ FUTURE: consider using below for straight power of 10 conversions
 \******************************************************************************************************************************************/
 DECLARE @collation SYSNAME = (SELECT collation_name FROM sys.databases WHERE database_id = DB_ID())
 
-IF OBJECT_ID(N'[dbo].[SQLXL_3SD]') IS NULL
+IF object_id(N'[dbo].[SQLXL_3SD]') IS NULL
    EXEC(N'CREATE FUNCTION [dbo].[SQLXL_3SD]() RETURNS BIT AS BEGIN RETURN 0 END');
 GO
 
@@ -25738,7 +25739,7 @@ GO
 /******************************************************************************************************************************************/
 -- function [dbo].[SQLXL_INT_DTTM] - Converts BIGINT time count to elapsed DATETIME (e.g. MILLISECONDS -> HOURS)
 /******************************************************************************************************************************************/
-IF OBJECT_ID(N'[dbo].[SQLXL_INT_DTTM]') IS NULL
+IF object_id(N'[dbo].[SQLXL_INT_DTTM]') IS NULL
    EXEC(N'CREATE FUNCTION [dbo].[SQLXL_INT_DTTM]() RETURNS BIT AS BEGIN RETURN 0 END');
 GO
 
@@ -25784,7 +25785,7 @@ GO
  If >= 60 minutes returns time in Hours
  If <  60 minutes returns time in MI:SS.mmm
 \******************************************************************************************************************************************/
-IF OBJECT_ID(N'[dbo].[SQLXL_DTTM_HMSM]') IS NULL
+IF object_id(N'[dbo].[SQLXL_DTTM_HMSM]') IS NULL
    EXEC(N'CREATE FUNCTION [dbo].[SQLXL_DTTM_HMSM]() RETURNS BIT AS BEGIN RETURN 0 END');
 GO
 
@@ -27324,7 +27325,7 @@ SELECT i.database_id,i.history_source_object_id,i.parent_object_id,i.object_id,i
   JOIN [##SQLXL_Index_Compilation] AS hst_src
     ON i.database_id              = hst_src.database_id
    AND i.history_source_object_id = hst_src.parent_object_id
-   AND i.history_source_object_id = hst_src.OBJECT_ID
+   AND i.history_source_object_id = hst_src.object_id
    AND i.history_source_object_id = hst_src.index_id
    AND N'U'                       = hst_src.type             -- User Table
 -- WHERE i.object_id = 1653580929
@@ -27340,7 +27341,7 @@ SELECT i.database_id,i.history_source_object_id,i.parent_object_id,i.object_id,i
   LEFT OUTER                                                                   -- outer needed for ALL row
   JOIN [##SQLXL_Index_sys_objects]                                       AS tbl
     ON i.database_id = tbl.database_id
-   AND i.object_ID   = tbl.object_id
+   AND i.object_id   = tbl.object_id
 
   LEFT OUTER                                                                   -- outer needed for ALL row
   JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS p  -- parent level composite record
@@ -27372,7 +27373,7 @@ SELECT i.database_id,i.history_source_object_id,i.parent_object_id,i.object_id,i
        IIF(i.rec_type = N'A',1,0)  -- sort Instance/Sample level to bottom
       ,i.tbl_priority_metric DESC
       ,i.database_ID
-      ,i.parent_object_ID
+      ,i.parent_object_id
       ,i.index_id
       ,i.type
 OPTION (MAXDOP 1,RECOMPILE);
@@ -27661,7 +27662,7 @@ OPTION (MAXDOP 1,RECOMPILE);
  https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-configurations-transact-sql?view=sql-server-ver16
  *NOTE* same elements as sp_configure
 \******************************************************************************************************************************************/
-IF OBJECT_ID('[sys].[configurations]') IS NOT NULL
+IF object_id('[sys].[configurations]') IS NOT NULL
 INSERT
   INTO [##SQLXL_Instance_info]
 SELECT N'configurations'
@@ -28056,7 +28057,7 @@ OPTION (MAXDOP 1,RECOMPILE);
 -- NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
 --       https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
-IF OBJECT_ID('[sys].[servers]') IS NOT NULL BEGIN -- on-premise editions & Azure SQL Managed Instance
+IF object_id('[sys].[servers]') IS NOT NULL BEGIN -- on-premise editions & Azure SQL Managed Instance
    WITH newcol AS (-- columns added after SQL Server 2005
    SELECT -- SQL 2016+ -----------------------
           is_rda_server    = CONVERT(BIT,NULL)
@@ -28123,7 +28124,7 @@ IF OBJECT_ID('[sys].[servers]') IS NOT NULL BEGIN -- on-premise editions & Azure
    SELECT N'servers',N'modify_date'            ,(SELECT CONVERT(NVARCHAR(30),modify_date,120) FROM [sys].[servers] WHERE server_id = 0)
    ) AS qry (source,name,text_value)
    OPTION (MAXDOP 1,RECOMPILE);
-END; -- IF OBJECT_ID('[sys].[servers]') IS NOT NULL
+END; -- IF object_id('[sys].[servers]') IS NOT NULL
 
 -- Diagnostic - Instance - Good to know - SQL version Instance and server key hardware & OS cofiguration information
 INSERT
