@@ -649,28 +649,28 @@ SELECT -- SQL 2019+ ---------------------------------
 )
 INSERT
   INTO [##SQLXL_Index_sys_availability_replicas]
-      (replica_id          
-      ,group_id            
-      ,replica_metadata_id 
-      ,replica_server_name  
+      (replica_id
+      ,group_id
+      ,replica_metadata_id
+      ,replica_server_name
 --    ,owner_sid -- varbinary(85) Security identifier (SID) registered to this server instance
-      ,endpoint_url                         
-      ,availability_mode                    
-      ,availability_mode_desc               
-      ,failover_mode                        
-      ,failover_mode_desc                   
-      ,session_timeout                      
-      ,primary_role_allow_connections       
-      ,primary_role_allow_connections_desc  
-      ,secondary_role_allow_connections     
+      ,endpoint_url
+      ,availability_mode
+      ,availability_mode_desc
+      ,failover_mode
+      ,failover_mode_desc
+      ,session_timeout
+      ,primary_role_allow_connections
+      ,primary_role_allow_connections_desc
+      ,secondary_role_allow_connections
       ,secondary_role_allow_connections_desc
-      ,create_date                          
-      ,modify_date                          
-      ,backup_priority                      
-      ,read_only_routing_url                
-      ,read_write_routing_url               
-      ,seeding_mode                         
-      ,seeding_mode_desc                    
+      ,create_date
+      ,modify_date
+      ,backup_priority
+      ,read_only_routing_url
+      ,read_write_routing_url
+      ,seeding_mode
+      ,seeding_mode_desc
       )
 SELECT qry.*
   FROM newcol
@@ -4615,7 +4615,7 @@ SELECT TOP(0)
       ,hobt_id                     = CONVERT(BIGINT ,NULL)
       ,internal_object_type        = CONVERT(TINYINT,NULL)
       ,internal_object_type_desc   = CONVERT(SYSNAME,NULL) COLLATE ' + @collation + N'
-      ,row_group_id                = CONVERT(INT    ,NULL)
+      ,row_group_id                = CONVERT(INT    ,NULL)                             -- integer
       ,rows                        = CONVERT(BIGINT ,NULL)
       ,data_compression            = CONVERT(TINYINT,NULL)
       ,data_compression_desc       = CONVERT(SYSNAME,NULL) COLLATE ' + @collation + N'
@@ -4648,7 +4648,7 @@ SELECT qry.*
               ,hobt_id
               ,internal_object_type
               ,internal_object_type_desc = internal_object_type_desc COLLATE ' + @collation + N'
-              ,row_group_id
+              ,row_group_id                                                                       -- integer
               ,rows
               ,data_compression
               ,data_compression_desc     = data_compression_desc     COLLATE ' + @collation + N'
@@ -5041,7 +5041,7 @@ SELECT TOP (0)
       ,index_id                            = CAST(NULL AS INT     )
       --------------------------------------------------------------
       ,partition_number                    = CAST(NULL AS INT     )
-      ,row_group_id                        = CAST(NULL AS INT     )
+      ,row_group_id                        = CAST(NULL AS INT     )                             -- integer
       ,delta_store_hobt_id                 = CAST(NULL AS BIGINT  )
       ,state                               = CAST(NULL AS TINYINT )
       ,state_desc                          = CAST(NULL AS SYSNAME ) COLLATE ' + @collation + N'
@@ -5074,7 +5074,7 @@ SELECT database_id                         = DB_ID()
       ,object_id                           = object_id
       ,index_id
       ,partition_number
-      ,row_group_id
+      ,row_group_id                                                                                          -- integer
       ,delta_store_hobt_id
       ,state
       ,state_desc                          = state_desc                          COLLATE ' + @collation + N'
@@ -5185,7 +5185,7 @@ SELECT qry.*
           FROM (SELECT object_id
                       ,index_id
                       ,partition_number
-                      ,row_group_id
+                      ,row_group_id                        -- integer
                       ,index_scan_count
                       ,scan_count
                       ,delete_buffer_scan_count
@@ -15359,8 +15359,8 @@ SELECT rec_type         = N'D'          -- database level composite record
 -- Diagnostic - DB - non-default - Database is Always On
 +IIF(d.replica_id IS NOT NULL OR d.group_database_id IS NOT NULL
     , NCHAR(167) + N'Always On database -'
-    + N'Replica ID '    + CAST(d.replica_id        AS NVARCHAR(36))
-    + N', Group DB ID ' + CAST(d.group_database_id AS NVARCHAR(20))
+    + N'Replica ID '    + CAST(d.replica_id        AS NVARCHAR(36)) -- uniqueidentifiers
+    + N', Group DB ID ' + CAST(d.group_database_id AS NVARCHAR(36)) -- uniqueidentifiers
     ,N'')
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -15466,8 +15466,8 @@ SELECT rec_type         = N'D'          -- database level composite record
                      + N' Max Plans: '            + [dbo].[SQLXL_3SD](qso.max_plans_per_query   ,N'I')
 
          -----------------------------------------------------
-         + NCHAR(167) + N'> Capture mode ' + QUOTENAME(COALESCE(qso.query_capture_mode_desc,N'ALL')) -- default for 2016 is ALL
-                     + N' Size cleanup '       + QUOTENAME(qso.size_based_cleanup_mode_desc)
+         + NCHAR(167) + N'> Capture mode '   + QUOTENAME(COALESCE(qso.query_capture_mode_desc,N'ALL')) -- default for 2016 is ALL
+                     + N' Size cleanup '     + QUOTENAME(qso.size_based_cleanup_mode_desc)
                      + N' Stale threshold: ' + [dbo].[SQLXL_3SD](qso.stale_query_threshold_days,N'I') + N' days'
                      + IIF(sis.ProductMajorVersion  >= 14  -- 2017+
                           ,N' Wait stats ' + QUOTENAME(qso.wait_stats_capture_mode_desc)
@@ -15648,7 +15648,7 @@ SELECT rec_type         = N'D'          -- database level composite record
 +IIF(d.page_verify_option <> 2,NCHAR(167) + N'Page verify option ' + d.page_verify_option_desc,N'')
 
 -- Diagnostic - DB - non-default - Memory Optimized resource pool ID
-+IIF(d.resource_pool_id > 0,NCHAR(167) + N'XTP Memory optimized resource pool ID ' + CAST(d.resource_pool_id AS NVARCHAR(100)),N'')
++IIF(d.resource_pool_id > 0,NCHAR(167) + N'XTP Memory optimized resource pool ID ' + CAST(d.resource_pool_id AS NVARCHAR(20)),N'')
 
 -- Diagnostic - DB - non-default - Catalog Collation type not DATABASE DEFAULT - Azure SQL Database
 +IIF(d.catalog_collation_type > 0
@@ -15696,9 +15696,9 @@ SELECT d.name,ar.replica_id,rs.replica_id,ato.database_id,qso.database_id
  CROSS
   JOIN (-- Get instance-level collation
         SELECT collation = text_value
-         FROM [##SQLXL_Instance_info]
-        WHERE source = N'SERVERPROPERTY'
-          AND name   = N'COLLATION'
+          FROM [##SQLXL_Instance_info]
+         WHERE source = N'SERVERPROPERTY'
+           AND name   = N'COLLATION'
       ) AS i
  CROSS
   JOIN [##SQLXL_Index_Startup] AS sp
@@ -18434,7 +18434,7 @@ SELECT i.rec_type
  CROSS
   JOIN [##SQLXL_Index_Compilation] AS i
  WHERE i.rec_type              = N'I'                       -- index level composite record
-   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90') -- Not Missing Index or Foreign Key
+   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90') -- True index types only
    AND NOT i.obj_type_short_label = N'TVF'                  -- SQL table-valued-function SQL 2012+
 OPTION (MAXDOP 1,RECOMPILE);
 
@@ -18964,7 +18964,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
     ON ed.database_id           = i.database_id
    AND ed.object_id             = i.object_id
    AND ed.index_id              = i.index_id
-   AND i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
+   AND i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -22867,7 +22867,7 @@ SELECT database_id
  WHERE i.obj_type_short_label NOT IN (N'HST'                                   -- Not a History/archive table
                                      ,N'IT'                                    -- Not a system internal table
                                      )
-   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')                    -- Not Missing Index or Foreign Key
+   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')                    -- True index types only
    ---------------------------------------------------------
    AND Lead_Element_Column_ID  = COALESCE(tbl_cx_uniq_ordered_column_ID,tbl_possible_uniq_column_id)
    AND Key_Columns_CNT         > 1
@@ -22956,7 +22956,7 @@ SELECT database_id
   FROM [##SQLXL_Index_Compilation] AS i                                        -- only table source in query
  WHERE rec_type = N'I'                                                         -- index level composite record
    AND COALESCE(tbl_cx_uniq_ordered_column_ID,tbl_possible_uniq_column_id) > 0
-   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')                    -- Not Missing Index or Foreign Key
+   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')                    -- True index types only
    AND (   is_unique                  = 0
         OR (    ROUND(i.Lead_Element_Uniqueness,4) > 1.0
             AND i.is_primary_key       = 0
@@ -23628,7 +23628,7 @@ SELECT i.database_id
     ON r.database_id = i.database_id
    AND r.object_id   = i.object_id
    AND r.index_id    = i.index_id
-   AND i.type       IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
+   AND i.type       IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -26046,7 +26046,7 @@ Excel Column Label Format
                                       ELSE RTRIM(i.type)   -- Anything else
                                  END
                                + N'|'
-                               + IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
+                               + IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
                                     ,RIGHT(N'000000000' + CAST(i.index_id AS NVARCHAR(20)),10)
                                     ,N'')
                                + IIF(i.type = N'F'         -- foreign key constraint
@@ -26828,66 +26828,57 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
 --Index Priority Metrics
 \******************************************************************************************************************************************/
 ,[Index OPS Wait TM!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ops_total_wait_MS_CNT > 0
            ,100.0 * i.ops_total_wait_MS_CNT / p.ops_total_wait_MS_CNT
            ,0)
        ,NULL)
 ,[Index OPS Wait CNT!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ops_total_wait_CNT > 0
            ,100.0 * i.ops_total_wait_CNT / p.ops_total_wait_CNT
            ,0)
        ,NULL)
 ----------------------------------------------
 ,[Index OPS Locks CNT!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ops_total_lock_CNT > 0
            ,100.0 * i.ops_total_lock_CNT / p.ops_total_lock_CNT
            ,0)
        ,NULL)
 ,[Index OPS Lock Promo!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ios_lock_promotion_attempt_CNT > 0
            ,100.0 * i.ios_lock_promotion_attempt_CNT / p.ios_lock_promotion_attempt_CNT
            ,0)
        ,NULL)
 ,[Index OPS Promo Fail!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ios_lock_promotion_attempt_CNT > 0
            ,100.0 * (i.ios_lock_promotion_attempt_CNT - i.ios_lock_promotion_CNT) / p.ios_lock_promotion_attempt_CNT
            ,0)
        ,NULL)
 ----------------------------------------------
 ,[Index OPS Page Split!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ops_total_page_split_CNT > 0
            ,100.0 * i.ops_total_page_split_CNT / p.ops_total_page_split_CNT
            ,0)
        ,NULL)
 ,[Index OPS Splits to Write PCT!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(i.ops_total_write_CNT > 0
            ,i.page_splits_to_write_PCT
            ,0)
        ,NULL)
 ,[Index OPS Page Merge!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ops_total_page_merge_CNT > 0
            ,100.0 * i.ops_total_page_merge_CNT / p.ops_total_page_merge_CNT
            ,0)
        ,NULL)
 ,[Index OPS Merges to Write PCT!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(i.ops_total_write_CNT > 0
            ,i.page_Merge_to_write_PCT
            ,0)
@@ -26905,23 +26896,20 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
        ,NULL)
 ----------------------------------------------
 ,[Index OPS Writes!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ops_total_write_CNT > 0
            ,100.0 * i.ops_total_write_CNT / p.ops_total_write_CNT
            ,0)
        ,NULL)
 ,[Index USG Writes!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ius_user_updates_CNT > 0
            ,100.0 * i.ius_user_updates_CNT / p.ius_user_updates_CNT
            ,0)
        ,NULL)
 ----------------------------------------------
 ,[Index BUF Percent in Buffer!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_total_KB_CNT > 0.0
              THEN 100
              WHEN i.reserved_page_PG_CNT > 0
@@ -26931,8 +26919,7 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
        ,NULL)
 ----------------------------------------------
 ,[Index OPS R/W Ratio!H\G|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(i.ops_total_write_CNT > 0
            ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
                ,1.0 * i.ops_total_read_CNT / i.ops_total_write_CNT
@@ -26940,8 +26927,7 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
            ,NULL)
        ,NULL)
 ,[Index USG R/W Ratio!H\G|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(i.ius_user_updates_CNT > 0
            ,IIF(i.ius_User_read_CNT / i.ius_user_updates_CNT < 100
                ,1.0 * i.ius_User_read_CNT / i.ius_user_updates_CNT
@@ -26950,27 +26936,23 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
        ,NULL)
 ----------------------------------------------
 ,[Index OPS Reads PCT!H\G|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,i.ops_read_to_parent_PCT
        ,NULL)
 ,[Index OPS Scans PCT!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ops_total_scan_CNT > 0
            ,100.0 * i.ops_total_scan_CNT / p.ops_total_scan_CNT
            ,0)
        ,NULL)
 ,[Index OPS Lookups PCT!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ios_singleton_lookup_CNT > 0
            ,100.0 * i.ios_singleton_lookup_CNT / p.ios_singleton_lookup_CNT
            ,0)
        ,NULL)
 ,[Index OPS Forwarded Fetch!H\B|N1]
-  = IIF(    i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- Not Missing Index or Foreign Key
-        AND p.obj_type_short_label <> N'TVF'                           -- SQL table-valued-function SQL 2012+
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
        ,IIF(p.ios_forwarded_fetch_CNT > 0
            ,100.0 * i.ios_forwarded_fetch_CNT / p.ios_forwarded_fetch_CNT
            ,0)
