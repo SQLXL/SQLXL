@@ -1,4 +1,4 @@
--- VERSION 24.10.31.5
+-- VERSION 24.10.31.7
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to,
 since you can't create temporary (#) functions
@@ -327,272 +327,6 @@ SELECT collation           = (SELECT collation_name FROM [sys].[databases] WHERE
 EXEC [##SQLXL_Instance]
 
 /******************************************************************************************************************************************\
-Collect [sys].[databases] info - use collation here to avoid collation issues later.
-Use the database_id's from this table to filter further data collection.
-
-NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
-      https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
-
-In Azure SQL Database:
----------------------
-- from BOL: DB_ID may not return the same value as the database_id column in [sys].[databases] and
-sys.database_service_objectives. These two views return database_id values that are unique within the logical server, while DB_ID
-and the database_id column in other system views return values that are unique within a single database or within an elastic pool.
-
-- [sys].[databases] is available in the master database and in user databases. In the master database, this view returns the
-information on the master database and all user databases on the server. In a user database, this view returns information only on
-the current database and the master database.
-
-- to simplify all database references to SQLDB will use DB_ID()
-\******************************************************************************************************************************************/
-/*** LOCAL TESTING ***
-DECLARE @sql           NVARCHAR(MAX)
-       ,@ssms_ads      TINYINT       = 1
-       ,@database_name SYSNAME       = N'WIDEWORLDIMPORTERS';
-
---*/
-BEGIN TRY
-   DROP TABLE [##SQLXL_Index_sys_databases]
-END TRY
-BEGIN CATCH
-END CATCH
-
-;WITH newcol AS (-- columns added after SQL Server 2005
-SELECT -- SQL 2008+ ---------------------------------------------------------------
-       log_reuse_wait                              = CONVERT(TINYINT         ,NULL)
-      ,log_reuse_wait_desc                         = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT
-      ,is_cdc_enabled                              = CONVERT(BIT             ,NULL)
-      ,is_memory_optimized_elevate_to_snapshot_on  = CONVERT(BIT             ,NULL)
-      -- SQL 2012+ ----------------------------------------------------------------
-      ,replica_id                                  = CONVERT(UNIQUEIDENTIFIER,NULL)
-      ,group_database_id                           = CONVERT(UNIQUEIDENTIFIER,NULL)
-      ,default_language_lcid                       = CONVERT(SMALLINT        ,NULL)
-      ,default_language_name                       = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT
-      ,default_fulltext_language_lcid              = CONVERT(INT             ,NULL)
-      ,default_fulltext_language_name              = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT
-      ,is_nested_triggers_on                       = CONVERT(BIT             ,NULL)
-      ,is_transform_noise_words_on                 = CONVERT(BIT             ,NULL)
-      ,two_digit_year_cutoff                       = CONVERT(SMALLINT        ,NULL)
-      ,containment                                 = CONVERT(TINYINT         ,NULL)
-      ,containment_desc                            = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT
-      ,target_recovery_time_in_seconds             = CONVERT(INT             ,NULL)
-      -- SQL 2014+ ----------------------------------------------------------------
-      ,resource_pool_id                            = CONVERT(INT             ,NULL)
-      ,is_auto_create_stats_incremental_on         = CONVERT(BIT             ,NULL)
-      -- SQL 2014+,Azure SQL Database ---------------------------------------------
-      ,delayed_durability                          = CONVERT(INT             ,NULL)
-      ,delayed_durability_desc                     = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT
-      -- SQL 2016+ ----------------------------------------------------------------
-      ,is_query_store_on                           = CONVERT(BIT             ,NULL)
-      ,is_remote_data_archive_enabled              = CONVERT(BIT             ,NULL)
-      ,is_mixed_page_allocation_on                 = CONVERT(BIT             ,NULL)
-      -- SQL 2017+ ----------------------------------------------------------------
-      ,is_temporal_history_retention_enabled       = CONVERT(BIT             ,NULL)
-      -- SQL 2019+,Azure SQL Database ---------------------------------------------
-      ,physical_database_name                      = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT
-      ,is_accelerated_database_recovery_on         = CONVERT(BIT             ,NULL)
-      ,is_memory_optimized_enabled                 = CONVERT(BIT             ,NULL)
-      -- SQL 2022+ ----------------------------------------------------------------
-      ,is_change_feed_enabled                      = CONVERT(BIT             ,NULL)
-      ,is_data_retention_enabled                   = CONVERT(BIT             ,NULL)
-      -- Azure Synapse Analytics Gen2 ---------------------------------------------
-      ,is_result_set_caching_on                    = CONVERT(BIT             ,NULL)
-      ,is_tempdb_spill_to_remote_store             = CONVERT(BIT             ,NULL)
-      ,is_stale_page_detection_on                  = CONVERT(BIT             ,NULL)
-      -- Azure SQL Database -------------------------------------------------------
-      ,catalog_collation_type                      = CONVERT(INT             ,NULL)
-      ,catalog_collation_type_desc                 = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT
-      ,is_federation_member                        = CONVERT(BIT             ,NULL)
-      ,is_ledger_on                                = CONVERT(BIT             ,NULL)
-)
-SELECT qry.*
-  INTO [##SQLXL_Index_sys_databases]
-  FROM newcol
- CROSS
- APPLY (-- [sys].[databases]
-SELECT name                                        = db.name                                    COLLATE DATABASE_DEFAULT
-                                                  -- db. required since database_id also in [sys].[change_tracking_databases]
-      ,database_id                                 = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) = 5 -- Azure SQL Database
-                                                        ,DB_ID()
-                                                        ,db.database_id)
-      ,source_database_id
---    ,owner_sid -- varbinary(85) SID (Security-Identifier) of the external owner of the database
-      ,create_date
-      ,compatibility_level
-      ,collation_name                              = collation_name                             COLLATE DATABASE_DEFAULT
-      ,user_access
-      ,user_access_desc                            = user_access_desc                           COLLATE DATABASE_DEFAULT
-      ,is_read_only
-      ,is_auto_close_on
-      ,is_auto_shrink_on
-      ,state
-      ,state_desc                                  = state_desc                                 COLLATE DATABASE_DEFAULT
-      ,is_in_standby
-      ,is_cleanly_shutdown
-      ,is_supplemental_logging_enabled
-      ,snapshot_isolation_state
-      ,snapshot_isolation_state_desc               = snapshot_isolation_state_desc              COLLATE DATABASE_DEFAULT
-      ,is_read_committed_snapshot_on
-      ,recovery_model
-      ,recovery_model_desc                         = recovery_model_desc                        COLLATE DATABASE_DEFAULT
-      ,page_verify_option
-      ,page_verify_option_desc                     = page_verify_option_desc                    COLLATE DATABASE_DEFAULT
-      ,is_auto_create_stats_on
-      ,is_auto_create_stats_incremental_on
-      ,is_auto_update_stats_on
-      ,is_auto_update_stats_async_on
-      ,is_ansi_null_default_on
-      ,is_ansi_nulls_on
-      ,is_ansi_padding_on
-      ,is_ansi_warnings_on
-      ,is_arithabort_on
-      ,is_concat_null_yields_null_on
-      ,is_numeric_roundabort_on
-      ,is_quoted_identifier_on
-      ,is_recursive_triggers_on
-      ,is_cursor_close_on_commit_on
-      ,is_local_cursor_default
-      ,is_fulltext_enabled
-      ,is_trustworthy_on
-      ,is_db_chaining_on
-      ,is_parameterization_forced
-      ,is_master_key_encrypted_by_server
-      ,is_query_store_on
-      ,is_published
-      ,is_subscribed
-      ,is_merge_published
-      ,is_distributor
-      ,is_sync_with_backup
-      ,service_broker_guid
-      ,is_broker_enabled
-      ,log_reuse_wait
-      ,log_reuse_wait_desc                         = log_reuse_wait_desc                        COLLATE DATABASE_DEFAULT
-      ,is_date_correlation_on
-      ,is_cdc_enabled
-      ,is_encrypted
-      ,is_honor_broker_priority_on
-      ,replica_id
-      ,group_database_id
-      ,resource_pool_id
-      ,default_language_lcid
-      ,default_language_name                       = default_language_name                      COLLATE DATABASE_DEFAULT
-      ,default_fulltext_language_lcid
-      ,default_fulltext_language_name              = default_fulltext_language_name             COLLATE DATABASE_DEFAULT
-      ,is_nested_triggers_on
-      ,is_transform_noise_words_on
-      ,two_digit_year_cutoff
-      ,containment
-      ,containment_desc                            = containment_desc                           COLLATE DATABASE_DEFAULT
-      ,target_recovery_time_in_seconds
-      ,delayed_durability
-      ,delayed_durability_desc                     = delayed_durability_desc                    COLLATE DATABASE_DEFAULT
-      ,is_memory_optimized_elevate_to_snapshot_on
-      ,is_federation_member
-      ,is_remote_data_archive_enabled
-      ,is_mixed_page_allocation_on
-      ,is_temporal_history_retention_enabled
-      ,catalog_collation_type
-      ,catalog_collation_type_desc                 = catalog_collation_type_desc                COLLATE DATABASE_DEFAULT
-      ,physical_database_name                      = physical_database_name                     COLLATE DATABASE_DEFAULT
-      ,is_result_set_caching_on
-      ,is_accelerated_database_recovery_on
-      ,is_tempdb_spill_to_remote_store
-      ,is_stale_page_detection_on
-      ,is_memory_optimized_enabled
-      ,is_data_retention_enabled
-      ,is_ledger_on
-      ,is_change_feed_enabled
-       -- [sys].[change_tracking_databases] -------------------------------------------------------------------------
-      ,is_auto_cleanup_on
-      ,retention_period
-      ,retention_period_units_desc                 = retention_period_units_desc                COLLATE DATABASE_DEFAULT
-      ,retention_period_units
-      ,ProductMajorVersion                         = CAST(SERVERPROPERTY(N'ProductMajorVersion') AS INT)
-  FROM [sys].[databases] AS db
-  LEFT OUTER
-  JOIN [sys].[change_tracking_databases] AS c
-    ON IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) = 5 -- Azure SQL Database
-          ,c.database_id
-          ,db.database_id) = c.database_id
-) AS qry -- from CROSS APPLY
- WHERE qry.user_access_desc = N'MULTI_USER'
-   AND qry.state_desc       = N'ONLINE'
-   AND qry.is_distributor   = 0
-   ---------------------------------------------------------------------------------------------
-   AND (   (    @database_name = N'' COLLATE DATABASE_DEFAULT -- No selection made, all non-system databases
-            AND (   LOWER(qry.name)
-                     NOT IN (N'dbatools'
-                            ,N'dbadmin'
-                            ,N'dbmaintenance'
-                            ,N'dwconfiguration'
-                            ,N'dwdiagnostics'
-                            ,N'dwqueue'
-                            ,N'master'
-                            ,N'managementdatawarehouse'
-                            ,N'model'
-                            ,N'msdb'
-                            ,N'ssisdb'
-                            ,N'tempdb'
-                            )
-                AND qry.name NOT LIKE N'ReportServer%'
-                AND qry.name NOT LIKE N'rdsadmin%'
-               )
-           )
-        OR @database_name = qry.name                          -- 1 database requested
-        OR @database_name = N'*'     COLLATE DATABASE_DEFAULT -- all databases including system
-       )
-   AND NOT (    CAST(SERVERPROPERTY(N'EngineEdition') AS INT) = 5 -- Azure SQL DB single database
-            AND qry.name = N'Master'
-           )
-OPTION (MAXDOP 1,RECOMPILE);
-
-SET @rowcount = @@ROWCOUNT;
-
---------------------------------------------------------------------------------------------------------------------------------------------
--- Check if at least 1 database to be collected
---------------------------------------------------------------------------------------------------------------------------------------------
-IF @rowcount = 0 BEGIN -- no database found to collect
-   RAISERROR(N'',0,0) WITH NOWAIT;
-   RAISERROR(N'*** No database(s) to process. Exiting ***',0,0) WITH NOWAIT;
-   RETURN
-END;
-
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
-   SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
-            + N' [sys].[databases],[change_tracking_databases] - '
-            + CAST(@rowcount AS NVARCHAR(11))
-            + N' database(s) found'
-   RAISERROR(@msg,0,0) WITH NOWAIT;
-   SET @exec_dttm = GETDATE();
-END;
-
---------------------------------------------------------------------------------------------------------------------------------------------
---  create index on if not found on SQLXL_Index_sys_databases to speed up subsequent queries
---------------------------------------------------------------------------------------------------------------------------------------------
-IF NOT EXISTS (-- check if index already exists for this table. Create if not found
-               SELECT NULL
-                 FROM [sys].[indexes]
-                WHERE name = N'ixuc_SQLXL_Index_sys_databases'
-              )
-BEGIN
-   CREATE UNIQUE CLUSTERED
-    INDEX ixuc_SQLXL_Index_sys_databases__database_id
-       ON [##SQLXL_Index_sys_databases]
-         (database_id
-         )
-     WITH (DATA_COMPRESSION = PAGE
-          ,MAXDOP = 1
-          );
-
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
-      SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
-               + N' Index [ixuc_SQLXL_Index_sys_databases__database_id]'
-      RAISERROR(@msg,0,0) WITH NOWAIT;
-      SET @exec_dttm = GETDATE();
-   END; -- IF @ssms_ads > 0 BEGIN
-END;    -- IF NOT EXISTS (
-
-/******************************************************************************************************************************************\
  Create ##SQLXL_Index_sys_availability_replicas
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
@@ -791,6 +525,278 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END;
+
+/******************************************************************************************************************************************\
+Collect [sys].[databases] info - use collation here to avoid collation issues later.
+Use the database_id's from this table to filter further data collection.
+
+NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
+      https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
+
+In Azure SQL Database:
+---------------------
+- from BOL: DB_ID may not return the same value as the database_id column in [sys].[databases] and
+sys.database_service_objectives. These two views return database_id values that are unique within the logical server, while DB_ID
+and the database_id column in other system views return values that are unique within a single database or within an elastic pool.
+
+- [sys].[databases] is available in the master database and in user databases. In the master database, this view returns the
+information on the master database and all user databases on the server. In a user database, this view returns information only on
+the current database and the master database.
+
+- to simplify all database references to SQLDB will use DB_ID()
+\******************************************************************************************************************************************/
+/*** LOCAL TESTING ***
+DECLARE @sql           NVARCHAR(MAX)
+       ,@ssms_ads      TINYINT       = 1
+       ,@database_name SYSNAME       = N'WIDEWORLDIMPORTERS';
+
+--*/
+BEGIN TRY
+   DROP TABLE [##SQLXL_Index_sys_databases]
+END TRY
+BEGIN CATCH
+END CATCH
+
+;WITH newcol AS (-- columns added after SQL Server 2005
+SELECT -- SQL 2008+ ---------------------------------------------------------------
+       log_reuse_wait                              = CONVERT(TINYINT         ,NULL)
+      ,log_reuse_wait_desc                         = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT
+      ,is_cdc_enabled                              = CONVERT(BIT             ,NULL)
+      ,is_memory_optimized_elevate_to_snapshot_on  = CONVERT(BIT             ,NULL)
+      -- SQL 2012+ ----------------------------------------------------------------
+      ,replica_id                                  = CONVERT(UNIQUEIDENTIFIER,NULL)
+      ,group_database_id                           = CONVERT(UNIQUEIDENTIFIER,NULL)
+      ,default_language_lcid                       = CONVERT(SMALLINT        ,NULL)
+      ,default_language_name                       = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT
+      ,default_fulltext_language_lcid              = CONVERT(INT             ,NULL)
+      ,default_fulltext_language_name              = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT
+      ,is_nested_triggers_on                       = CONVERT(BIT             ,NULL)
+      ,is_transform_noise_words_on                 = CONVERT(BIT             ,NULL)
+      ,two_digit_year_cutoff                       = CONVERT(SMALLINT        ,NULL)
+      ,containment                                 = CONVERT(TINYINT         ,NULL)
+      ,containment_desc                            = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT
+      ,target_recovery_time_in_seconds             = CONVERT(INT             ,NULL)
+      -- SQL 2014+ ----------------------------------------------------------------
+      ,resource_pool_id                            = CONVERT(INT             ,NULL)
+      ,is_auto_create_stats_incremental_on         = CONVERT(BIT             ,NULL)
+      -- SQL 2014+,Azure SQL Database ---------------------------------------------
+      ,delayed_durability                          = CONVERT(INT             ,NULL)
+      ,delayed_durability_desc                     = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT
+      -- SQL 2016+ ----------------------------------------------------------------
+      ,is_query_store_on                           = CONVERT(BIT             ,NULL)
+      ,is_remote_data_archive_enabled              = CONVERT(BIT             ,NULL)
+      ,is_mixed_page_allocation_on                 = CONVERT(BIT             ,NULL)
+      -- SQL 2017+ ----------------------------------------------------------------
+      ,is_temporal_history_retention_enabled       = CONVERT(BIT             ,NULL)
+      -- SQL 2019+,Azure SQL Database ---------------------------------------------
+      ,physical_database_name                      = CONVERT(NVARCHAR(256)   ,NULL) COLLATE DATABASE_DEFAULT
+      ,is_accelerated_database_recovery_on         = CONVERT(BIT             ,NULL)
+      ,is_memory_optimized_enabled                 = CONVERT(BIT             ,NULL)
+      -- SQL 2022+ ----------------------------------------------------------------
+      ,is_change_feed_enabled                      = CONVERT(BIT             ,NULL)
+      ,is_data_retention_enabled                   = CONVERT(BIT             ,NULL)
+      -- Azure Synapse Analytics Gen2 ---------------------------------------------
+      ,is_result_set_caching_on                    = CONVERT(BIT             ,NULL)
+      ,is_tempdb_spill_to_remote_store             = CONVERT(BIT             ,NULL)
+      ,is_stale_page_detection_on                  = CONVERT(BIT             ,NULL)
+      -- Azure SQL Database -------------------------------------------------------
+      ,catalog_collation_type                      = CONVERT(INT             ,NULL)
+      ,catalog_collation_type_desc                 = CONVERT(NVARCHAR(120)   ,NULL) COLLATE DATABASE_DEFAULT
+      ,is_federation_member                        = CONVERT(BIT             ,NULL)
+      ,is_ledger_on                                = CONVERT(BIT             ,NULL)
+)
+SELECT qry.*
+  INTO [##SQLXL_Index_sys_databases]
+  FROM newcol
+ CROSS
+ APPLY (-- [sys].[databases] -------------------------------------------------------------------------------------------
+SELECT name                                        = db.name                                    COLLATE DATABASE_DEFAULT
+                                                  -- db. required since database_id also in [sys].[change_tracking_databases]
+      ,database_id                                 = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) = 5 -- Azure SQL Database
+                                                        ,DB_ID()
+                                                        ,db.database_id)
+      ,source_database_id
+--    ,owner_sid -- varbinary(85) SID (Security-Identifier) of the external owner of the database
+      ,db.create_date
+      ,compatibility_level
+      ,collation_name                              = collation_name                             COLLATE DATABASE_DEFAULT
+      ,user_access
+      ,user_access_desc                            = user_access_desc                           COLLATE DATABASE_DEFAULT
+      ,is_read_only
+      ,is_auto_close_on
+      ,is_auto_shrink_on
+      ,state
+      ,state_desc                                  = state_desc                                 COLLATE DATABASE_DEFAULT
+      ,is_in_standby
+      ,is_cleanly_shutdown
+      ,is_supplemental_logging_enabled
+      ,snapshot_isolation_state
+      ,snapshot_isolation_state_desc               = snapshot_isolation_state_desc              COLLATE DATABASE_DEFAULT
+      ,is_read_committed_snapshot_on
+      ,recovery_model
+      ,recovery_model_desc                         = recovery_model_desc                        COLLATE DATABASE_DEFAULT
+      ,page_verify_option
+      ,page_verify_option_desc                     = page_verify_option_desc                    COLLATE DATABASE_DEFAULT
+      ,is_auto_create_stats_on
+      ,is_auto_create_stats_incremental_on
+      ,is_auto_update_stats_on
+      ,is_auto_update_stats_async_on
+      ,is_ansi_null_default_on
+      ,is_ansi_nulls_on
+      ,is_ansi_padding_on
+      ,is_ansi_warnings_on
+      ,is_arithabort_on
+      ,is_concat_null_yields_null_on
+      ,is_numeric_roundabort_on
+      ,is_quoted_identifier_on
+      ,is_recursive_triggers_on
+      ,is_cursor_close_on_commit_on
+      ,is_local_cursor_default
+      ,is_fulltext_enabled
+      ,is_trustworthy_on
+      ,is_db_chaining_on
+      ,is_parameterization_forced
+      ,is_master_key_encrypted_by_server
+      ,is_query_store_on
+      ,is_published
+      ,is_subscribed
+      ,is_merge_published
+      ,is_distributor
+      ,is_sync_with_backup
+      ,service_broker_guid
+      ,is_broker_enabled
+      ,log_reuse_wait
+      ,log_reuse_wait_desc                         = log_reuse_wait_desc                        COLLATE DATABASE_DEFAULT
+      ,is_date_correlation_on
+      ,is_cdc_enabled
+      ,is_encrypted
+      ,is_honor_broker_priority_on
+      ,db.replica_id
+      ,group_database_id
+      ,resource_pool_id
+      ,default_language_lcid
+      ,default_language_name                       = default_language_name                      COLLATE DATABASE_DEFAULT
+      ,default_fulltext_language_lcid
+      ,default_fulltext_language_name              = default_fulltext_language_name             COLLATE DATABASE_DEFAULT
+      ,is_nested_triggers_on
+      ,is_transform_noise_words_on
+      ,two_digit_year_cutoff
+      ,containment
+      ,containment_desc                            = containment_desc                           COLLATE DATABASE_DEFAULT
+      ,target_recovery_time_in_seconds
+      ,delayed_durability
+      ,delayed_durability_desc                     = delayed_durability_desc                    COLLATE DATABASE_DEFAULT
+      ,is_memory_optimized_elevate_to_snapshot_on
+      ,is_federation_member
+      ,is_remote_data_archive_enabled
+      ,is_mixed_page_allocation_on
+      ,is_temporal_history_retention_enabled
+      ,catalog_collation_type
+      ,catalog_collation_type_desc                 = catalog_collation_type_desc                COLLATE DATABASE_DEFAULT
+      ,physical_database_name                      = physical_database_name                     COLLATE DATABASE_DEFAULT
+      ,is_result_set_caching_on
+      ,is_accelerated_database_recovery_on
+      ,is_tempdb_spill_to_remote_store
+      ,is_stale_page_detection_on
+      ,is_memory_optimized_enabled
+      ,is_data_retention_enabled
+      ,is_ledger_on
+      ,is_change_feed_enabled
+       -- [sys].[change_tracking_databases] ----------------------------------------------------------------------------
+      ,is_auto_cleanup_on
+      ,retention_period
+      ,retention_period_units_desc                 = retention_period_units_desc                COLLATE DATABASE_DEFAULT
+      ,retention_period_units
+      ,ProductMajorVersion                         = CAST(SERVERPROPERTY(N'ProductMajorVersion') AS INT)
+       -- [sys].[availability_replicas] --------------------------------------------------------------------------------
+      ,secondary_role_allow_connections_desc       = secondary_role_allow_connections_desc      COLLATE DATABASE_DEFAULT
+       -- [sys].[dm_hadr_availability_replica_states] ------------------------------------------------------------------
+      ,role_desc                                   = role_desc                                  COLLATE DATABASE_DEFAULT
+  FROM [sys].[databases] AS db
+  LEFT OUTER
+  JOIN [sys].[change_tracking_databases] AS c
+    ON IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) = 5 -- Azure SQL Database
+          ,c.database_id
+          ,db.database_id) = c.database_id
+  LEFT OUTER
+  JOIN [##SQLXL_Index_sys_availability_replicas] AS ar
+    ON db.replica_id = ar.replica_id
+  LEFT OUTER
+  JOIN [##SQLXL_Index_sys_dm_hadr_availability_replica_states] AS rs
+    ON ar.replica_id = rs.replica_id
+) AS qry -- from CROSS APPLY
+ WHERE (   (    @database_name = N'' COLLATE DATABASE_DEFAULT -- No selection made, all "user" databases
+            AND (   LOWER(qry.name)
+                     NOT IN (N'dbatools'
+                            ,N'dbadmin'
+                            ,N'dbmaintenance'
+                            ,N'dwconfiguration'
+                            ,N'dwdiagnostics'
+                            ,N'dwqueue'
+                            ,N'master'
+                            ,N'managementdatawarehouse'
+                            ,N'model'
+                            ,N'msdb'
+                            ,N'ssisdb'
+                            ,N'tempdb'
+                            )
+                AND LOWER(qry.name) NOT LIKE N'reportserver%'
+                AND LOWER(qry.name) NOT LIKE N'rdsadmin%'
+               )
+           )
+        OR @database_name = qry.name                          -- 1 database requested
+        OR @database_name = N'*'     COLLATE DATABASE_DEFAULT -- all databases including system
+       )
+   AND NOT (    CAST(SERVERPROPERTY(N'EngineEdition') AS INT) = 5 -- Azure SQL DB single database
+            AND qry.name = N'Master'
+           )
+OPTION (MAXDOP 1,RECOMPILE);
+
+SET @rowcount = @@ROWCOUNT;
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Check if at least 1 database to be collected
+--------------------------------------------------------------------------------------------------------------------------------------------
+IF @rowcount = 0 BEGIN -- no database found to collect
+   RAISERROR(N'',0,0) WITH NOWAIT;
+   RAISERROR(N'*** No database(s) to process. Exiting ***',0,0) WITH NOWAIT;
+   RETURN
+END;
+
+IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
+            + N' [sys].[databases],[change_tracking_databases] - '
+            + CAST(@rowcount AS NVARCHAR(11))
+            + N' database(s) found'
+   RAISERROR(@msg,0,0) WITH NOWAIT;
+   SET @exec_dttm = GETDATE();
+END;
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+--  create index on if not found on SQLXL_Index_sys_databases to speed up subsequent queries
+--------------------------------------------------------------------------------------------------------------------------------------------
+IF NOT EXISTS (-- check if index already exists for this table. Create if not found
+               SELECT NULL
+                 FROM [sys].[indexes]
+                WHERE name = N'ixuc_SQLXL_Index_sys_databases'
+              )
+BEGIN
+   CREATE UNIQUE CLUSTERED
+    INDEX ixuc_SQLXL_Index_sys_databases__database_id
+       ON [##SQLXL_Index_sys_databases]
+         (database_id
+         )
+     WITH (DATA_COMPRESSION = PAGE
+          ,MAXDOP = 1
+          );
+
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+      SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
+               + N' Index [ixuc_SQLXL_Index_sys_databases__database_id]'
+      RAISERROR(@msg,0,0) WITH NOWAIT;
+      SET @exec_dttm = GETDATE();
+   END; -- IF @ssms_ads > 0 BEGIN
+END;    -- IF NOT EXISTS (
 
 /******************************************************************************************************************************************\
 Missing index details - includes [sys].[dm_db_missing_index_details]
@@ -1429,8 +1435,8 @@ DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE
 ##   -- "database name" for a single database                                                                                             ##
 ##                                                                                                                                        ##
 ## ***DEVELOPER NOTE ***                                                                                                                  ##
-## CONVERT & CAST DO NOT WORK if DATABASE COMPATIBILITY level is less than 11 (SQL 2012) !                                        ##
-##                        ------------                                                                                                    ##
+## CONVERT & CAST DO NOT WORK if DATABASE COMPATIBILITY level is less than 11 (SQL 2012) !                                                ##
+##                ------------                                                                                                            ##
 ##                                                                                                                                        ##
 ## Omitted Sources & reasons:                                                                                                             ##
 ## sys dm_exec_function_stats       BOL "does not return information about table valued functions,                                        ##
@@ -1442,33 +1448,29 @@ DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE DATABASE
 ##########################################################################################################################################*/
 
 /******************************************************************************************************************************************\
- Create local variables & Cursor
+ Create local variables & database cursor
  List of databases to run through was previously filtered when creating [##SQLXL_Index_sys_databases]
 \******************************************************************************************************************************************/
 DECLARE db_crsr CURSOR LOCAL FAST_FORWARD FOR
 /*** LOCAL TESTING ***
 DECLARE @database_name SYSNAME = N'WideWorldImporters'
 --*/
-SELECT database_name_quoted = QUOTENAME(d.name)
+SELECT database_name_quoted = QUOTENAME(db.name)
       ,collation_name       = c.collation_name
-  FROM [##SQLXL_Index_sys_databases] AS d
+  FROM [##SQLXL_Index_sys_databases] AS db
  CROSS
-  JOIN (SELECT collation_name FROM [sys].[databases] WHERE database_id = DB_ID()) AS c
- WHERE NOT EXISTS (-- do not interrogate replica databases that can't be connected to
-                   SELECT 1/0
-                     FROM [##SQLXL_Index_sys_availability_replicas] AS ar
-                    WHERE d.replica_id = ar.replica_id
-                      AND ar.secondary_role_allow_connections_desc = 'NO'
-                  )
-   AND NOT EXISTS (-- don't execute on secondary or resolving replicas
-                   SELECT 1/0
-                     FROM [##SQLXL_Index_sys_dm_hadr_availability_replica_states] AS rs
-                    WHERE d.replica_id = rs.replica_id
-                      AND rs.role_desc IN (N'SECONDARY'
-                                          ,N'RESOLVING')
-                  )
+  JOIN (SELECT collation_name
+          FROM [sys].[databases]
+         WHERE database_id = DB_ID()
+       ) AS c
+ WHERE db.user_access_desc = N'MULTI_USER'
+   AND db.state_desc       = N'ONLINE'
+   AND db.is_distributor   = 0
+   AND NOT (    COALESCE(db.secondary_role_allow_connections_desc,N'') = N'NO'
+            AND COALESCE(db.role_desc                            ,N'') = N'SECONDARY'
+           )
  ORDER BY
-       d.name
+       db.name
 OPTION (MAXDOP 1,RECOMPILE);
 
 OPEN db_crsr;
@@ -15292,8 +15294,8 @@ SELECT rec_type         = N'D'          -- database level composite record
  IIF(d.state <> 0,NCHAR(167) + N'State: ' + d.state_desc,N'')
 
 -- Diagnostic - DB - non-default - Database is Non-Readable Secondary
-+IIF(    rs.role_desc = N'SECONDARY'
-     AND ar.secondary_role_allow_connections_desc = N'NO'
++IIF(    d.role_desc = N'SECONDARY'
+     AND d.secondary_role_allow_connections_desc = N'NO'
     ,NCHAR(167) + N'[NON-READABLE SECONDARY]'
     ,N'')
 
@@ -15665,17 +15667,11 @@ SELECT rec_type         = N'D'          -- database level composite record
 ,1,1,N'')
 
 /*** LOCAL TESTING ***
-SELECT d.name,ar.replica_id,rs.replica_id,ato.database_id,qso.database_id
+SELECT d.name,db.replica_id,db.replica_id,ato.database_id,qso.database_id
 --*/
   FROM [##SQLXL_Index_Startup]                                 AS sis
  CROSS
   JOIN [##SQLXL_Index_sys_databases]                           AS d
-  LEFT OUTER
-  JOIN [##SQLXL_Index_sys_availability_replicas]               AS ar
-    ON d.replica_id = ar.replica_id
-  LEFT OUTER
-  JOIN [##SQLXL_Index_sys_dm_hadr_availability_replica_states] AS rs
-    ON d.replica_id = rs.replica_id
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_database_automatic_tuning_options]   AS ato
     ON d.database_id = ato.database_id
@@ -25141,40 +25137,40 @@ BEGIN CATCH
 END CATCH
 
 SELECT database_id = CAST(db.database_id AS NVARCHAR(20))
-      ,db.database_name
-      ,db.[Omitted Reason]
+      ,[Omitted Reason] = N'Database ' + QUOTENAME(db.name) + N' SKIPPED due to '
+                        + LTRIM(  IIF(db.user_access_desc <> N'MULTI_USER'
+                                    ,N' User Access Description: ' + db.user_access_desc
+                                    ,N'')
+                               + IIF(db.state_desc       <> N'ONLINE'
+                                    ,N' Database state: ' + db.state_desc
+                                    ,N'')
+                               + IIF(db.is_distributor   <> 0
+                                    ,N' Database is Distributor'
+                                    ,N'')
+                               + IIF(    COALESCE(db.secondary_role_allow_connections_desc,N'') = N'NO'
+                                     AND COALESCE(db.role_desc                            ,N'') = N'SECONDARY'
+                                    , N' Database is ' + db.role_desc
+                                    + N' and allow connections is ' + db.secondary_role_allow_connections_desc
+                                    ,N''
+                                    )
+                               )
       ,rn = ROW_NUMBER() OVER (ORDER BY (SELECT NULL))
   INTO #omitted_databases
-  FROM (-- list of requested databases and reason why omitted from procedure
-/* <BS> for future review *************************************************************************************
-        SELECT d.database_id
-              ,database_name    = QUOTENAME(d.name)
-              ,[Omitted Reason] = N'Secondary role allow connections desc = "NO"'
-          FROM [##SQLXL_Index_sys_databases] AS d
-         WHERE EXISTS (-- do not interrogate replica databases that can't be connected to
-                       SELECT 1/0
-                         FROM [##SQLXL_Index_sys_availability_replicas] AS ar
-                        WHERE d.replica_id = ar.replica_id
-                          AND ar.secondary_role_allow_connections_desc = 'NO'
-                      )
-        UNION ALL
-**************************************************************************************************************/
-        SELECT d.database_id
-              ,database_name    = QUOTENAME(d.name)
-              ,[Omitted Reason] = N'HADR availability replica state is ' + rs.role_desc
-          FROM [##SQLXL_Index_sys_databases]                           AS d
-          JOIN [##SQLXL_Index_sys_dm_hadr_availability_replica_states] AS rs
-            ON d.replica_id = rs.replica_id
-         WHERE rs.role_desc IN (N'SECONDARY',N'RESOLVING')
-       ) AS db
+  FROM [##SQLXL_Index_sys_databases] AS db
+ WHERE db.user_access_desc <> N'MULTI_USER'
+    OR db.state_desc       <> N'ONLINE'
+    OR db.is_distributor   <> 0
+    OR (    COALESCE(db.secondary_role_allow_connections_desc,N'') = N'NO'
+        AND COALESCE(db.role_desc                            ,N'') = N'SECONDARY'
+       )
 OPTION (MAXDOP 1,RECOMPILE);
 
 SET @rowcount = @@ROWCOUNT;
 
 IF @rowcount > 0 BEGIN
    SET @i = 1
-   SELECT N'Omitted database ' + database_name + N' ' + [Omitted Reason]
-     FROM #omitted_databases    -- display on RESULTS tab
+   SELECT [Omitted Reason]
+     FROM #omitted_databases    -- display on RESULTS tab too
    OPTION (MAXDOP 1,RECOMPILE);
 
    RAISERROR(N'',0,0) WITH NOWAIT;
@@ -25182,7 +25178,7 @@ IF @rowcount > 0 BEGIN
 
    WHILE @i <= @rowcount
    BEGIN
-      SELECT @msg = database_id + N' ' + database_name + N' ' + [Omitted Reason]
+      SELECT @msg = [Omitted Reason]
         FROM #omitted_databases
        WHERE rn = @i
       OPTION (MAXDOP 1,RECOMPILE);
