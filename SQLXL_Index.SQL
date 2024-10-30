@@ -25146,6 +25146,7 @@ SELECT database_id = CAST(db.database_id AS NVARCHAR(20))
       ,rn = ROW_NUMBER() OVER (ORDER BY (SELECT NULL))
   INTO #omitted_databases
   FROM (-- list of requested databases and reason why omitted from procedure
+/* <BS> for future review *************************************************************************************
         SELECT d.database_id
               ,database_name    = QUOTENAME(d.name)
               ,[Omitted Reason] = N'Secondary role allow connections desc = "NO"'
@@ -25157,6 +25158,7 @@ SELECT database_id = CAST(db.database_id AS NVARCHAR(20))
                           AND ar.secondary_role_allow_connections_desc = 'NO'
                       )
         UNION ALL
+**************************************************************************************************************/
         SELECT d.database_id
               ,database_name    = QUOTENAME(d.name)
               ,[Omitted Reason] = N'HADR availability replica state is ' + rs.role_desc
