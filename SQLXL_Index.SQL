@@ -1,4 +1,4 @@
--- VERSION 24.10.31
+-- VERSION 24.10.31.4
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to,
 since you can't create temporary (#) functions
@@ -6720,7 +6720,7 @@ CREATE TABLE [##SQLXL_Index_Compilation]
     --         + ((i.system_seeks + i.system_scans) * i.avg_total_system_cost * i.avg_system_impact))
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- missing_index_group_stats_query system view
--- NOTE: since this should total to the existing MISSING index values omitting for this version of XLNSQL_Index
+-- NOTE: since this should total to the existing MISSING index values omitting for this version of SQLXL_Index
 --------------------------------------------------------------------------------------------------------------------------------------------
 --,mqy_user_seeks_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
 --,mqy_user_scans_CNT                       BIGINT                                  NOT NULL DEFAULT(0)
@@ -17300,8 +17300,10 @@ SELECT rec_type      = N'P'  -- parent level composite record
 + N' column ' + QUOTENAME(c.name)
 + IIF(c.increment_value IS NOT NULL OR c.seq_increment IS NOT NULL
      , IIF(LEN(c.name) > 57,NCHAR(167) + N'> ',N' ')
-     + N'at ' + CONVERT(NVARCHAR(6),CAST(100.0 * CAST(COALESCE(c.Last_Value,c.seq_current_value,0) AS BIGINT)
-                                   / cte.max_value AS MONEY)) -- no check for zero, always > 0 from cte
+     + N'at ' + CONVERT(NVARCHAR(6)
+                       , CAST(100.0 * CAST(COALESCE(c.Last_Value,c.seq_current_value,0) AS BIGINT)
+                       / cte.max_value AS MONEY)
+                       ) -- no check for zero, always > 0 from cte
       + N'% Used: ' + [dbo].[SQLXL_3SD](COALESCE(CAST(c.Last_Value AS BIGINT)
                                                        ,CAST(c.seq_current_value AS BIGINT)
                                                        ,0
@@ -25554,9 +25556,9 @@ AS BEGIN
     *** There is a bug IN the ROUND function when called inside a scalar function ***
     *** introduced some time after SQL 2008 and before 2019                       ***
     *** without the next line "SET @value = @value + 0.0001" below:               ***
-    *** SELECT [dbo].[SQLXL_3SD](0.0150,N'N') returns 0.01 NOT 0.02!                  ***
-    *** SELECT [dbo].[SQLXL_3SD](0.0450,N'N') returns 0.04 NOT 0.05!                  ***
-    *** SELECT [dbo].[SQLXL_3SD](0.0750,N'N') returns 0.07 NOT 0.08!                  ***
+    *** SELECT [dbo].[SQLXL_3SD](0.0150,N'N') returns 0.01 NOT 0.02!              ***
+    *** SELECT [dbo].[SQLXL_3SD](0.0450,N'N') returns 0.04 NOT 0.05!              ***
+    *** SELECT [dbo].[SQLXL_3SD](0.0750,N'N') returns 0.07 NOT 0.08!              ***
     *** Until this gets figured out add an extra 0.0001 to values:                ***
    \*********************************************************************************/
    SET @value = @value + 0.0001
@@ -25567,14 +25569,13 @@ AS BEGIN
             +CASE WHEN @type NOT IN (N'I',N'N')
                   THEN @type
                   ELSE N''
-             END
+             END;
 
    IF ROUND(@value,2) < 1.00
-      RETURN CAST(CAST(@value AS MONEY) AS NVARCHAR(4))
-            +CASE WHEN @type NOT IN (N'I',N'N')
-                  THEN @type
-                  ELSE N''
-             END
+      RETURN LEFT(CONVERT(MONEY,ROUND(@value,2)),4) + CASE WHEN @type NOT IN (N'I',N'N')
+                                                           THEN @type
+                                                           ELSE N''
+                                                      END;
 
    -- Create a rounded to integer value for range comparisons below
    -- *** NOTE *** rounding the FLOAT(max value of a BIGINT) and converting to BIGINT causes error
@@ -25800,9 +25801,9 @@ AS BEGIN
    RETURN RTRIM(-- remove trailing spaces from formatted date/time
    CASE WHEN @df  =  -1          THEN N'NO LIMIT '
         WHEN @df  =   0          THEN N'00:00:000'
-        WHEN @df >= 365.0        THEN LEFT(CAST(CONVERT(MONEY,@df / 365.0,1) AS NVARCHAR(10)) + N'yy      ',9) -- padding for same length
-        WHEN @df >=   1.0        THEN LEFT(CAST(CONVERT(MONEY,@df        ,1) AS NVARCHAR(10)) + N'dd      ',9) -- padding for same length
-        WHEN @df >=   1.0/(24.0) THEN LEFT(CAST(CONVERT(MONEY,@df * 24.0 ,1) AS NVARCHAR(10)) + N'hh      ',9) -- padding for same length
+        WHEN @df >= 365.0        THEN LEFT(CAST(CONVERT(MONEY,@df / 365.0,1) AS NVARCHAR(21)) + N'yy      ',9) -- padding for same length
+        WHEN @df >=   1.0        THEN LEFT(CAST(CONVERT(MONEY,@df        ,1) AS NVARCHAR(21)) + N'dd      ',9) -- padding for same length
+        WHEN @df >=   1.0/(24.0) THEN LEFT(CAST(CONVERT(MONEY,@df * 24.0 ,1) AS NVARCHAR(21)) + N'hh      ',9) -- padding for same length
         ELSE RIGHT(CONVERT(NVARCHAR(12),@dt,114),9)
    END COLLATE DATABASE_DEFAULT)
 
