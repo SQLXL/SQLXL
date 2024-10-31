@@ -1,4 +1,4 @@
--- VERSION 24.10.31.7
+-- VERSION 24.11.01
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to,
 since you can't create temporary (#) functions
@@ -25311,7 +25311,8 @@ GO
 -----------------------------------------------------------------------------------------------------------
 -- SQL 2022+ - use function STRING_SPLIT if possible, else recursive CTE
 -----------------------------------------------------------------------------------------------------------
-IF CAST(PARSENAME(CONVERT(VARCHAR(32),SERVERPROPERTY(N'productversion')),4) AS INT) >= 16 -- SQL 2022+
+IF     CAST(PARSENAME(CONVERT(VARCHAR(32),SERVERPROPERTY(N'productversion')),4) AS INT) >= 16  -- SQL 2022+
+   AND (SELECT compatibility_level FROM sys.databases WHERE database_id = DB_ID())      >= 160 -- SQL 2022+
 BEGIN EXEC(N'
    ALTER FUNCTION [dbo].[SQLXL_Parse_Strings]
         (@string    NVARCHAR(MAX)
@@ -25358,11 +25359,12 @@ BEGIN EXEC(N'
    END')  -- EXEC
 END;      -- IF CAST(PARSENAME(CONVERT(VARCHAR(32),SERVERPROPERTY(N'productversion')),4) AS INT) >= 16
 
-ELSE IF CAST(PARSENAME(CONVERT(VARCHAR(32),SERVERPROPERTY(N'productversion')),4) AS INT) >= 13 -- SQL 2016+
-     -----------------------------------------------------------------------------------------------------------
-     -- SQL 2016+ - use function STRING_SPLIT if possible, and ROW_NUMBER to order the result
-     -- else recursive CTE
-     -----------------------------------------------------------------------------------------------------------
+ELSE IF     CAST(PARSENAME(CONVERT(VARCHAR(32),SERVERPROPERTY(N'productversion')),4) AS INT) >= 13  -- SQL 2016+
+        AND (SELECT compatibility_level FROM sys.databases WHERE database_id = DB_ID())      >= 130 -- SQL 2016+
+-----------------------------------------------------------------------------------------------------------
+-- SQL 2016+ - use function STRING_SPLIT if possible, and ROW_NUMBER to order the result
+-- else recursive CTE
+-----------------------------------------------------------------------------------------------------------
 BEGIN EXEC(N'
    ALTER FUNCTION [dbo].[SQLXL_Parse_Strings]
         (@string    NVARCHAR(MAX)
