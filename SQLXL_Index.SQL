@@ -1,4 +1,4 @@
--- VERSION 24.11.01
+-- VERSION 24.11.01.01
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to,
 since you can't create temporary (#) functions
