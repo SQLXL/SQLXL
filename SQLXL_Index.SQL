@@ -1,4 +1,4 @@
--- VERSION 24.11.01.01
+-- VERSION 24.11.03
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to,
 since you can't create temporary (#) functions
@@ -13024,13 +13024,13 @@ END;
 SET NOCOUNT ON
 --*/
 BEGIN TRY
-   DROP TABLE [#SQLXL_Index_Compilation_Compute_Columns];
+   DROP TABLE [##SQLXL_Index_Compilation_Compute_Columns];
 END TRY
 BEGIN CATCH
 END CATCH
 
 SELECT *
-  INTO #SQLXL_Index_Compilation_Compute_Columns
+  INTO [##SQLXL_Index_Compilation_Compute_Columns]
   FROM (VALUES
  (N'SUM',N'buffer_free_KB_CNT')
 ,(N'SUM',N'buffer_total_KB_CNT')
@@ -13269,7 +13269,7 @@ UPDATE tgt
    SET ' + STUFF(-- Strip off leading unnecessary characters
                  (-- list of all  columns to update
                   SELECT NCHAR(13) + NCHAR(10) + N'      ,' + c.name + N' = COALESCE(src.' + c.name + N',0)'
-                    FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                    FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                    WHERE c.typ = N'SUM'
                      FOR XML PATH(N''), TYPE
                  ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13281,7 +13281,7 @@ UPDATE tgt
               + (SELECT NCHAR(13) + NCHAR(10)
                        + N'              ,'
                        + c.name + N' = SUM(' + c.name + N')'
-                   FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                   FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                   WHERE c.typ = N'SUM'
                   FOR XML PATH(N''), TYPE
                 ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13323,7 +13323,7 @@ UPDATE tgt
    SET ' + STUFF(-- Strip off leading unnecessary characters
                  (-- list of all  columns to update
                   SELECT NCHAR(13) + NCHAR(10) + N'      ,' + c.name + N' = COALESCE(src.' + c.name + N',0)'
-                    FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                    FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                    WHERE c.typ = N'SUM'
                      FOR XML PATH(N''), TYPE
                  ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13334,7 +13334,7 @@ UPDATE tgt
               + (SELECT NCHAR(13) + NCHAR(10)
                        + N'              ,'
                        + c.name + N' = SUM(' + c.name + N')'
-                   FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                   FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                   WHERE c.typ = N'SUM'
                   FOR XML PATH(N''), TYPE
                 ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13374,7 +13374,7 @@ UPDATE tgt
    SET ' + STUFF(-- Strip off leading unnecessary characters
                  (-- list of all  columns to update
                   SELECT NCHAR(13) + NCHAR(10) + N'      ,' + c.name + N' = COALESCE(src.' + c.name + N',0)'
-                    FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                    FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                    WHERE c.typ = N'SUM'
                      FOR XML PATH(N''), TYPE
                  ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13386,7 +13386,7 @@ UPDATE tgt
               + (SELECT NCHAR(13) + NCHAR(10)
                        + N'              ,'
                        + c.name + N' = SUM(' + c.name + N')'
-                   FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                   FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                   WHERE c.typ = N'SUM'
                   FOR XML PATH(N''), TYPE
                 ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13425,7 +13425,7 @@ UPDATE tgt
    SET ' + STUFF(-- Strip off leading unnecessary characters
                  (--
                   SELECT NCHAR(13) + NCHAR(10) + N'      ,' + c.name + N' = src.' + c.name -- No COALESCE since no date is NULL
-                    FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                    FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                    WHERE c.typ = N'MAX'
                      FOR XML PATH(N''), TYPE
                  ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13440,7 +13440,7 @@ UPDATE tgt
                        + IIF(c.name LIKE N'%days_ago%',N'MIN',N'MAX')
                        + N'(COALESCE(' + c.name + N','
                        + IIF(c.name LIKE N'%days_ago%',N'NULL',N'0') + N'))'
-                    FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                    FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                    WHERE c.typ = N'MAX'
                     FOR XML PATH(N''), TYPE
                 ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13485,7 +13485,7 @@ UPDATE tgt
                                                              + N',0.0) / '
                                                              + REPLACE(c.name,N'_MS_AVG',N'_CNT')
                                                       + N',NULL)'
-                   FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+                   FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                   WHERE c.typ = N'AVG'
                      FOR XML PATH(N''), TYPE
                  ).value('(./text())[1]',N'NVARCHAR(MAX)')
@@ -13816,7 +13816,7 @@ END;
 \******************************************************************************************************************************************/
 DECLARE agg_crsr CURSOR LOCAL STATIC FOR
 SELECT v.name COLLATE DATABASE_DEFAULT
-  FROM #SQLXL_Index_Compilation_Compute_Columns AS v
+  FROM [##SQLXL_Index_Compilation_Compute_Columns] AS v
  WHERE v.typ = N'SUM'
  ORDER BY
        v.name;
@@ -13984,7 +13984,7 @@ DECLARE @sql         NVARCHAR(MAX)
 --*/
 DECLARE agg_crsr CURSOR LOCAL FAST_FORWARD FOR
 SELECT name
-  FROM #SQLXL_Index_Compilation_Compute_Columns AS c
+  FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
  WHERE c.typ IN (N'PCT',N'RAT')
  ORDER BY
        name
@@ -14221,46 +14221,6 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END;
-
---------------------------------------------------------------------------------------------------------------------------------------------
--- Create - [##SQLXL_Instance_Diagnostics] - Diagnostics Table
---------------------------------------------------------------------------------------------------------------------------------------------
-BEGIN TRY
-   DROP TABLE [##SQLXL_Instance_Diagnostics];
-END TRY
-BEGIN CATCH
-END CATCH
-
-CREATE TABLE [##SQLXL_Instance_Diagnostics]
-      (diagnostic_ID    INT            IDENTITY(1,1)
-      -----------------------------
-      ,rec_type         CHAR(1)        DEFAULT N'A' COLLATE DATABASE_DEFAULT NOT NULL
-                                       -- A-All(Instance),D-Database,P-Parent,S-System/Internal,H-History,I-Index
-      ,database_id      SMALLINT       DEFAULT 0                             NOT NULL
-      ,parent_object_id INT            DEFAULT 0                             NOT NULL
-      ,object_id        INT            DEFAULT 0                             NOT NULL
-      ,index_id         INT            DEFAULT 0                             NOT NULL
-      ,type             NVARCHAR(2)    DEFAULT N'A' COLLATE DATABASE_DEFAULT NOT NULL
-                                       -- A-All(Instance),D-Database,P-Parent,S-System/Internal,H-History,I-Index
-                                       -- 0-90 Index Type,M-Missing Index,F-Foreign Key,V-View
-                                       -- IT-system internal table,TF-SQL Table Valued Function SQL2012+
-      -----------------------------
-      ,diagnostic       NVARCHAR(4000)              COLLATE DATABASE_DEFAULT NULL
-      );
-
--- Index ##SQLXL_Index_Instance_Diagnostics
-CREATE UNIQUE CLUSTERED
- INDEX ixuc_SQLXL_Index_Instance_Diagnostics
-    ON [##SQLXL_Instance_Diagnostics]
-      (database_id
-      ,object_id
-      ,index_id
-      ,type
-      ,diagnostic_ID
-      )
-  WITH (DATA_COMPRESSION = PAGE
-       ,MAXDOP = 1
-       );
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Create - [##SQLXL_Index_Diagnostics] - Diagnostics Table
@@ -16769,14 +16729,14 @@ SELECT p.rec_type
       ,p.index_id
       ,p.type
       ,diagnostic = IIF(p.ops_total_read_CNT = 0
-                       , N'OPS:  No RDS and '
+                       , N'OPS: No RDS and '
                        + IIF(a.ops_total_write_CNT > 0
                             ,IIF(1.0 * p.ops_total_write_CNT / a.ops_total_write_CNT < IIF(p.rec_type = N'I',0.000001,0.00001)
                                 ,N'Lo WRT (BI29) - '
                                 ,N'Hi WRT (BI22) - ')
                             ,N' WRT')
                        + N' WRT: ' + [dbo].[SQLXL_3SD](p.ops_total_write_CNT,N'I')
-                       , N'OPS:  Lo RDS/WRT & '
+                       , N'OPS: Lo RDS/WRT & '
                        + IIF(a.ops_total_write_CNT > 0
                             ,IIF(1.0 * p.ops_total_write_CNT / a.ops_total_write_CNT < IIF(p.rec_type = N'I',0.000001,0.00001)
                                 ,N'Lo WRT (BI48)'
@@ -18142,24 +18102,22 @@ SELECT i.rec_type
 -- Diagnostic - Index - Usage Last Read Days Ago
        ELSE  N'Last Usage Read: '
            + CASE WHEN i.ius_last_read_days_ago BETWEEN 0 AND 999998
-                  THEN CONVERT(NVARCHAR(20),i.ius_last_read_days_ago) + N' days ago'
+                  THEN [dbo].[SQLXL_3SD](i.ius_last_read_days_ago,N'I') + N' days ago'
                   ELSE N'NONE'
              END
 -- Diagnostic - Index - Usage Last Write days Ago
            + N' Write: '
-           + CASE WHEN i.ius_last_write_days_ago BETWEEN 0 AND 999998
-                  THEN CONVERT(NVARCHAR(20),i.ius_last_write_days_ago) + N' days ago'
-                  ELSE N'NONE'
-             END
+           + IIF(i.type NOT IN (N'M') AND i.ius_last_write_days_ago BETWEEN 0 AND 999998
+                ,[dbo].[SQLXL_3SD](i.ius_last_write_days_ago,N'I') + N' days ago'
+                ,N'NONE')
 -- Diagnostic - Object - Changed within last 90 days
-           + CASE WHEN i.rec_type NOT IN (N'A' -- instance level composite record
-                                         ,N'D' -- database level composite record
-                                         ,N'I' -- index level composite record
-                                         )
+           + IIF(i.rec_type NOT IN (N'A' -- instance level composite record
+                                   ,N'D' -- database level composite record
+                                   ,N'I' -- index level composite record
+                                   )
                    AND DATEDIFF(DAY,o.modify_date,sis.collection_DTTM) <= 90
-                  THEN  N' Modified ' + CONVERT(NVARCHAR(11),o.modify_date,2) + N' (BI67)'
-                  ELSE N''
-             END
+                ,N' Modified ' + CONVERT(NVARCHAR(11),o.modify_date,2) + N' (BI67)'
+                ,N'')
 -- Diagnostic - Object - Creation Date
            + CASE WHEN i.rec_type NOT IN (N'A' -- instance level composite record
                                          ,N'D' -- database level composite record
@@ -25072,23 +25030,12 @@ UPDATE tgt
    SET
 /*** LOCAL TESTING ***
 SET ANSI_WARNINGS ON;
-SELECT parent_object_id,object_id,index_id,
+SELECT rec_type,database_id,parent_object_id,object_id,index_id,type,
 --*/
        Diagnostics = STUFF(-- Strip off leading unnecessary characters
                            (--
                             SELECT NCHAR(167) + f.diagnostic
-                              FROM (SELECT i = 0
-                                          ,diagnostic_ID
-                                          ,rec_type
-                                          ,database_id
-                                          ,parent_object_id
-                                          ,object_id
-                                          ,index_id
-                                          ,type
-                                          ,diagnostic
-                                      FROM [##SQLXL_Index_Diagnostics]
-                                     WHERE diagnostic IS NOT NULL
-                                    UNION ALL
+                              FROM (
                                     SELECT i = 1
                                           ,diagnostic_ID
                                           ,rec_type
@@ -25100,12 +25047,25 @@ SELECT parent_object_id,object_id,index_id,
                                           ,diagnostic
                                       FROM [##SQLXL_Instance_Diagnostics]
                                      WHERE diagnostic IS NOT NULL
+                                    UNION ALL
+                                    SELECT i = 0
+                                          ,diagnostic_ID
+                                          ,rec_type
+                                          ,database_id
+                                          ,parent_object_id
+                                          ,object_id
+                                          ,index_id
+                                          ,type
+                                          ,diagnostic
+                                      FROM [##SQLXL_Index_Diagnostics]
+                                     WHERE diagnostic IS NOT NULL
                                    ) AS f
-                             WHERE tgt.database_id      = f.database_id
-                               AND tgt.parent_object_id = f.parent_object_id
-                               AND tgt.object_id        = f.object_id
-                               AND tgt.index_id         = f.index_id
-                               AND tgt.type COLLATE DATABASE_DEFAULT = f.type COLLATE DATABASE_DEFAULT
+                             WHERE tgt.rec_type COLLATE DATABASE_DEFAULT = f.rec_type COLLATE DATABASE_DEFAULT
+                               AND tgt.database_id                       = f.database_id
+                               AND tgt.parent_object_id                  = f.parent_object_id
+                               AND tgt.object_id                         = f.object_id
+                               AND tgt.index_id                          = f.index_id
+                               AND tgt.type     COLLATE DATABASE_DEFAULT = f.type     COLLATE DATABASE_DEFAULT
                                AND f.diagnostic        IS NOT NULL
                              ORDER BY f.i
                                      ,f.diagnostic_ID
@@ -27396,7 +27356,7 @@ INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE INSTANCE
 \*########################################################################################################################################*/
 
 /*** LOCAL TESTING ***
-EXEC [##SQLXL_INSTANCE]
+EXEC [##SQLXL_INSTANCE] -- commented out
 --*/
 
 /******************************************************************************************************************************************\
@@ -27566,15 +27526,15 @@ DECLARE @msg NVARCHAR(1000);
 --*/
 
 BEGIN TRY
-   SELECT source           = CAST(N'SQLXL'           AS SYSNAME)   COLLATE DATABASE_DEFAULT
+   SELECT source           = CAST(N'SQLXL'           AS SYSNAME)                        COLLATE DATABASE_DEFAULT
          ,configuration_id = CAST(NULL AS INT)
-         ,name             = CAST(N'Collection_DTTM' AS SYSNAME)   COLLATE DATABASE_DEFAULT
+         ,name             = CAST(N'Collection_DTTM' AS SYSNAME)                        COLLATE DATABASE_DEFAULT
          ,minimum_value    = CAST(NULL AS BIGINT)
          ,maximum_value    = CAST(NULL AS BIGINT)
          ,config_value     = CAST(NULL AS BIGINT)
          ,run_value        = CAST(NULL AS BIGINT)
          ,text_value       = CAST(CONVERT(NVARCHAR(30),GETDATE(),120) AS NVARCHAR(255)) COLLATE DATABASE_DEFAULT
-         ,description      = CAST(NULL AS NVARCHAR(255)) COLLATE DATABASE_DEFAULT
+         ,description      = CAST(NULL AS NVARCHAR(255))                                COLLATE DATABASE_DEFAULT
          ,is_dynamic       = CAST(NULL AS BIT)
          ,is_advanced      = CAST(NULL AS BIT)
          ,default_value    = CAST(NULL AS BIGINT)
@@ -27598,29 +27558,40 @@ BEGIN CATCH
       AND name   = N'Collection_DTTM';
 END CATCH
 
-IF @msg IS NOT NULL AND DATEDIFF(HOUR,CONVERT(DATETIME,@msg,120),GETDATE()) < 1.0
-BEGIN
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
-      SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,GETDATE(),GETDATE()),0))
-               + N' Exit - Instance info less than 1 hour old'
-      RAISERROR(@msg,0,0) WITH NOWAIT;
-   END
-   RETURN; -- if less than an hour old abort
-END   -- IF @msg IS NOT NULL AND DATEDIFF(DAY,CONVERT(DATETIME,@msg,120),GETDATE()) < 1
+-- IF @msg IS NOT NULL AND DATEDIFF(HOUR,CONVERT(DATETIME,@msg,120),GETDATE()) < 1.0
+-- BEGIN
+--    IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+--       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,GETDATE(),GETDATE()),0))
+--                + N' Exit - Instance info less than 1 hour old'
+--       RAISERROR(@msg,0,0) WITH NOWAIT;
+--    END
+--    RETURN; -- if less than an hour old abort
+-- END   -- IF @msg IS NOT NULL AND DATEDIFF(DAY,CONVERT(DATETIME,@msg,120),GETDATE()) < 1
 
 /*** LOCAL TESTING ***
 DECLARE @msg NVARCHAR(1000);
 --*/
+--------------------------------------------------------------------------------------------------------------------------------------------
+-- Create - [##SQLXL_Instance_Diagnostics] - Diagnostics Table
+--------------------------------------------------------------------------------------------------------------------------------------------
 BEGIN TRY
-   SELECT rec_type         = CAST(N'A' AS CHAR(1)       ) COLLATE DATABASE_DEFAULT  -- instance level composite record
-         ,database_id      = CAST(  0  AS SMALLINT      )
-         ,parent_object_id = CAST(  0  AS INT           )
-         ,object_id        = CAST(  0  AS INT           )
-         ,index_id         = CAST(  0  AS INT           )
-         ,type             = CAST(N'A' AS NVARCHAR(2)   ) COLLATE DATABASE_DEFAULT  -- instance level
-         ,diagnostic       = CAST(NULL AS NVARCHAR(4000)) COLLATE DATABASE_DEFAULT
-     INTO [##SQLXL_Instance_Diagnostics]
-   OPTION (MAXDOP 1,RECOMPILE);
+   CREATE TABLE [##SQLXL_Instance_Diagnostics]
+         (diagnostic_ID    INT            IDENTITY(1,1)
+         -----------------------------
+         ,rec_type         CHAR(1)        DEFAULT N'A' COLLATE DATABASE_DEFAULT NOT NULL
+                                          -- A-All(Instance),D-Database,P-Parent,S-System/Internal,H-History,I-Index
+         ,database_id      SMALLINT       DEFAULT 0                             NOT NULL
+         ,parent_object_id INT            DEFAULT 0                             NOT NULL
+         ,object_id        INT            DEFAULT 0                             NOT NULL
+         ,index_id         INT            DEFAULT 0                             NOT NULL
+         ,type             NVARCHAR(2)    DEFAULT N'A' COLLATE DATABASE_DEFAULT NOT NULL
+                                          -- A-All(Instance),D-Database,P-Parent,S-System/Internal,H-History,I-Index
+                                          -- 0-90 Index Type,M-Missing Index,F-Foreign Key,V-View
+                                          -- IT-system internal table,TF-SQL Table Valued Function SQL2012+
+         -----------------------------
+         ,diagnostic       NVARCHAR(4000)              COLLATE DATABASE_DEFAULT NULL
+         );
+
 END TRY
 BEGIN CATCH
 END CATCH
