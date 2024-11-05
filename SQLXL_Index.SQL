@@ -1,4 +1,4 @@
--- VERSION 24.11.03
+-- VERSION 24.11.05
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to,
 since you can't create temporary (#) functions
@@ -3932,7 +3932,7 @@ SELECT database_id                = DB_ID()
           FROM [##SQLXL_Index_sys_dm_db_missing_index_columns]
          WHERE DB_ID() = database_id
         UNION ALL -- fulltext_index_columns - also used to get list of columns to get statistics for
-        SELECT type                       = N''90''       -- full-text index of a tabular object
+        SELECT type                       = N''T''       -- full-text index of a tabular object
               ,object_id                  = object_id
               ,index_id                   = object_id
               ,index_column_id            = 0
@@ -4992,11 +4992,13 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
            AND COALESCE(ph.index_id ,pp.index_id ) = i.index_id
          GROUP BY
                o.object_id
-              ,o.name      COLLATE ' + @collation + N'
+              ,o.name               COLLATE ' + @collation + N'
               ,i.index_id
-              ,COALESCE(i.name COLLATE ' + @collation + N',i.type_desc COLLATE ' + @collation + N')
+              ,COALESCE(i.name      COLLATE ' + @collation + N'
+                       ,i.type_desc COLLATE ' + @collation + N'
+                       )
               ,i.type
-              ,i.type_desc COLLATE ' + @collation + N'
+              ,i.type_desc          COLLATE ' + @collation + N'
        ) AS qry
 OPTION (MAXDOP 1,RECOMPILE);'
 
@@ -7356,7 +7358,7 @@ SELECT rec_type                 = N'I'
                                           WHEN N'5'  THEN N'CCS' -- clustered columnstore
                                           WHEN N'6'  THEN N'NCS' -- nonclustered columnstore index
                                           WHEN N'7'  THEN N'NHX' -- Hash index on In-Memory Clustered Columnstore
-                                          WHEN N'90' THEN N'FTX' -- full-text index of a tabular object. See Insert code below
+                                          WHEN N'T'  THEN N'FTX' -- full-text index of a tabular object. See Insert code below
                                           ----------------------
                                           WHEN N'F'  THEN N'FKC' -- foreign key constraint
                                           WHEN N'IT' THEN N'IT'  -- system internal table
@@ -7446,21 +7448,21 @@ SELECT rec_type                 = N'I'
       ----------------------------------------------------------------------------------------------------
       ,is_system_named                    = COALESCE(o.is_system_named,0)
       ,index_CNT                          = IIF(i.type NOT IN (-- index "types" to omit from index count
-                                                               N'0' -- rowstore heap
+                                                               N'0' -- rowstore heap, unindexed view
                                                               ,N'F' -- foreign key constraint
                                                               ,N'M' -- missing nonclustered rowstore index
                                                               )
                                                ,1
-                                               ,0) -- NOTE: includes full text indexes (type = N'90')
-      ,heap_index_CNT                     = IIF(i.type = N'0' ,1,0) -- rowstore heap
-      ,Clustered_index_CNT                = IIF(i.type = N'1' ,1,0) -- clustered rowstore index
-      ,Nonclustered_index_CNT             = IIF(i.type = N'2' ,1,0) -- nonclustered rowstore index
-      ,XML_index_CNT                      = IIF(i.type = N'3' ,1,0) -- XML index
-      ,Spatial_index_CNT                  = IIF(i.type = N'4' ,1,0) -- Spatial index
-      ,Clustered_ColumnStore_CNT          = IIF(i.type = N'5' ,1,0) -- Clustered columnstore
-      ,Nonclustered_ColumnStore_CNT       = IIF(i.type = N'6' ,1,0) -- nonclustered columnstore index
-      ,Nonclustered_Hash_CNT              = IIF(i.type = N'7' ,1,0) -- Hash index on In-Memory Clustered Columnstore
-      ,Fulltext_index_CNT                 = IIF(i.type = N'90',1,0) -- full-text index of a tabular object
+                                               ,0) -- NOTE: includes full text indexes (type = N'T')
+      ,heap_index_CNT                     = IIF(i.type = N'0',1,0) -- rowstore heap
+      ,Clustered_index_CNT                = IIF(i.type = N'1',1,0) -- clustered rowstore index
+      ,Nonclustered_index_CNT             = IIF(i.type = N'2',1,0) -- nonclustered rowstore index
+      ,XML_index_CNT                      = IIF(i.type = N'3',1,0) -- XML index
+      ,Spatial_index_CNT                  = IIF(i.type = N'4',1,0) -- Spatial index
+      ,Clustered_ColumnStore_CNT          = IIF(i.type = N'5',1,0) -- Clustered columnstore
+      ,Nonclustered_ColumnStore_CNT       = IIF(i.type = N'6',1,0) -- nonclustered columnstore index
+      ,Nonclustered_Hash_CNT              = IIF(i.type = N'7',1,0) -- Hash index on In-Memory Clustered Columnstore
+      ,Fulltext_index_CNT                 = IIF(i.type = N'T',1,0) -- full-text index of a tabular object
       ,Missing_index_CNT                  = 0
       ,Foreign_Key_CNT                    = IIF(o.type = N'F',1,0)  -- foreign key constraint
 
@@ -7500,7 +7502,7 @@ SELECT o.history_source_object_id,o.parent_object_id,op.name,o.object_id,o.name,
    AND o.object_id   = bd.object_id
    AND i.index_id    = bd.index_id
    AND i.type   NOT IN (-- avoid "indexes" with IDs that could match up with physical indexes
-                        N'90' -- full-text index of a tabular object
+                        N'T' -- full-text index of a tabular object
                        ,N'F'  -- foreign key constraint
                        ,N'M'  -- missing nonclustered rowstore index
                        ,N'V'  -- View
@@ -7638,7 +7640,7 @@ SELECT rec_type                          = N'I'                      -- index le
       ---------------------
       ,index_id                          = i.object_id
       ,name                              = N'FULL TEXT'              -- HARD CODED for FULL TEXT index
-      ,type                              = N'90'                     -- full-text index. maintains sort order on XL sheet by index TYPE
+      ,type                              = N'T'                      -- HARD CODED for FULL TEXT index
       ,type_desc                         = N'FULL TEXT'              -- HARD CODED for FULL TEXT index
       ,sub_type                          = 0
       ,type_short_desc                   = N'FTX'                    -- HARD CODED for FULL TEXT index
@@ -7896,7 +7898,7 @@ SELECT database_id
       ,index_id
   FROM [##SQLXL_Index_Compilation]
  WHERE rec_type = N'I'  -- index level composite record
-   AND type     = N'90' -- full-text index of a tabular object
+   AND type     = N'T' -- full-text index of a tabular object
 )
 UPDATE tgt
    SET tgt.Relates_Fulltext_index_ID = ftx.index_id
@@ -8715,37 +8717,37 @@ SELECT *
                                    WHEN tgt.tbl_is_heap = 1 AND tbl.is_memory_optimized = 0
                                    THEN N'HP'
                                    ELSE CASE tgt.type
-                                             WHEN N'0'  THEN N'HP'                        -- rowstore heap
-                                             WHEN N'1'  THEN N'CX'                        -- clustered rowstore index
-                                             WHEN N'2'  THEN N'NCX'                       -- nonclustered rowstore index
-                                             WHEN N'3'  THEN N'XML'                       -- XML index
-                                                            + CASE tgt.sub_type           -- XML index
-                                                                   WHEN 0 THEN N' PRI'    -- 0 = Primary XML index
-                                                                   WHEN 1 THEN N' SEC'    -- 1 = Secondary XML index
-                                                                   WHEN 2 THEN N' SEL'    -- 2 = Selective XML index
-                                                                   WHEN 3 THEN N' SSEL'   -- 3 = Secondary selective XML index
-                                                                   ELSE  N' <'
-                                                                       + IIF(tgt.sub_type IS NULL
-                                                                            ,N'subtype?'
-                                                                            ,[dbo].[SQLXL_3SD](tgt.sub_type,N'I'))
-                                                                       + N'>'
-                                                              END
-                                             WHEN N'4'  THEN  N'SPT'                     -- Spatial index
-                                                            + CASE tgt.sub_type          -- spatial subtypes
-                                                                   WHEN 1 THEN N' GEM'   -- 1 = Geometry
-                                                                   WHEN 2 THEN N' GEG'   -- 2 = Geographic
-                                                                   WHEN 4 THEN N' GEG'   -- 4 = Geographic
-                                                                   ELSE  N' <'
-                                                                       + IIF(tgt.sub_type IS NULL
-                                                                            ,N'subtype?'
-                                                                            ,[dbo].[SQLXL_3SD](tgt.sub_type,N'I'))
-                                                                       + N'>'
-                                                              END
-                                             WHEN N'5'  THEN N'CCS' -- Clustered columnstore
-                                             WHEN N'6'  THEN N'NCS' -- nonclustered columnstore index
-                                             WHEN N'7'  THEN N'NHX' -- Hash index on In-Memory Clustered Columnstore
-                                             WHEN N'90' THEN N'FTX' -- full-text index of a tabular object. See Insert FULL TEXT below
-                                             WHEN N'M'  THEN N'MIX' -- missing nonclustered rowstore index
+                                             WHEN N'0' THEN N'HP'                        -- rowstore heap
+                                             WHEN N'1' THEN N'CX'                        -- clustered rowstore index
+                                             WHEN N'2' THEN N'NCX'                       -- nonclustered rowstore index
+                                             WHEN N'3' THEN N'XML'                       -- XML index
+                                                           + CASE tgt.sub_type           -- XML index
+                                                                  WHEN 0 THEN N' PRI'    -- 0 = Primary XML index
+                                                                  WHEN 1 THEN N' SEC'    -- 1 = Secondary XML index
+                                                                  WHEN 2 THEN N' SEL'    -- 2 = Selective XML index
+                                                                  WHEN 3 THEN N' SSEL'   -- 3 = Secondary selective XML index
+                                                                  ELSE  N' <'
+                                                                      + IIF(tgt.sub_type IS NULL
+                                                                           ,N'subtype?'
+                                                                           ,[dbo].[SQLXL_3SD](tgt.sub_type,N'I'))
+                                                                      + N'>'
+                                                             END
+                                             WHEN N'4' THEN  N'SPT'                     -- Spatial index
+                                                           + CASE tgt.sub_type          -- spatial subtypes
+                                                                  WHEN 1 THEN N' GEM'   -- 1 = Geometry
+                                                                  WHEN 2 THEN N' GEG'   -- 2 = Geographic
+                                                                  WHEN 4 THEN N' GEG'   -- 4 = Geographic
+                                                                  ELSE  N' <'
+                                                                      + IIF(tgt.sub_type IS NULL
+                                                                           ,N'subtype?'
+                                                                           ,[dbo].[SQLXL_3SD](tgt.sub_type,N'I'))
+                                                                      + N'>'
+                                                             END
+                                             WHEN N'5' THEN N'CCS' -- Clustered columnstore
+                                             WHEN N'6' THEN N'NCS' -- nonclustered columnstore index
+                                             WHEN N'7' THEN N'NHX' -- Hash index on In-Memory Clustered Columnstore
+                                             WHEN N'T' THEN N'FTX' -- full-text index of a tabular object. See Insert FULL TEXT below
+                                             WHEN N'M' THEN N'MIX' -- missing nonclustered rowstore index
                                              ELSE N''
                                         END
                               END
@@ -8850,7 +8852,7 @@ SELECT database_id       = sc.database_id
       ,is_sparse              = COALESCE(sc.is_sparse,0)
       --------------------------------------------------------------------------------------------------------------------------------------
       ,Indexed_Columns        = kc.idx
-      ,indexed_sort           = kc.idx_sort
+      ,indexed_sort           = COALESCE(kc.idx_sort,1000 + sc.column_id) -- indexed columns ordered below, non-indexed follow after
       ,default_object_id      = sc.default_object_id
       --------------------------------------------------------------------------------------------------------------------------------------
       -- Long Descriptors
@@ -9061,7 +9063,7 @@ SELECT COUNT(1)
     ON sc.database_id = ftic.database_id
    AND sc.object_id   = ftic.object_id
    AND sc.column_id   = ftic.column_id
-   AND N'90'          = ftic.type                -- full-text index of a tabular object
+   AND N'T'           = ftic.type                -- full-text index of a tabular object
 
   ------------------------------------------------------------------------------------------------------------------------------------------
   -- how often each column is used across all indexes
@@ -9071,60 +9073,129 @@ SELECT COUNT(1)
         SELECT kc.database_id
               ,kc.object_id
               ,kc.column_id
-              ,idx = LTRIM( IIF(CX_Lead_CNT > 0,N' CXLead ' + CAST(CX_Lead_CNT AS NVARCHAR(20)),N'')
-                          + IIF(CX_Key_CNT  > 0,N' CXKey '  + CAST(CX_Key_CNT  AS NVARCHAR(20)),N'')
-                          + IIF(lead_CNT    > 0,N' Lead '   + CAST(lead_CNT    AS NVARCHAR(20)),N'')
-                          + IIF(key_CNT     > 0,N' Key '    + CAST(key_CNT     AS NVARCHAR(20)),N'')
-                          + IIF(include_CNT > 0,N' Inc '    + CAST(include_CNT AS NVARCHAR(20)),N'')
-                          + IIF(desc_CNT    > 0,N' Dsc '    + CAST(desc_CNT    AS NVARCHAR(20)),N'')
-                          + IIF(filter_CNT  > 0,N' Flt '    + CAST(filter_CNT  AS NVARCHAR(20)),N'')
-                          + IIF(MIX_Key_CNT > 0,N' MXKey '  + CAST(MIX_Key_CNT AS NVARCHAR(20)),N'')
-                          + IIF(MIX_Inc_CNT > 0,N' MXInc '  + CAST(MIX_Inc_CNT AS NVARCHAR(20)),N'')
-                          + IIF(NCS_CNT     > 0,N' NCS '    + CAST(NCS_CNT     AS NVARCHAR(20)),N'')
+              ,idx = LTRIM( IIF(CCS_CNT       > 0,N' CCS '                                       ,N'')
+                          --------------------------------------------------------------------------
+                          + IIF(Prtn_Lead_CNT > 0,N' Prtn '                                      ,N'')
+                          + IIF(prtn_Key_CNT  > 0,N' Prtn '  + CAST(Prtn_Key_CNT AS NVARCHAR(20)),N'') -- should not happen
+                          --------------------------------------------------------------------------
+                          + IIF(CX_Lead_CNT  > 0,N' CXLead ' + CAST(CX_Lead_CNT  AS NVARCHAR(20)),N'')
+                          + IIF(CX_Key_CNT   > 0,N' CXKey '  + CAST(CX_Key_CNT   AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(lead_CNT     > 0,N' Lead '   + CAST(lead_CNT     AS NVARCHAR(20)),N'')
+                          + IIF(key_CNT      > 0,N' Key '    + CAST(key_CNT      AS NVARCHAR(20)),N'')
+                          + IIF(include_CNT  > 0,N' Inc '    + CAST(include_CNT  AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(MIX_Key_CNT  > 0,N' MXKey '  + CAST(MIX_Key_CNT  AS NVARCHAR(20)),N'')
+                          + IIF(MIX_Inc_CNT  > 0,N' MXInc '  + CAST(MIX_Inc_CNT  AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(FKC_Lead_CNT > 0,N' FKLead ' + CAST(FKC_Lead_CNT AS NVARCHAR(20)),N'')
+                          + IIF(FKC_Key_CNT  > 0,N' FKKey '  + CAST(FKC_Key_CNT  AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(XML_CNT      > 0,N' XML '    + CAST(XML_CNT      AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(FullText_CNT > 0,N' FTX '    + CAST(FullText_CNT AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(Spatial_CNT  > 0,N' SPT '    + CAST(Spatial_CNT  AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(NCS_CNT      > 0,N' NCS '    + CAST(NCS_CNT      AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(Hash_CNT     > 0,N' HSH '    + CAST(Hash_CNT     AS NVARCHAR(20)),N'')
+                          --------------------------------------------------------------------------
+                          + IIF(desc_CNT     > 0,N' Dsc '    + CAST(desc_CNT     AS NVARCHAR(20)),N'')
+                          + IIF(filter_CNT   > 0,N' Flt '    + CAST(filter_CNT   AS NVARCHAR(20)),N'')
                           )
               ,idx_sort = ROW_NUMBER() OVER (PARTITION BY kc.database_id
                                                          ,kc.object_id
-                                                 ORDER BY CASE WHEN CX_Lead_CNT > 0 THEN 1
-                                                               WHEN CX_Key_CNT  > 0 THEN 2
-                                                               WHEN lead_CNT    > 0 THEN 3
-                                                               WHEN Key_CNT     > 0 THEN 4
-                                                               WHEN MIX_Key_CNT > 0 THEN 5
-                                                               ELSE                      6
+                                                 ORDER BY CASE WHEN Prtn_Lead_CNT > 0 THEN 10
+                                                               WHEN CX_Lead_CNT   > 0 THEN 11
+                                                               WHEN CX_Key_CNT    > 0 THEN 12
+                                                               WHEN lead_CNT      > 0 THEN 13
+                                                               WHEN Key_CNT       > 0 THEN 14
+                                                               WHEN FKC_Lead_CNT  > 0 THEN 15
+                                                               WHEN FKC_Key_CNT   > 0 THEN 16
+                                                               WHEN MIX_Key_CNT   > 0 THEN 17
+                                                               WHEN XML_CNT       > 0 THEN 18
+                                                               WHEN FullText_CNT  > 0 THEN 19
+                                                               WHEN Spatial_CNT   > 0 THEN 20
+                                                               WHEN Hash_CNT      > 0 THEN 21
+                                                               WHEN NCS_CNT       > 0 THEN 22
+                                                               ELSE                        99
                                                           END
-                                                         ,cx_lead_CNT    DESC
-                                                         ,cx_key_CNT     DESC
-                                                         ,include_CNT    DESC
-                                                         ,MIX_Key_CNT    DESC
-                                                         ,MIX_Inc_CNT    DESC
-                                                         ,kc.column_id
-                                                         ,kc.column_id
+                                                         ,Prtn_Lead_CNT DESC
+                                                         ,CX_Lead_CNT   DESC
+                                                         ,CX_Key_CNT    DESC
+                                                         ,lead_CNT      DESC
+                                                         ,Key_CNT       DESC
+                                                         ,FKC_Lead_CNT  DESC
+                                                         ,FKC_Key_CNT   DESC
+                                                         ,MIX_Key_CNT   DESC
+                                                         ,XML_CNT       DESC
+                                                         ,FullText_CNT  DESC
+                                                         ,Spatial_CNT   DESC
+                                                         ,Hash_CNT      DESC
+                                                         ,NCS_CNT       DESC
                                             )
           FROM (-- count each columns representation in index types
-                -- '1' -- clustered rowstore index
-                -- '2' -- nonclustered rowstore index
-                -- '6' -- nonclustered columnstore index
-                -- 'M' -- missing nonclustered rowstore index
                 SELECT database_id
                       ,object_id
                       ,column_id
                       ,cnt           = COUNT(1)
-                      -- Clustered rowstore indexes
-                      ,CX_Lead_CNT   = SUM(IIF(type = N'1' AND key_column_sequence = 1,1,0))   -- clustered rowstore index
-                      ,CX_Key_CNT    = SUM(IIF(type = N'1' AND key_column_sequence > 1,1,0))   -- clustered rowstore index
-                      -- nonclustered rowstore index
-                      ,lead_CNT      = SUM(IIF(type = N'2' AND is_included_column  = 0         -- nonclustered rowstore index
-                                                           AND key_column_sequence = 1 ,1,0))
-                      ,key_CNT       = SUM(IIF(TYPE = N'2' AND is_included_column  = 0         -- nonclustered rowstore index
-                                                           AND key_column_sequence > 1 ,1,0))
-                      ,include_CNT   = SUM(IIF(type = N'2' AND is_included_column  = 1,1,0))   -- nonclustered rowstore index
-                      ,desc_CNT      = SUM(IIF(is_descending_key = 1,1,0))
-                      ,filter_CNT    = SUM(IIF(is_index_column_filtered = 1,1,0))
-                      -- missing nonclustered rowstore index
-                      ,MIX_Key_CNT   = SUM(IIF(type = N'M' AND is_included_column  = 0,1,0))   -- missing nonclustered rowstore index
-                      ,MIX_Inc_CNT   = SUM(IIF(type = N'M' AND is_included_column  = 1,1,0))   -- missing nonclustered rowstore index
-                     -- nonclustered columnstore index
-                      ,NCS_CNT       = SUM(IIF(type = N'6'                            ,1,0))   -- Nonclustered columnstore index
-                  FROM [##SQLXL_Index_sys_index_columns] AS ic
+                      -- Partitioning key(s) -----------------------------------------------
+                      ,Prtn_Lead_CNT = SUM(IIF(type = N'1' AND partition_ordinal   = 1,1,0))
+                      ,Prtn_Key_CNT  = SUM(IIF(type = N'1' AND partition_ordinal   > 1,1,0)) -- should not happen
+                      -- Clustered rowstore indexes ----------------------------------------
+                      ,CX_Lead_CNT   = SUM(IIF(type = N'1' AND key_column_sequence = 1,1,0))
+                      ,CX_Key_CNT    = SUM(IIF(type = N'1' AND key_column_sequence > 1,1,0))
+                      -- nonclustered rowstore index ---------------------------------------
+                      ,lead_CNT      = SUM(IIF(type = N'2' AND is_included_column  = 0
+                                                           AND key_column_sequence = 1,1,0))
+                      ,key_CNT       = SUM(IIF(TYPE = N'2' AND is_included_column  = 0
+                                                           AND key_column_sequence > 1,1,0))
+                      ,include_CNT   = SUM(IIF(type = N'2' AND is_included_column  = 1,1,0))
+                      -- missing nonclustered rowstore index -------------------------------
+                      ,MIX_Key_CNT   = SUM(IIF(type = N'M' AND is_included_column  = 0,1,0))
+                      ,MIX_Inc_CNT   = SUM(IIF(type = N'M' AND is_included_column  = 1,1,0))
+                      -- Foreign Keys ------------------------------------------------------
+                      ,FKC_Lead_CNT  = SUM(IIF(type = N'F' AND key_column_sequence = 1,1,0))
+                      ,FKC_key_CNT   = SUM(IIF(type = N'F' AND key_column_sequence > 1,1,0))
+                      -- XML ---------------------------------------------------------------
+                      ,XML_CNT       = SUM(IIF(type = N'3'                            ,1,0))
+                      -- Spatial ----------------------------------------------------------
+                      ,Spatial_CNT   = SUM(IIF(type = N'4'                            ,1,0))
+                      -- Clustered Columnstore ---------------------------------------------
+                      ,CCS_CNT       = SUM(IIF(type = N'5'                            ,1,0))
+                      -- nonclustered columnstore index ------------------------------------
+                      ,NCS_CNT       = SUM(IIF(type = N'6'                            ,1,0))
+                      -- Nonclustered Hash -------------------------------------------------
+                      ,Hash_CNT      = SUM(IIF(type = N'7'                            ,1,0))
+                      -- Full Text ---------------------------------------------------------
+                      ,FullText_CNT  = SUM(IIF(type = N'T'                           ,1,0))
+                      -- Index properties --------------------------------------------------
+                      ,desc_CNT      = SUM(IIF(is_descending_key        = 1           ,1,0))
+                      ,filter_CNT    = SUM(IIF(is_index_column_filtered = 1           ,1,0))
+                  FROM (
+                        SELECT database_id
+                              ,object_id
+                              ,column_id
+                              ,type
+                              ,key_column_sequence
+                              ,is_included_column
+                              ,is_descending_key
+                              ,is_index_column_filtered
+                              ,partition_ordinal
+                          FROM [##SQLXL_Index_sys_index_columns]
+                        UNION ALL
+                        SELECT database_id
+                              ,object_id                = parent_object_id
+                              ,column_id                = parent_column_id
+                              ,type                     = N'F'
+                              ,key_column_sequence      = constraint_column_id
+                              ,is_included_column       = 0
+                              ,is_descending_key        = 0
+                              ,is_index_column_filtered = 0
+                              ,partition_ordinal        = 0
+                          FROM [##SQLXL_Index_sys_foreign_key_columns]
+                       ) AS ic
                  WHERE 1 = 1
                  GROUP BY
                        database_id
@@ -9356,13 +9427,13 @@ SELECT tgt.database_id,tgt.parent_object_id,
                                              AND ftic.column_id   = eix.column_id
                                            WHERE tgt.Database_ID  = ftic.Database_ID
                                              AND tgt.object_id    = ftic.object_id
-                                             AND N'90'            = ftic.type        -- full-text index of a tabular object
+                                             AND N'T'             = ftic.type        -- full-text index of a tabular object
                                              FOR XML PATH(N''), TYPE
                                         ).value('(./text())[1]',N'NVARCHAR(MAX)')
                                        ,1,1,N'')
                                  ,N'<Column Description not found>')
   FROM [##SQLXL_Index_Compilation] AS tgt
- WHERE tgt.type = N'90' -- full-text index of a tabular object
+ WHERE tgt.type = N'T'                    -- full-text index of a tabular object
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -9386,8 +9457,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
                                  WHERE tgt.database_id = icol.database_id
                                    AND tgt.object_id   = icol.object_id
                                  ORDER BY
-                                       COALESCE(icol.indexed_sort,9999)
-                                      ,icol.column_id
+                                       icol.indexed_sort                     -- from column index usage representation
                                    FOR XML PATH(N''), TYPE
                                ).value('(./text())[1]',N'NVARCHAR(MAX)')
                               ,1,1,N'')
@@ -9398,8 +9468,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
                                    AND tgt.object_id   = icol.object_id
                                    AND icol.indexed_columns IS NOT NULL
                                  ORDER BY
-                                       COALESCE(icol.indexed_sort,9999)
-                                      ,icol.column_id
+                                       icol.indexed_sort                     -- from column index usage representation
                                    FOR XML PATH(N''), TYPE
                                ).value('(./text())[1]',N'NVARCHAR(MAX)')
                               ,1,1,N'')
@@ -9797,10 +9866,10 @@ SELECT icol.database_id
             ON icol.database_id = sssh.database_id
            AND icol.object_id   = sssh.object_id
            AND icol.index_id    = sssh.index_ID
-           AND icol.type   NOT IN (N'90' -- full-text index of a tabular object
+           AND icol.type   NOT IN (N'T'  -- full-text index of a tabular object
                                   ,N'F'  -- foreign key constraint
                                   ,N'M'  -- missing nonclustered rowstore index
-                                  ) -- No sssh.type
+                                  )      -- No sssh.type
        ) AS icol
 
   LEFT OUTER
@@ -9810,7 +9879,7 @@ SELECT icol.database_id
    AND icol.index_id    = ssdv.index_ID
                         -- No ssdv.type column
    AND icol.type   NOT IN (-- avoid "indexes" with IDs that could match up with physical indexes
-                           N'90' -- full-text index of a tabular object
+                           N'T'  -- full-text index of a tabular object
                           ,N'F'  -- foreign key constraint
                           ,N'M'  -- missing nonclustered rowstore index
                           )
@@ -9897,7 +9966,7 @@ SELECT *
         SELECT *
           FROM [##SQLXL_Index_Compilation]
          WHERE rec_type  = N'I'   -- index level composite record
-           AND type NOT IN (N'90' -- full-text index of a tabular object
+           AND type NOT IN (N'T'  -- full-text index of a tabular object
                            ,N'F'  -- foreign key constraint
                            ,N'M'  -- missing nonclustered rowstore index
                            )      -- statistics eligible only
@@ -10074,7 +10143,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
    AND tgt.object_id   = ps.object_id
    AND tgt.index_id    = ps.index_id
    AND tgt.type   NOT IN (-- avoid "indexes" with IDs that could match up with physical index partitions
-                          N'90' -- full-text index of a tabular object
+                          N'T'  -- full-text index of a tabular object
                          ,N'F'  -- foreign key constraint
                          ,N'M'  -- missing nonclustered rowstore index
                          )
@@ -10223,9 +10292,9 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                                                    )
                                                         ,NCHAR(167) + tgt.obj_type_short_label
                                                         ,N'')
-                                      WHEN tgt.type = N'5'  THEN N'CCS' -- Clustered columnstore
-                                      WHEN tgt.type = N'6'  THEN N'NCS' -- nonclustered columnstore index
-                                      WHEN tgt.type = N'90' THEN N'FTX' -- full-text index of a tabular object
+                                      WHEN tgt.type = N'5' THEN N'CCS' -- Clustered columnstore
+                                      WHEN tgt.type = N'6' THEN N'NCS' -- nonclustered columnstore index
+                                      WHEN tgt.type = N'T' THEN N'FTX' -- full-text index of a tabular object
                                       ------------------------------------------------------------------------------------------------------
                                       WHEN LEN(REPLACE(un.uniq,NCHAR(167),N'')) > 0
                                       THEN STUFF(un.uniq,1,1,N'')
@@ -10275,7 +10344,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                            --- No object_id in SSDV
                                            AND tgt.Index_Id    = ssdv.index_id
                                            AND tgt.type   NOT IN (-- avoid "indexes" with IDs that could match up with physical indexes
-                                                                  N'90' -- full-text index of a tabular object
+                                                                  N'T'  -- full-text index of a tabular object
                                                                  ,N'F'  -- foreign key constraint
                                                                  ,N'M'  -- missing nonclustered rowstore index
                                                                  )
@@ -10491,7 +10560,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
    AND tgt.object_id   = p.object_id
    AND tgt.index_id    = p.index_id
    AND tgt.type   NOT IN (-- avoid "indexes" with IDs that could match up with physical index partitions
-                          N'90' -- full-text index of a tabular object
+                          N'T'  -- full-text index of a tabular object
                          ,N'F'  -- foreign key constraint
                          ,N'M'  -- missing nonclustered rowstore index
                          ,N'V'  -- View
@@ -12043,7 +12112,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
        -- All Foreign Key Constraints covered by this index
        ---------------------------------------------------------------------------------------------
       ,covered_fkc_IDs               = STUFF(covering_fk.idx_id,1,1,N'')
-  FROM (--
+  FROM (-- get all candidate FKC to cover, and identify FKCs covered by rowstore indexes
         SELECT *
           FROM [##SQLXL_Index_Compilation]
          WHERE rec_type = N'I'  -- index level composite record
@@ -12075,14 +12144,14 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
            AND i.has_filter         = 0           -- can't be filtered since won't cover the whole key
            AND CHARINDEX(tgt.key_column_IDs,i.key_column_IDs) = 1 -- comma separated list of column_ids in the index or foreign key
          ORDER BY
-               i.type                             -- use clustered if found
-              ,i.is_primary_key              DESC -- Primary Key
-              ,i.is_unique_constraint        DESC -- is a CONSTRAINT
-              ,i.is_unique                   DESC -- is UNIQUE
-              ,i.ius_user_read_CNT           DESC -- most read
-              ,i.stathdr_Average_Key_Length  DESC -- biggest
-              ,i.Key_Columns_CNT             DESC -- most key elements
-              ,i.key_total_datatype_length_bytes          DESC -- widest key
+               i.type                                 -- use clustered if found
+              ,i.is_primary_key                  DESC -- Primary Key
+              ,i.is_unique_constraint            DESC -- is a CONSTRAINT
+              ,i.is_unique                       DESC -- is UNIQUE
+              ,i.ius_user_read_CNT               DESC -- most read
+              ,i.stathdr_Average_Key_Length      DESC -- biggest
+              ,i.Key_Columns_CNT                 DESC -- most key elements
+              ,i.key_total_datatype_length_bytes DESC -- widest key
               ,i.inc_total_datatype_length_bytes      -- fewest included columns
               ,i.index_id
        ) covering_index
@@ -12127,10 +12196,10 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
                SELECT TOP 100 PERCENT
                       N',' + QUOTENAME(i.object_id)
                  FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS i -- index level composite record
-                WHERE i.type               = N'F'  -- foreign key constraint
-                  AND tgt.type            IN (N'1' -- clustered rowstore index
+                WHERE tgt.type            IN (N'1' -- clustered rowstore index
                                              ,N'2' -- nonclustered rowstore index
                                              )
+                  AND i.type               = N'F'  -- foreign key constraint
                   AND tgt.has_filter       = 0           -- can't be filtered since won't cover the whole key
                   AND tgt.database_id      = i.database_id
                   AND tgt.parent_object_id = i.parent_object_id
@@ -12853,7 +12922,6 @@ SELECT r.database_id,r.object_id,r.index_id,r.type,
                       ,parent_object_id
                       ,fkc_object_id = r_object_id
                       ,fkc_type      = r_type
-                      ,mix_object_id = l_object_id
                       ,mix_id        = l_index_id
                   FROM [##SQLXL_Index_Synergies] WITH (READUNCOMMITTED)
                  WHERE l_type        = N'M' -- missing nonclustered rowstore index
@@ -12863,7 +12931,6 @@ SELECT r.database_id,r.object_id,r.index_id,r.type,
                       ,parent_object_id
                       ,fkc_object_id = l_object_id
                       ,fkc_type      = l_type
-                      ,mix_object_id = r_object_id
                       ,mix_id        = r_index_id
                   FROM [##SQLXL_Index_Synergies] WITH (READUNCOMMITTED)
                  WHERE l_type        = N'F' -- foreign key constraint
@@ -12872,11 +12939,11 @@ SELECT r.database_id,r.object_id,r.index_id,r.type,
          OUTER
          APPLY (SELECT *
                   FROM [##SQLXL_Index_Compilation] AS mx WITH (READUNCOMMITTED)
-                 WHERE rec_type = N'I'                       -- index level composite record
-                   AND o.database_id         = mx.database_id
-                   AND o.mix_object_id       = mx.object_id
-                   AND o.mix_id              = mx.index_ID
-                   AND N'M'                  = mx.type       -- missing nonclustered rowstore index
+                 WHERE rec_type           = N'I'          -- index level composite record
+                   AND o.database_id      = mx.database_id
+                   AND o.parent_object_id = mx.object_id
+                   AND o.mix_id           = mx.index_ID
+                   AND N'M'               = mx.type       -- missing nonclustered rowstore index
                ) AS mx
          GROUP BY
                o.database_id
@@ -13393,8 +13460,6 @@ UPDATE tgt
 + N'
           FROM [##SQLXL_Index_Compilation]
          WHERE rec_type = N''I''
-         GROUP BY
-               database_id
        ) AS src
  WHERE tgt.rec_type         = N''A'';' -- instance level composite record
 
@@ -14933,7 +14998,9 @@ SELECT rec_type         = N'D'          -- database level composite record
 -- Diagnostic - DB - > 5% of indexes with writes and no reads (BI21 & 22)
   N'Nonclustered rowstore indexes with writes & no reads - '
 + CAST(i.unused_idx_CNT AS NVARCHAR(20)) + N'/' + CAST(i.idx_CNT AS NVARCHAR(20))
-+ IIF(i.idx_CNT > 0,N'(' + [dbo].[SQLXL_3SD](1.0 * I.unused_idx_CNT / i.idx_CNT,N'%') + N')',N'')
++ IIF(i.idx_CNT > 0
+     ,N' (' + [dbo].[SQLXL_3SD](1.0 * I.unused_idx_CNT / i.idx_CNT,N'%') + N')'
+     ,N'')
 + N' (BI21&22)'
 /*** LOCAL TESTING ***
 SELECT database_id = d.database_id,i.*
@@ -15320,9 +15387,9 @@ SELECT rec_type         = N'D'          -- database level composite record
 
 -- Diagnostic - DB - non-default - Database is Always On
 +IIF(d.replica_id IS NOT NULL OR d.group_database_id IS NOT NULL
-    , NCHAR(167) + N'Always On database -'
-    + N'Replica ID '    + CAST(d.replica_id        AS NVARCHAR(36)) -- uniqueidentifiers
-    + N', Group DB ID ' + CAST(d.group_database_id AS NVARCHAR(36)) -- uniqueidentifiers
+    , NCHAR(167) + N'Always On database:'
+    + N' Replica ID '   + QUOTENAME(CAST(d.replica_id        AS NVARCHAR(36))) -- uniqueidentifiers
+    + N', Group DB ID ' + QUOTENAME(CAST(d.group_database_id AS NVARCHAR(36))) -- uniqueidentifiers
     ,N'')
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -15932,12 +15999,17 @@ SELECT *
                                    END  -- CASE WHEN t.temporal_type = 1
 
                                  + CASE WHEN i.type = N'U' -- user table level only, no need for line feed
-                                        THEN CASE WHEN t.temporal_type = 2
--- Diagnostic - Parent - is History - System Versioned - source table
+                                        THEN
+-- Diagnostic - Parent - Change Tracking ENabled
+                                             IIF(t.ctt_is_track_columns_updated_on = 1
+                                                ,NCHAR(167) + N'<CHANGE TRACKING ENABLED>'
+                                                ,N'')
+                                           + CASE WHEN t.temporal_type = 2
+-- Diagnostic - Parent - History - System Versioned source table
                                                   THEN  NCHAR(167)
                                                       + N'<' + t.temporal_type_desc + N'> (BI110)'
                                                       + NCHAR(167)
--- Diagnostic - Parent - is System Versioned Temporal, retention
+-- Diagnostic - Parent - History - System Versioned Temporal, retention
                                                       + N'> Retention '
                                                       + IIF(t.history_retention_period_unit_desc = N'INFINITE'
                                                            ,N'INFINITE'
@@ -15945,27 +16017,27 @@ SELECT *
                                                            + t.history_retention_period_unit_desc)
                                                       + NCHAR(167)
                                                       + N'> Versions: '
--- Diagnostic - Parent - is System Versioned Temporal, history table schema name
+-- Diagnostic - Parent - History - System Versioned Temporal, history table
                                                       + COALESCE(QUOTENAME(i.tbl_history_table_schema)
                                                                 + N'.'
                                                                 + QUOTENAME(i.tbl_history_table_name)
                                                                 ,N'<Missing History table>'
                                                                 )
--- Diagnostic - Parent - is Updatable Ledger
+-- Diagnostic - Parent - History - is Updatable Ledger
                                                   WHEN t.ledger_type   = 2
                                                   THEN  NCHAR(167)
                                                       + N'<' + t.ledger_type_desc + N'>'                          -- UPDATABLE_LEDGER_TABLE
--- Diagnostic - Parent - Updatable Ledger View Name, SQL2022+ & Azure SQL Database
+-- Diagnostic - Parent - History - Updatable Ledger View Name, SQL2022+ & Azure SQL Database
                                                       + IIF(t.ledger_view_id > 0
                                                            , NCHAR(167) + N'> Ledger View '
                                                            + IIF(lv.is_dropped_ledger_view = 1,N'*DROPPED* ',N'')
                                                            + COALESCE(QUOTENAME(lv.name),N'')
                                                            ,N'')
--- Diagnostic - Parent - is Append Only Ledger
+-- Diagnostic - Parent - History - Append Only Ledger
                                                   WHEN t.ledger_type = 3 THEN N'<' + t.ledger_type_desc   + N'>'  -- APPEND_ONLY_LEDGER_TABLE
 
                                                   ELSE N''
-                                             END
+                                             END -- CASE WHEN t.temporal_type = 2
                                         ELSE N''
                                    END  -- CASE WHEN i.type = N'U'
 
@@ -16033,7 +16105,7 @@ SELECT *
            ON i.database_ID = t.database_id
           AND i.object_id   = t.object_id
          LEFT OUTER
-         JOIN [##SQLXL_Index_sys_objects] AS lv
+         JOIN [##SQLXL_Index_sys_objects] AS lv -- ledger view objects
            ON t.database_id    = lv.database_id
           AND t.ledger_view_id = lv.object_id
        ) AS i
@@ -16996,7 +17068,7 @@ SELECT rec_type   = N'P'  -- parent level composite record
                            + N'> In Index(s): '
                            + STUFF(-- Strip off leading unnecessary characters
                                    (-- List of indexes with included column in key or includes
-                                    SELECT  N', ' + IIF(ic.type = N'90' -- full-text index of a tabular object
+                                    SELECT  N', ' + IIF(ic.type = N'T' -- full-text index of a tabular object
                                                        ,N'FTX'
                                                        ,CAST(index_id AS NVARCHAR(20)))
                                           + N' (' + IIF(ic.is_included_column = 0,N'Key',N'Inc')+ N')'
@@ -17566,7 +17638,7 @@ SELECT i.rec_type
               ,semantics_ON  = SUM(IIF(statistical_semantics = 1,1,0))
               ,semantics_OFF = SUM(IIF(statistical_semantics = 0,1,0))
           FROM [##SQLXL_Index_sys_index_columns]
-         WHERE type = N'90' -- full-text index of a tabular object
+         WHERE type = N'T'                        -- full-text index of a tabular object
          GROUP BY
                database_id
               ,object_id
@@ -17579,7 +17651,7 @@ SELECT i.rec_type
    AND i.index_ID         = ic.index_id
    AND i.type             = ic.type
  WHERE i.rec_type = N'I'   -- index level composite record
-   AND i.type     = N'90'; -- full-text index of a tabular object
+   AND i.type     = N'T';  -- full-text index of a tabular object
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
@@ -17800,7 +17872,7 @@ SELECT i.rec_type
         SELECT *
           FROM [##SQLXL_Index_Compilation]
          WHERE rec_type              = N'I'                                    -- index level composite record
-           AND type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')              -- not a Foreign Key or Missing Index
+           AND type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')               -- not a heap, Foreign Key, or Missing Index
            AND obj_type_short_label <> N'IT'                                   -- Not a system internal table
        ) AS i
   JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS p  -- parent level composite record
@@ -17830,7 +17902,7 @@ INSERT
       ,type
       ,diagnostic
       )
-SELECT rec_type = N'I'                                       -- index level composite record
+SELECT rec_type = N'I'                                                         -- index level composite record
       ,i.database_id
       ,i.parent_object_id
       ,i.object_id
@@ -17839,11 +17911,11 @@ SELECT rec_type = N'I'                                       -- index level comp
       ,diagnostic = N'Constraint ' + QUOTENAME(kc.name) + N' NOT ENFORCED'
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS i  -- index level composite record
   JOIN [##SQLXL_Index_sys_objects] AS kc
-    ON i.database_id           = kc.database_id
-   AND i.parent_object_id      = kc.parent_object_id
-   AND i.object_id             = kc.object_id
-   AND CAST(i.index_id AS INT) = kc.key_unique_index_id
-   AND 0                       = kc.is_enforced
+    ON i.database_id      = kc.database_id
+   AND i.parent_object_id = kc.parent_object_id
+   AND i.object_id        = kc.object_id
+   AND i.index_id         = kc.key_unique_index_id
+   AND 0                  = kc.is_enforced
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -18391,7 +18463,7 @@ SELECT i.rec_type
  CROSS
   JOIN [##SQLXL_Index_Compilation] AS i
  WHERE i.rec_type              = N'I'                       -- index level composite record
-   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90') -- True index types only
+   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only
    AND NOT i.obj_type_short_label = N'TVF'                  -- SQL table-valued-function SQL 2012+
 OPTION (MAXDOP 1,RECOMPILE);
 
@@ -18921,7 +18993,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
     ON ed.database_id           = i.database_id
    AND ed.object_id             = i.object_id
    AND ed.index_id              = i.index_id
-   AND i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only - no heaps, missing, foreign keys
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -19252,20 +19324,26 @@ SELECT rec_type   = N'I'                                    -- index level compo
                                                    ORDER BY u.col_uniqueness ASC
                                               )
                   FROM [##SQLXL_Index_uniqueness]  AS u
-                  JOIN [##SQLXL_Index_Compilation] AS c
-                    ON u.database_id = c.database_id
-                   AND u.object_id   = c.object_id
-                   AND N'P'          = c.rec_type              -- parent level composite record
-                   AND N'TBL'        = c.obj_type_short_label  -- tables only
+                  JOIN [##SQLXL_Index_column]      AS col
+                    ON u.database_id = col.database_id
+                   AND u.object_id   = col.object_id
+                   AND u.column_id   = col.column_id
+                  JOIN [##SQLXL_Index_Compilation] AS cmp
+                    ON u.database_id = cmp.database_id
+                   AND u.object_id   = cmp.object_id
+                   AND N'P'          = cmp.rec_type              -- parent level composite record
+                   AND N'TBL'        = cmp.obj_type_short_label  -- tables only
                  WHERE u.type IN (N'1'                         -- clustered rowstore index
                                  ,N'2'                         -- nonclustered rowstore index
                                  )
                    AND u.is_included_column            = 0
                    AND u.key_column_sequence           > 0
                    AND CHARINDEX(N'=CX(',u.col_suffix) = 0     -- exclude columns also in from the clustering index
-                   AND CHARINDEX(N'>CX(',u.col_prefix) = 0     -- exclude columns added from the clustering index
+                   AND CHARINDEX(N'CX(',u.col_prefix)  = 0     -- exclude columns added from the clustering index
                    AND u.col_uniqueness                > 0
-                   AND c.covered_fkc_IDs              IS NULL
+                   AND cmp.covered_fkc_IDs            IS NULL
+                   --------------------------------------------
+                   AND col.max_length            BETWEEN 1 AND 16 -- candidates between 1 and 16 bytes wide
                ) bc
          WHERE bc.rn = 1
         EXCEPT
@@ -19410,7 +19488,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
     ON r.database_id                                        = i.database_id
    AND r.object_id                                          = i.object_id
    AND r.index_id                                           = i.index_id
-   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')                 -- Not a Missing Index or Foreign Key
+   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')                 -- Not a Missing Index or Foreign Key
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -20384,30 +20462,28 @@ SELECT i.rec_type
 +IIF(i.fkc_Missing_index_CNT > 0 -- candidate missing indexes found
 -- Diagnostic - Foreign Key Constraint - elements found in Missing indexes
     ,NCHAR(167) + N'> In '    + CAST(i.fkc_Missing_index_CNT AS NVARCHAR(20)) + N' MIX Candidate(s) '
-               + N' Adv: '   + IIF(a.mix_Advantage_AMT > 0
-                                 ,[dbo].[SQLXL_3SD](1.0 * COALESCE(i.mix_Advantage_AMT,0) / a.mix_Advantage_AMT,N'%')
-                                 ,N'')
+                + N' Adv: '   + IIF(a.mix_Advantage_AMT > 0
+                                   ,[dbo].[SQLXL_3SD](1.0 * COALESCE(i.mix_Advantage_AMT,0) / a.mix_Advantage_AMT,N'%')
+                                   ,N'')
                ---------------------------------
-               + N' Cost: '  + IIF((a.mix_avg_total_user_cost_AMT + a.mix_avg_total_system_cost_AMT) > 0
-                                 ,[dbo].[SQLXL_3SD](1.0 * COALESCE((i.mix_avg_total_user_cost_AMT + i.mix_avg_total_system_cost_AMT),0)
-                                                           / (a.mix_avg_total_user_cost_AMT + a.mix_avg_total_system_cost_AMT)
-                                                      ,N'%')
-                                 ,N'')
+               + N' Cost: '   + IIF((a.mix_avg_total_user_cost_AMT + a.mix_avg_total_system_cost_AMT) > 0
+                                   ,[dbo].[SQLXL_3SD](1.0 * COALESCE((i.mix_avg_total_user_cost_AMT + i.mix_avg_total_system_cost_AMT),0)
+                                                          / (a.mix_avg_total_user_cost_AMT + a.mix_avg_total_system_cost_AMT)
+                                                     ,N'%')
+                                   ,N'')
                ---------------------------------
                + N' Impact: ' + IIF((a.mix_avg_user_impact_AMT + a.mix_avg_system_impact_AMT) > 0
                                    ,[dbo].[SQLXL_3SD](1.0 * COALESCE((i.mix_avg_user_impact_AMT + i.mix_avg_system_impact_AMT),0)
-                                                            / (a.mix_avg_user_impact_AMT + a.mix_avg_system_impact_AMT)
-                                                            ,N'%')
+                                                          / (a.mix_avg_user_impact_AMT + a.mix_avg_system_impact_AMT)
+                                                     ,N'%')
                                    ,N'')
     + NCHAR(167) + N'> MIX Count: ' + [dbo].[SQLXL_3SD](COALESCE(i.Missing_index_CNT      ,0),N'I')
-                + N' Compiles: '    + [dbo].[SQLXL_3SD](COALESCE(i.mix_unique_compiles_CNT,0),N'I')
-                + N' USG: '         + [dbo].[SQLXL_3SD](COALESCE(i.ius_User_total_CNT     ,0),N'I')
+                 + N' Compiles: '   + [dbo].[SQLXL_3SD](COALESCE(i.mix_unique_compiles_CNT,0),N'I')
+                 + N' USG: '        + [dbo].[SQLXL_3SD](COALESCE(i.ius_User_total_CNT     ,0),N'I')
                                     + IIF(p.ius_User_total_CNT > 0
-                                         , N' ('
-                                         + [dbo].[SQLXL_3SD](1.0 * COALESCE(i.ius_User_total_CNT,0) / p.ius_User_total_CNT,N'%')
-                                         + N')'
+                                         ,N' ('+ [dbo].[SQLXL_3SD](1.0 * COALESCE(i.ius_User_total_CNT,0) / p.ius_User_total_CNT,N'%')+ N')'
                                          ,N'')
-                + N' Last: '        + COALESCE(CONVERT(NVARCHAR(11)
+                 + N' Last: '       + COALESCE(CONVERT(NVARCHAR(11)
                                                       ,(SELECT MAX(dt)
                                                           FROM (VALUES (i.ius_last_user_seek_DTTM)
                                                                       ,(i.ius_last_user_scan_DTTM)
@@ -20430,7 +20506,7 @@ SELECT COUNT(1)
           FROM [##SQLXL_Index_Compilation]
          WHERE rec_type = N'I'                -- index level composite record
            AND type     = N'F'                -- foreign key constraint
-           AND fkc_covered_by_idx_IDS IS NULL -- no covering index
+           AND fkc_covered_by_idx_IDS IS NULL -- no covering index found
        ) AS i
   LEFT OUTER MERGE
   JOIN (-- statistics elements for missing foreign key columns
@@ -20444,7 +20520,7 @@ SELECT COUNT(1)
            ON fc.parent_object_id     = c.object_id
           AND fc.parent_column_id     = c.column_id
         WHERE fc.constraint_column_id = 1
-          AND stats_name             IS NOT NULL
+          AND c.stats_name           IS NOT NULL
       ) AS fc
    ON i.database_id = fc.database_id
   AND i.object_id   = fc.constraint_object_id
@@ -20678,11 +20754,11 @@ SELECT p.rec_type
                                 AND name   = N'EngineEdition'
                                 AND (   CAST(run_value AS INT)  = 3 -- Enterprise (For Evaluation, Developer, and Enterprise editions)
                                      OR CAST(run_value AS INT) >= 5 -- As Of 06/20/2023
-                                                                        -- 5 = SQL Database
-                                                                        -- 6 = Azure Synapse Analytics
-                                                                        -- 8 = Azure SQL Managed Instance
-                                                                        -- 9 = Azure SQL Edge (For all editions of Azure SQL Edge)
-                                                                        -- 11 = Azure Synapse serverless SQL pool
+                                                                    -- 5 = SQL Database
+                                                                    -- 6 = Azure Synapse Analytics
+                                                                    -- 8 = Azure SQL Managed Instance
+                                                                    -- 9 = Azure SQL Edge (For all editions of Azure SQL Edge)
+                                                                    -- 11 = Azure Synapse serverless SQL pool
                                     )
                             ) > 0
                         AND IIF(a.mix_Advantage_AMT > 0.0
@@ -20693,7 +20769,7 @@ SELECT p.rec_type
   FROM (--
         SELECT *
           FROM [##SQLXL_Index_Compilation]
-         WHERE rec_type = N'P'                                -- parent level composite record
+         WHERE rec_type = N'P'                                                -- parent level composite record
            AND COALESCE(Missing_index_CNT           ,0) >= 3
            AND COALESCE(Nonclustered_ColumnStore_CNT,0)  = 0
        ) AS p
@@ -21173,7 +21249,7 @@ SELECT i.database_id
                   ,N'4'                  -- Spatial
                   ,N'6'                  -- Nonclustered ColumnStore
                   ,N'7'                  -- Hash on in-memory (XTP)
-                  ,N'90'                 -- full-text index of a tabular object
+                  ,N'T'                 -- full-text index of a tabular object
                   )
 OPTION (MAXDOP 1,RECOMPILE);
 
@@ -22783,7 +22859,7 @@ SELECT database_id
       ,N'Refactor'
       ,sort         = @srt
       ,prescription = N'Use ' + tbl_cx_uniq_ordered_column_TYP
-                    + IIF(fill_factor < 100.0,NCHAR(167) + N' FillFactor 100',N'')
+                    + IIF(fill_factor < 100.0,NCHAR(167) + N' FillFactor 100%',N'')
                       -- check if covering Foreign Key Constraint, if do gonna need another index created to provide cover
                     + IIF(CHARINDEX(N'Covers FKC',prescription) > 0
                          ,NCHAR(167) + N' Recreate FKC cover'
@@ -22824,7 +22900,7 @@ SELECT database_id
  WHERE i.obj_type_short_label NOT IN (N'HST'                                   -- Not a History/archive table
                                      ,N'IT'                                    -- Not a system internal table
                                      )
-   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')                    -- True index types only
+   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')   -- index types only - not a heap, missing index, or foreign key
    ---------------------------------------------------------
    AND Lead_Element_Column_ID  = COALESCE(tbl_cx_uniq_ordered_column_ID,tbl_possible_uniq_column_id)
    AND Key_Columns_CNT         > 1
@@ -22913,7 +22989,7 @@ SELECT database_id
   FROM [##SQLXL_Index_Compilation] AS i                                        -- only table source in query
  WHERE rec_type = N'I'                                                         -- index level composite record
    AND COALESCE(tbl_cx_uniq_ordered_column_ID,tbl_possible_uniq_column_id) > 0
-   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')                    -- True index types only
+   AND i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')                    -- index types only
    AND (   is_unique                  = 0
         OR (    ROUND(i.Lead_Element_Uniqueness,4) > 1.0
             AND i.is_primary_key       = 0
@@ -23534,7 +23610,7 @@ SELECT i.database_id
   FROM (SELECT *
           FROM [##SQLXL_Index_Compilation]
          WHERE rec_type                  = N'I'                                       -- index level composite record
-           AND type                     IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90') -- Not a Missing Index or Foreign Key
+           AND type                     IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T') -- Not a Missing Index or Foreign Key
            AND obj_type_short_label NOT IN (N'HST'                                    -- Not a History/archive table
                                            ,N'IT'                                     -- Not a system internal table
                                            ,N'TVF'                                    -- Not a SQL table-valued-function SQL 2012+
@@ -23550,10 +23626,10 @@ SELECT i.database_id
        ) AS i
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_objects] AS kc
-    ON i.database_id           = kc.database_id
-   AND i.parent_object_id      = kc.parent_object_id
-   AND i.object_id             = kc.object_id
-   AND CAST(i.index_id AS INT) = kc.key_unique_index_id
+    ON i.database_id      = kc.database_id
+   AND i.parent_object_id = kc.parent_object_id
+   AND i.object_id        = kc.object_id
+   AND i.index_id         = kc.key_unique_index_id
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -23585,7 +23661,7 @@ SELECT i.database_id
     ON r.database_id = i.database_id
    AND r.object_id   = i.object_id
    AND r.index_id    = i.index_id
-   AND i.type       IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+   AND i.type       IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only
 OPTION (MAXDOP 1,RECOMPILE);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -24092,8 +24168,8 @@ SELECT i.database_id
               ,ovl_CNT = SUM(IIF(matching_overlap_CNT   > 0,1,0))
               ,con_CNT = SUM(IIF(matching_contained_CNT > 0,1,0))
           FROM [##SQLXL_Index_Synergies]
-         WHERE l_type <> N'F' -- foreign key constraintpreviously reported
-           AND r_type <> N'F' -- foreign key constraintpreviously reported
+         WHERE l_type <> N'F' -- "left" side foreign key constraint previously reported
+           AND r_type <> N'F' -- "right" side foreign key constraint previously reported
          GROUP BY
                database_id
               ,parent_object_id
@@ -25965,7 +26041,7 @@ Excel Column Label Format
                                  WHEN N'A' THEN i.rec_type -- instance level composite record
                                  WHEN N'D' THEN i.rec_type -- database level composite record
                                  WHEN N'P' THEN i.rec_type -- parent level composite record
-                                 ELSE N'T'                 -- Index
+                                 ELSE N'T'                 -- Index, "T" used so it sorts to the bottom
                             END
                           + IIF(i.rec_type <> N'A'         -- instance level composite record
                                ,CAST(i.database_id AS NVARCHAR(20))
@@ -26000,7 +26076,7 @@ Excel Column Label Format
                                       WHEN N'6'  THEN N'1' -- nonclustered columnstore index
                                       WHEN N'3'  THEN N'2' -- XML index
                                       WHEN N'4'  THEN N'3' -- Spatial index
-                                      WHEN N'90' THEN N'4' -- full-text index of a tabular object
+                                      WHEN N'T' THEN N'4' -- full-text index of a tabular object
                                       ---------
                                       WHEN N'F'  THEN N'6' -- Foreign Key Constraint
                                       WHEN N'M'  THEN N'7' -- missing nonclustered rowstore index
@@ -26008,7 +26084,7 @@ Excel Column Label Format
                                       ELSE RTRIM(i.type)   -- Anything else
                                  END
                                + N'|'
-                               + IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+                               + IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only
                                     ,RIGHT(N'000000000' + CAST(i.index_id AS NVARCHAR(20)),10)
                                     ,N'')
                                + IIF(i.type = N'F'         -- foreign key constraint
@@ -26217,7 +26293,7 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
            WHEN i.type     = N'4'   -- Spatial Index
            THEN NCHAR(167) + N'SPT'
 
-           WHEN i.type     = N'90'  -- full-text index of a tabular object
+           WHEN i.type     = N'T'  -- full-text index of a tabular object
            THEN NCHAR(167) + N'FTX'
 
            WHEN i.type     = N'F'   -- foreign key constraint
@@ -26328,7 +26404,7 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
                     , NCHAR(167) + N'FCT   '  -- extra space added to make 2nd column in cell align
                     + CASE WHEN i.TYPE = N'0' -- rowstore heap
                            THEN N'HP'
-                           WHEN i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90') -- Not rowstore Heap, Missing Index, Foreign Key
+                           WHEN i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T') -- Not rowstore Heap, Missing Index, Foreign Key
                            THEN  COALESCE([dbo].[SQLXL_3SD](i.fill_factor,N'I') + N'%',N'<??>')
                                + N' PAD '
                                + COALESCE(CASE i.is_padded WHEN 0 THEN N'No' WHEN 1 THEN N'Yes' ELSE N'' END,N'<??>')
@@ -26361,12 +26437,7 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
                                                   AND N'ius_user_read_CNT' = m.metric
                                               )
                                              ,N'0')
-                                  + N' (USG)'
-           + NCHAR(167) + N'WRT '   + N'n/a'
-           + NCHAR(167) + N'R/W  '  + N'n/a'
-           + NCHAR(167) + N'WTS '   + N'n/a'
-           + NCHAR(167) + N'WTC '   + N'n/a'
-           + NCHAR(167) + N'LCK   ' + N'n/a'
+           + NCHAR(167) + N'(USG)'
        ELSE               N'RDS  '  + COALESCE((-- retrieve & format computed metric value
                                                 SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
                                                   FROM [##SQLXL_Index_Metrics] AS m
@@ -26391,18 +26462,7 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
                                                    AND N'ops_total_write_CNT' = m.metric
                                                )
                                              ,N'0')
-           + NCHAR(167) + N'R/W  '  + COALESCE((-- retrieve & format computed metric value
-                                                SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
-                                                  FROM [##SQLXL_Index_Metrics] AS m
-                                                 WHERE i.rec_type               = m.rec_type
-                                                   AND i.database_id            = m.database_id
-                                                   AND i.parent_object_id       = m.parent_object_id
-                                                   AND i.object_id              = m.object_id
-                                                   AND i.index_id               = m.index_id
-                                                   AND i.type                   = m.type
-                                                   AND N'ops_read_to_write_RAT' = m.metric
-                                               )
-                                             ,N'n/a')
+           + NCHAR(167) + N'R/W  '  + COALESCE([dbo].[SQLXL_3SD](i.ops_read_to_write_RAT,N'N')+N'x',N'n/a') -- value computed previously
            + NCHAR(167) + N'WTS '   + COALESCE((-- retrieve & format computed metric value
                                                 SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
                                                   FROM [##SQLXL_Index_Metrics] AS m
@@ -26689,20 +26749,16 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
                                  ,0)
                              )
 ----------------------------------------------
-,[Table OPS R/W Ratio!H\G|N1]
-                        = IIF(    i.rec_type = N'P'                                                 -- parent level composite record
-                              AND i.ops_total_write_CNT > 0
-                             ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
-                                 ,1.0 * i.ops_total_read_CNT / i.ops_total_write_CNT
-                                 ,99)
-                             ,NULL) -- show NULL if no writes found
-,[Table USG R/W Ratio!H\G|N1]
-                        = IIF(    i.rec_type = N'P'                                                 -- parent level composite record
-                              AND i.ius_user_updates_CNT > 0
-                             ,IIF(i.ius_User_read_CNT / i.ius_user_updates_CNT < 100
-                                 ,1.0 * i.ius_User_read_CNT / i.ius_user_updates_CNT
-                                 ,99)
-                             ,NULL) -- show NULL if no writes found
+,[Table OPS R/W Ratio!H\G|N1] = IIF(i.rec_type = N'P'                                               -- parent level composite record
+                                   ,IIF(i.ops_read_to_write_RAT < 99.9
+                                       ,i.ops_read_to_write_RAT
+                                       ,99.9)
+                                   ,NULL)
+,[Table USG R/W Ratio!H\G|N1] = IIF(i.rec_type = N'P'                                               -- parent level composite record
+                                   ,IIF(i.ius_read_to_write_RAT < 99.9
+                                       ,i.ius_read_to_write_RAT
+                                       ,99.9)
+                                   ,NULL)
 ----------------------------------------------
 ,[Table OPS Reads PCT!H\B|N1]
                         = IIF(    i.rec_type = N'P'                                                 -- parent level composite record
@@ -26790,57 +26846,57 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
 --Index Priority Metrics
 \******************************************************************************************************************************************/
 ,[Index OPS Wait TM!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ops_total_wait_MS_CNT > 0
            ,100.0 * i.ops_total_wait_MS_CNT / p.ops_total_wait_MS_CNT
            ,0)
        ,NULL)
 ,[Index OPS Wait CNT!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ops_total_wait_CNT > 0
            ,100.0 * i.ops_total_wait_CNT / p.ops_total_wait_CNT
            ,0)
        ,NULL)
 ----------------------------------------------
 ,[Index OPS Locks CNT!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ops_total_lock_CNT > 0
            ,100.0 * i.ops_total_lock_CNT / p.ops_total_lock_CNT
            ,0)
        ,NULL)
 ,[Index OPS Lock Promo!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ios_lock_promotion_attempt_CNT > 0
            ,100.0 * i.ios_lock_promotion_attempt_CNT / p.ios_lock_promotion_attempt_CNT
            ,0)
        ,NULL)
 ,[Index OPS Promo Fail!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ios_lock_promotion_attempt_CNT > 0
            ,100.0 * (i.ios_lock_promotion_attempt_CNT - i.ios_lock_promotion_CNT) / p.ios_lock_promotion_attempt_CNT
            ,0)
        ,NULL)
 ----------------------------------------------
 ,[Index OPS Page Split!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ops_total_page_split_CNT > 0
            ,100.0 * i.ops_total_page_split_CNT / p.ops_total_page_split_CNT
            ,0)
        ,NULL)
 ,[Index OPS Splits to Write PCT!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(i.ops_total_write_CNT > 0
            ,i.page_splits_to_write_PCT
            ,0)
        ,NULL)
 ,[Index OPS Page Merge!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ops_total_page_merge_CNT > 0
            ,100.0 * i.ops_total_page_merge_CNT / p.ops_total_page_merge_CNT
            ,0)
        ,NULL)
 ,[Index OPS Merges to Write PCT!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(i.ops_total_write_CNT > 0
            ,i.page_Merge_to_write_PCT
            ,0)
@@ -26858,20 +26914,20 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
        ,NULL)
 ----------------------------------------------
 ,[Index OPS Writes!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ops_total_write_CNT > 0
            ,100.0 * i.ops_total_write_CNT / p.ops_total_write_CNT
            ,0)
        ,NULL)
 ,[Index USG Writes!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ius_user_updates_CNT > 0
            ,100.0 * i.ius_user_updates_CNT / p.ius_user_updates_CNT
            ,0)
        ,NULL)
 ----------------------------------------------
 ,[Index BUF Percent in Buffer!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types onl, including heapsy
        ,CASE WHEN tbl.is_memory_optimized = 1 AND i.buffer_total_KB_CNT > 0.0
              THEN 100
              WHEN i.reserved_page_PG_CNT > 0
@@ -26880,41 +26936,33 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
         END
        ,NULL)
 ----------------------------------------------
-,[Index OPS R/W Ratio!H\G|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
-       ,IIF(i.ops_total_write_CNT > 0
-           ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
-               ,1.0 * i.ops_total_read_CNT / i.ops_total_write_CNT
-               ,99)
-           ,NULL)
-       ,NULL)
-,[Index USG R/W Ratio!H\G|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
-       ,IIF(i.ius_user_updates_CNT > 0
-           ,IIF(i.ius_User_read_CNT / i.ius_user_updates_CNT < 100
-               ,1.0 * i.ius_User_read_CNT / i.ius_user_updates_CNT
-               ,99)
-           ,NULL)
-       ,NULL)
+,[Index OPS R/W Ratio!H\G|N1] = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only, including heaps
+                                   ,IIF(i.ops_read_to_write_RAT < 99.9
+                                       ,i.ops_read_to_write_RAT
+                                       ,99.9)
+                                   ,NULL)
+,[Index USG R/W Ratio!H\G|N1] = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only, including heaps
+                                   ,IIF(i.ius_read_to_write_RAT < 99.9
+                                       ,i.ius_read_to_write_RAT
+                                       ,99.9)
+                                   ,NULL)
 ----------------------------------------------
-,[Index OPS Reads PCT!H\G|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
-       ,i.ops_read_to_parent_PCT
-       ,NULL)
-,[Index OPS Scans PCT!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
-       ,IIF(p.ops_total_scan_CNT > 0
-           ,100.0 * i.ops_total_scan_CNT / p.ops_total_scan_CNT
-           ,0)
-       ,NULL)
+,[Index OPS Reads PCT!H\G|N1] = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only, including heaps
+                                   ,i.ops_read_to_parent_PCT
+                                   ,NULL)
+,[Index OPS Scans PCT!H\B|N1] = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only, including heaps
+                                   ,IIF(p.ops_total_scan_CNT > 0
+                                       ,100.0 * i.ops_total_scan_CNT / p.ops_total_scan_CNT
+                                       ,0)
+                                   ,NULL)
 ,[Index OPS Lookups PCT!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ios_singleton_lookup_CNT > 0
            ,100.0 * i.ios_singleton_lookup_CNT / p.ios_singleton_lookup_CNT
            ,0)
        ,NULL)
 ,[Index OPS Forwarded Fetch!H\B|N1]
-  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'90')  -- True index types only
+  = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')       -- index types only, including heaps
        ,IIF(p.ios_forwarded_fetch_CNT > 0
            ,100.0 * i.ios_forwarded_fetch_CNT / p.ios_forwarded_fetch_CNT
            ,0)
@@ -26979,18 +27027,16 @@ STUFF(CASE WHEN i.type     = N'3'   -- XML Index
                                               ELSE NULL
                                           END
 ----------------------------------------------
-,[Index OPS R/W Ratio!H\G|N0]           = IIF(p.obj_type_short_label <> N'TVF'    -- SQL table-valued-function SQL 2012+
-                                             ,IIF(i.ops_total_write_CNT > 0
-                                                 ,IIF(i.ops_total_read_CNT / i.ops_total_write_CNT < 100
-                                                     ,1.0 * i.ops_total_read_CNT / i.ops_total_write_CNT
-                                                     ,99)
-                                                 ,NULL)
-                                             ,NULL)
-,[Index USG R/W Ratio!H\G|N0]           = IIF(i.ius_user_updates_CNT > 0
-                                             ,IIF(i.ius_User_read_CNT / i.ius_user_updates_CNT < 100
-                                                 ,1.0 * i.ius_User_read_CNT / i.ius_user_updates_CNT
-                                                 ,99)
-                                             ,NULL)
+,[Index OPS R/W Ratio!H\G|N0] = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only <BS> Redundant
+                                   ,IIF(i.ops_read_to_write_RAT < 99.9
+                                       ,i.ops_read_to_write_RAT
+                                       ,99.9)
+                                   ,NULL)
+,[Index USG R/W Ratio!H\G|N0] = IIF(i.type IN (N'0',N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T')  -- index types only <BS> Redundant
+                                   ,IIF(i.ius_read_to_write_RAT < 99.9
+                                       ,i.ius_read_to_write_RAT
+                                       ,99.9)
+                                   ,NULL)
 ----------------------------------------------
 ,[Index OPS Reads!H\G|N0]           = i.ops_total_read_CNT
 ,[Index OPS Scans!H\B|N0]           = i.ops_total_scan_CNT
