@@ -1,4 +1,4 @@
--- VERSION 24.12.07
+-- VERSION 24.12.11
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc.
 session is connected to since you can't create temporary (#) functions in SQL Server
@@ -2012,7 +2012,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-DECLARE @Pattern NVARCHAR(15)  = ''%[^'' + NCHAR(9) + NCHAR(13) + NCHAR(10) + NCHAR(32) + '']%'';
+DECLARE @Pattern NVARCHAR(15)  = ''%[^'' + NCHAR(009) + NCHAR(013) + NCHAR(010) + NCHAR(032) + '']%'';
                                -- Includes Tabs, carriage returns, line feeds, spaces
 
 ;WITH newcol AS (-- columns added after SQL Server 2005
@@ -2066,11 +2066,11 @@ SELECT is_enforced                        = CONVERT(BIT,NULL)
 )'
 +IIF(@i = 1
     -- First database - create object using SELECT INTO
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_objects]'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_objects]'
     -- Subsequent databases - insert into previously created object
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_objects]WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_objects]WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*')
     + N'
   FROM newcol
  CROSS
@@ -2816,10 +2816,10 @@ SELECT -- SQL 2016+, Azure SQL Database ----------------------------------------
       ,is_dropped_ledger_table_column      = CONVERT(BIT    ,NULL)
 )'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_columns] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_columns]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_columns] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_columns]')
     + N'
   FROM newcol
  CROSS
@@ -2920,8 +2920,8 @@ SELECT database_id             = DB_ID()
                                   + IIF(cc.uses_sql_ftn  = 1,N''*FTN* '' ,N'''')
                                   + IIF(cc.uses_sql_mthd = 1,N''*MTHD* '',N'''')
                                   + cc.definition
-                                  + IIF(cc.is_persisted = 1           ,N'''',NCHAR(167) + N''NOT PERSISTED'')
-                                  + IIF(cc.uses_database_collation = 1,N'''',NCHAR(167) + N''NOT DB COLLATED'')
+                                  + IIF(cc.is_persisted = 1           ,N'''',NCHAR(010) + N''NOT PERSISTED'')
+                                  + IIF(cc.uses_database_collation = 1,N'''',NCHAR(010) + N''NOT DB COLLATED'')
                                                                                    COLLATE ' + @collation + N'
       ----------------------------------------------------------------
       -- [sys].[sequences]
@@ -3602,7 +3602,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-DECLARE @Pattern  NVARCHAR(15) = ''%[^'' + NChar(9) + NCHAR(10) + NCHAR(13) + NCHAR(32) + '']%'';
+DECLARE @Pattern  NVARCHAR(15) = ''%[^'' + NCHAR(009) + NCHAR(010) + NCHAR(013) + NCHAR(032) + '']%'';
                                -- Includes Tabs, carriage returns, line feeds, spaces
 
 ;WITH newcol AS (-- columns added after SQL Server 2005
@@ -3617,10 +3617,10 @@ SELECT -- SQL 2016+ --------------------------------------
       ,auto_created                    = CONVERT(BIT,NULL)
 )'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_indexes] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_indexes]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_indexes] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_indexes]')
 
 + N'
   FROM newcol
@@ -3766,10 +3766,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 SELECT property_list_id = CONVERT(INT,NULL)
 )'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_fulltext_indexes] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_fulltext_indexes]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_fulltext_indexes] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_fulltext_indexes]')
     + N'
   FROM newcol
  CROSS
@@ -3905,10 +3905,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_foreign_key_columns] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_foreign_key_columns]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_foreign_key_columns] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_foreign_key_columns]')
     + N'
   FROM (-- columns from [sys].[foreign_key_columns]
 SELECT database_id           = DB_ID()
@@ -3970,10 +3970,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 SELECT column_store_order_ordinal = CONVERT(INT,NULL)
 )'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_index_columns] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_index_columns]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_index_columns] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_index_columns]')
     + N'
   FROM newcol
  CROSS
@@ -4159,10 +4159,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_extended_properties] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_extended_properties]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_extended_properties] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_extended_properties]')
     + N'
   FROM (-- columns from [sys].[extended_properties]
 SELECT database_id = DB_ID()
@@ -4223,7 +4223,7 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
               ,N'')
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
-DECLARE @Pattern NVARCHAR(15) = ''%[^'' + NChar(9) + NCHAR(10) + NCHAR(13) + NCHAR(32) + '']%'';
+DECLARE @Pattern NVARCHAR(15) = ''%[^'' + NCHAR(009) + NCHAR(010) + NCHAR(013) + NCHAR(032) + '']%'';
                                -- Includes Tabs, carriage returns, line feeds, spaces
 
 ;WITH newcol AS (-- columns added after SQL Server 2005
@@ -4239,10 +4239,10 @@ SELECT -- SQL 2012 -------------------------------------------------------------
       ,auto_drop                    = CONVERT(BIT    ,NULL)
 )'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_stats] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_stats]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_stats] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_stats]')
     + N'
   FROM newcol
  CROSS
@@ -4322,10 +4322,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_stats_columns] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_stats_columns]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_stats_columns] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_stats_columns]')
     + N'
   FROM (-- columns from [sys].[stats_columns]
 SELECT database_id       = DB_ID()
@@ -4386,10 +4386,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_dm_db_partition_stats] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_dm_db_partition_stats]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_dm_db_partition_stats] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_dm_db_partition_stats]')
     + N'
   FROM (-- columns from [sys].[dm_db_partition_stats]
 SELECT database_id                = DB_ID()
@@ -4464,10 +4464,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 SELECT persisted_sample_percent = CONVERT(FLOAT,NULL)
 )'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_dm_db_stats_properties] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT dsp.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT dsp.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_dm_db_stats_properties]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_dm_db_stats_properties] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT dsp.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT dsp.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_dm_db_stats_properties]')
     + N'
   FROM newcol
  CROSS
@@ -4651,10 +4651,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 SELECT xml_compression      = CONVERT(BIT,NULL)
 )'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_partitions] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT p.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT p.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_partitions]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_partitions] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT p.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT p.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_partitions]')
     + N'
   FROM newcol
  CROSS
@@ -5083,10 +5083,10 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 -------------------------------------------------------------------------------------------------------------------------------------------'
 +IIF(@i > 1
-    , NCHAR(13) + NCHAR(10) + N'INSERT INTO [##SQLXL_Index_sys_dm_os_buffer_descriptors_EXT] WITH (TABLOCKX)'
-    + NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    , NCHAR(13) + NCHAR(10) + N'SELECT qry.*'
-    + NCHAR(13) + NCHAR(10) + N'  INTO [##SQLXL_Index_sys_dm_os_buffer_descriptors_EXT]')
+    , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_dm_os_buffer_descriptors_EXT] WITH (TABLOCKX)'
+    + NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    , NCHAR(013) + NCHAR(010) + N'SELECT qry.*'
+    + NCHAR(013) + NCHAR(010) + N'  INTO [##SQLXL_Index_sys_dm_os_buffer_descriptors_EXT]')
     + N'
   FROM (-- convert buffer allocations to physical objects
         SELECT database_id       = DB_ID()
@@ -9158,7 +9158,7 @@ SELECT tgt.database_id,tgt.parent_object_id,
 --*/
        key_column_info = COALESCE(STUFF(
                                         (-- Full Text key column descriptors
-                                         SELECT NCHAR(167) + eix.[Column Descriptors]
+                                         SELECT NCHAR(096) + eix.[Column Descriptors]
                                             FROM [##SQLXL_Index_sys_index_columns] AS ftic
                                             JOIN [##SQLXL_Index_sys_columns]       AS eix
                                               ON ftic.database_id = eix.database_id
@@ -9191,7 +9191,7 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       key_column_info = STUFF((SELECT  NCHAR(167)                              -- Object-level list of all columns in usage order
+       key_column_info = STUFF((SELECT  NCHAR(096)                              -- Object-level list of all columns in usage order
                                       + COALESCE(icol.[Column Descriptors],N'')
                                   FROM [##SQLXL_Index_sys_columns] AS icol
                                  WHERE tgt.database_id = icol.database_id
@@ -9201,7 +9201,7 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
                                    FOR XML PATH(N''), TYPE
                                ).value('(./text())[1]',N'NVARCHAR(MAX)')
                               ,1,1,N'')
-      ,Indexed_Columns = STUFF((SELECT  NCHAR(167)
+      ,Indexed_Columns = STUFF((SELECT  NCHAR(096)
                                       + COALESCE(icol.indexed_columns,N'')
                                   FROM [##SQLXL_Index_sys_columns] AS icol
                                  WHERE tgt.database_id = icol.database_id
@@ -9212,9 +9212,9 @@ SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
                                    FOR XML PATH(N''), TYPE
                                ).value('(./text())[1]',N'NVARCHAR(MAX)')
                               ,1,1,N'')
-       ,stathdr_Filter_Expression =  STUFF((SELECT  NCHAR(167)
+       ,stathdr_Filter_Expression =  STUFF((SELECT  NCHAR(096)
                                                   + N'COL STAT: ' + QUOTENAME(ss.name)
-                                                  + NCHAR(167)
+                                                  + NCHAR(096)
                                                   + N'> FLTR: ' + ss.filter_definition
                                               FROM [##SQLXL_Index_sys_stats] AS ss
                                              WHERE tgt.database_id = ss.database_id
@@ -9841,7 +9841,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                       THEN N'HEAP' + IIF(par_obj.type IN (N'TF' -- SQL table-valued-function SQL 2012+
                                                                          ,N'V'  -- View
                                                                          )
-                                                        ,NCHAR(167) + tgt.obj_type_hdr
+                                                        ,NCHAR(096) + tgt.obj_type_hdr
                                                         ,N'')
                                       WHEN tgt.type IN (N'5' -- Clustered columnstore
                                                        ,N'6' -- nonclustered columnstore index
@@ -9849,12 +9849,12 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                        )
                                       THEN tgt.idx_type_hdr
                                       ------------------------------------------------------------------------------------------------------
-                                      WHEN LEN(REPLACE(un.uniq,NCHAR(167),N'')) > 0
+                                      WHEN LEN(REPLACE(un.uniq,NCHAR(096),N'')) > 0
                                       THEN STUFF(un.uniq,1,1,N'')
                                       ------------------------------------------------------------------------------------------------------
                                       ELSE COALESCE((--
                                                      SELECT TOP (1) -- And there is a candidate CLUSTERING index column
-                                                            NCHAR(167) + [dbo].[SQLXL_3SD](xic.uniqueness,'N')
+                                                            NCHAR(096) + [dbo].[SQLXL_3SD](xic.uniqueness,'N')
                                                        FROM [##SQLXL_Index_sys_columns] AS xic
                                                       WHERE tgt.tbl_is_clustered_columnstore = 0 -- not a CLUSTERED COLUMNSTORE
                                                         AND tgt.database_id = xic.database_id
@@ -9890,7 +9890,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                  )
       ,key_element_length      = STUFF(-- Strip off leading unnecessary characters
                                        (--
-                                        SELECT NCHAR(167) + [dbo].[SQLXL_3SD](ssdv.average_length,N'N')
+                                        SELECT NCHAR(096) + [dbo].[SQLXL_3SD](ssdv.average_length,N'N')
                                           FROM [##SQLXL_Index_sys_ShowStatistics_DensityVector] ssdv
                                          WHERE tgt.database_id = ssdv.database_id
                                            AND tgt.object_id   = ssdv.object_id
@@ -9909,15 +9909,15 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,key_column_info = STUFF(                                                 -- index level list of all key columns
                                CASE WHEN N'CDC' = tgt.schema_name
                                      AND tgt.name LIKE N'fn_cdc_get_%'          -- Exclude Change Data Capture (CDC) functions
-                                    THEN NCHAR(167) + N'<CDC>'
+                                    THEN NCHAR(096) + N'<CDC>'
                                     --------------------------------------------------------------------------------------------------------
                                     WHEN tgt.type = N'0'                        -- rowstore heap
-                                    THEN  NCHAR(167)
+                                    THEN  NCHAR(096)
                                         + CASE WHEN obj.is_memory_optimized = 1
                                                THEN N'<XTP HEAP>'
                                                WHEN tgt.obj_type = N'U'         -- User Table
                                                THEN COALESCE( N'<HEAP> Candidate Clustered Unique ordered column:'
-                                                            + NCHAR(167)
+                                                            + NCHAR(096)
                                                             + (-- If unique ordered column found show it here
                                                                SELECT xic.[column descriptors]
                                                                  FROM [##SQLXL_Index_sys_columns] AS xic
@@ -9926,7 +9926,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                                   AND tgt.tbl_cx_uniq_ordered_column_ID = xic.column_ID
                                                               )
                                                             ,N'<HEAP> Candidate clustering column:'
-                                                            + NCHAR(167)
+                                                            + NCHAR(096)
                                                             + (-- If no Unique Ordered column found, look for next best candidate
                                                                SELECT TOP 1
                                                                       xic.[column descriptors]
@@ -9945,8 +9945,8 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                           END
                                     --------------------------------------------------------------------------------------------------------
                                     WHEN tgt.type = N'5' -- Clustered columnstore
-                                    THEN  NCHAR(167) + N'<Clustered Columnstore>'
-                                        + COALESCE( NCHAR(167)
+                                    THEN  NCHAR(096) + N'<Clustered Columnstore>'
+                                        + COALESCE( NCHAR(096)
                                                   + (--
                                                      SELECT TOP (1)
                                                              COALESCE(ip.col_prefix + N' ',N'')
@@ -9962,10 +9962,10 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                   ,N'')
                                     --------------------------------------------------------------------------------------------------------
                                     WHEN tgt.type = N'6' -- nonclustered columnstore index
-                                    THEN NCHAR(167) + N'<Nonclustered Columnstore>'
+                                    THEN NCHAR(096) + N'<Nonclustered Columnstore>'
                                         + COALESCE((--
                                                     SELECT TOP (1)
-                                                            NCHAR(167)
+                                                            NCHAR(096)
                                                           + COALESCE(ip.col_prefix + N' ',N'')
                                                           + COALESCE(ip.[column descriptors],N'')
                                                           + COALESCE(N' ' + ip.col_suffix,N'')
@@ -9979,7 +9979,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                                   ,N'')
                                     --------------------------------------------------------------------------------------------------------
                                     ELSE (--
-                                          SELECT  NCHAR(167)
+                                          SELECT  NCHAR(096)
                                                 + IIF(LEN(icol.col_prefix) > 0,icol.col_prefix,N'')
                                                       -- clustered index, don't include Stats steps  since it's not useful
                                                 + CASE WHEN tgt.type = N'1'                       -- clustered rowstore index
@@ -10006,12 +10006,12 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
      ---------------------------------------------------------------------------------------------------------------------------------------
       ,Included_column_info = CASE tgt.type
                                    WHEN N'5'             -- Clustered Column Store
-                                   THEN N'<All Columns>' -- NCHAR(167) included with concatenation of KEY & INCLUDED in PRESENT.SQL
+                                   THEN N'<All Columns>' -- NCHAR(096) included with concatenation of KEY & INCLUDED in PRESENT.SQL
                                    WHEN N'6'             -- nonclustered columnstore index
                                    THEN (-- Nonclustered Column Store
                                          SELECT COALESCE( N'-- Eligible Table Columns to Include -----------'
                                                         + (--
-                                                           SELECT NCHAR(167)
+                                                           SELECT NCHAR(096)
                                                                  +ac.[Column Descriptors]
                                                                  +IIF(ic.column_ID IS NOT NULL,N' <IDXKEY>',N'')
                                                             FROM (-- table columns not found in the Nonclustered Column Store
@@ -10053,7 +10053,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
                                    THEN N''   -- No included columns for Foreign Key Constraints
                                    ELSE STUFF(--  Strip off leading unnecessary characters
                                               (-- list of included columns
-                                               SELECT NCHAR(167)
+                                               SELECT NCHAR(096)
                                                      +IIF(LEN(icol.col_prefix) > 0,icol.col_prefix,N'')
                                                       -- clustered index, don't include Stats steps since it's not typically useful
                                                      + CASE WHEN tgt.type = N'1' -- clustered rowstore index
@@ -10133,7 +10133,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
  OUTER
  APPLY (-- Assemble index statistics in uniqueness descending "corrected key" order
         SELECT (-- double select to accomodate .value('(./text())[1]',N'NVARCHAR(MAX)') below
-                SELECT  NCHAR(167)
+                SELECT  NCHAR(096)
                       + IIF(CHARINDEX(N' gg22 ',ucol.[Column Descriptors]) > 0,N'Geog',N'')
                       + IIF(CHARINDEX(N' gm22 ',ucol.[Column Descriptors]) > 0,N'Geom',N'')
                       + IIF(CHARINDEX(N'] xml' ,ucol.[Column Descriptors]) > 0,N'XML' ,N'')
@@ -11163,7 +11163,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index
       ,low_selectivity_additional_keys
        = (-- List of keys not making the index that much more selective
           SELECT  CASE WHEN d.row_ID      = 1 THEN             N'Key Selectivity LO > '
-                       WHEN d.row_ID % 13 = 0 THEN NCHAR(167) + N'> ' -- add line feed after every 12 key values to wrap in cell
+                       WHEN d.row_ID % 13 = 0 THEN NCHAR(096) + N'> ' -- add line feed after every 12 key values to wrap in cell
                        ELSE N' '
                   END
                 + d.dlt
@@ -11251,15 +11251,14 @@ SELECT tgt.database_name
       ,tgt.index_id
       ,tgt.type,
 --*/
-       constraints = COALESCE(tgt.constraints + NCHAR(167),N'')
-                   + STUFF(chk.constraints,1,1,N'')
+       constraints = COALESCE(tgt.constraints,N'') + chk.constraints
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS tgt  -- parent level composite record
   JOIN (-- Column-level Check Constraints
         SELECT cc.database_id
               ,cc.parent_object_id
               ,(-- check constraints for this table - full definitions.
-                -- FOR XML PATH used since there can be multiple constraints on a column. STUFF applied above
-                SELECT  NCHAR(167)
+                -- FOR XML PATH used since there can be multiple constraints on a column.
+                SELECT  NCHAR(096)
                       + IIF(cx.parent_column_ID = 0,N'TBL',N'COL') + N' '
                       + CASE cx.type
                              WHEN N'C' THEN N'CHK:' -- check constraint
@@ -11268,12 +11267,12 @@ SELECT tgt.database_name
                         END + N' '
                       + IIF(cx.parent_column_ID > 0
                            , QUOTENAME(COALESCE(c.name,N'*COLUMN NAME NOT FOUND*'))
-                           + NCHAR(167) + N'> Name: '
+                           + NCHAR(096) + N'> Name: '
                            , N'Name: ')
                       -------------------------------------------
                       + QUOTENAME(cx.name)
                       -------------------------------------------
-                      + NCHAR(167)
+                      + NCHAR(096)
                       + N'> Defn: ' + COALESCE(cx.definition,N'')
                   FROM [##SQLXL_Index_sys_objects] AS cx
                   LEFT OUTER                              -- to accomodate "0" column_ID - table level
@@ -11324,8 +11323,7 @@ SELECT tgt.database_name
       ,tgt.index_id
       ,tgt.type,
 --*/
-       constraints = COALESCE(tgt.constraints + NCHAR(167),N'')
-                   + STUFF(chk.constraints,1,1,N'')
+       constraints = COALESCE(tgt.constraints,N'') + chk.constraints
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS tgt  -- index level composite record
   JOIN (-- Column-level Check Constraints
         SELECT cc.database_id
@@ -11333,8 +11331,8 @@ SELECT tgt.database_name
               ,cc.index_id
               ,cc.type
               ,(-- check constraints for this table - full definitions.
-                -- FOR XML PATH used since there can be multiple constraints on a column. STUFF applied above
-                SELECT  NCHAR(167)
+                -- FOR XML PATH used since there can be multiple constraints on a column.
+                SELECT  NCHAR(096)
                       + IIF(cx.parent_column_ID = 0,N'TBL',N'COL') + N' '
                       + CASE cx.type
                              WHEN N'C' THEN N'CHK:' -- check constraint
@@ -11343,12 +11341,12 @@ SELECT tgt.database_name
                         END + N' '
                       + IIF(cx.parent_column_ID > 0
                            , QUOTENAME(COALESCE(c.name,N'*COLUMN NAME NOT FOUND*'))
-                           + NCHAR(167) + N'> Name: '
+                           + NCHAR(096) + N'> Name: '
                            , N'Name: ')
                       -------------------------------------------
                       + QUOTENAME(cx.name)
                       -------------------------------------------
-                      + NCHAR(167)
+                      + NCHAR(096)
                       + N'> Defn: ' + COALESCE(cx.definition,N'')
                   FROM [##SQLXL_Index_sys_index_columns] AS ic
                   JOIN [##SQLXL_Index_sys_objects]       AS cx
@@ -11402,22 +11400,21 @@ END;
  *Task* Update [##SQLXL_Index_Compilation] Add Table Computed Columns
 \******************************************************************************************************************************************/
 UPDATE tgt
-   SET constraints = COALESCE(tgt.constraints + NCHAR(167),N'')
-                   + chk.computed_column
+   SET constraints = COALESCE(tgt.constraints,N'') + chk.computed_column
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS tgt  -- parent level composite record
   JOIN (-- Computed columns
         SELECT cc.database_id
               ,cc.object_id
               ,(-- Computed constraints for this column - full definitions.
-                -- FOR XML PATH used since there can be multiple constraints on a column. STUFF applied above
-                SELECT  NCHAR(167)
+                -- FOR XML PATH used since there can be multiple constraints on a column.
+                SELECT  NCHAR(096)
                       + QUOTENAME(cx.name) + N' CCOL:'
                       + IIF(cx.uses_sql_proc = 1,N' *PROCEDURE*' ,N'')
                       + IIF(cx.uses_sql_ftn  = 1,N' *FUNCTION*'  ,N'')
                       + IIF(cx.uses_sql_mthd = 1,N' *SQL METHOD*',N'')
                       + N' ' + cx.definition
                       + IIF(cx.is_persisted = 0 OR cx.uses_database_collation = 0
-                           , NCHAR(167)
+                           , NCHAR(096)
                            + STUFF(-- Strip off leading unnecessary characters
                                     IIF(cx.is_persisted = 0           ,N' NOT PERSISTED'  ,N'')
                                   + IIF(cx.uses_database_collation = 0,N' NOT DB COLLATED',N'')
@@ -11465,20 +11462,18 @@ UPDATE tgt
 SET ANSI_WARNINGS ON; -- FOR XML PATH used below
 SELECT
 --*/
-       constraints = COALESCE(tgt.constraints + NCHAR(167),N'')
-                   + STUFF(-- Strip off leading unnecessary characters
-                           (--
-                            SELECT  NCHAR(167) + QUOTENAME(kx.type + N'C')
-                                  + IIF(kx.is_enforced = 0,N' *NOT ENFORCED* ',N'')
-                                  + N' ' + kx.name
-                              FROM [##SQLXL_Index_sys_objects] AS kx
-                             WHERE tgt.database_id = kx.database_id
-                               AND tgt.object_id   = kx.parent_object_id
-                               AND tgt.index_id    = kx.key_unique_index_id
-                               AND N'F'           <> kx.type                -- foreign key constraint
-                               FOR XML PATH(N''), TYPE
-                           ).value('(./text())[1]',N'NVARCHAR(MAX)')
-                          ,1,1,N'')
+       constraints = COALESCE(tgt.constraints,N'')
+                   + (--
+                      SELECT  NCHAR(096) + QUOTENAME(kx.type + N'C')
+                            + IIF(kx.is_enforced = 0,N' *NOT ENFORCED* ',N'')
+                            + N' ' + kx.name
+                        FROM [##SQLXL_Index_sys_objects] AS kx
+                       WHERE tgt.database_id = kx.database_id
+                         AND tgt.object_id   = kx.parent_object_id
+                         AND tgt.index_id    = kx.key_unique_index_id
+                         AND N'F'           <> kx.type                -- foreign key constraint
+                         FOR XML PATH(N''), TYPE
+                     ).value('(./text())[1]',N'NVARCHAR(MAX)')
   FROM [##SQLXL_Index_Compilation] AS tgt
   JOIN (--
         SELECT database_id
@@ -11518,7 +11513,7 @@ SET ANSI_WARNINGS ON; -- FOR XML PATH used below
 SELECT
 --*/
        -- NOTE: after "*/" this must be a new line, else syntax error
-       constraints = COALESCE(constraints + NCHAR(167),N'') + STUFF(c.txt,1,1,N'')
+       constraints = COALESCE(constraints,N'') + c.txt
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS tgt -- index level composite record
   JOIN (--
         SELECT ic.database_id
@@ -11544,7 +11539,7 @@ SELECT
  CROSS
  APPLY (-- double select to accomodate .value('(./text())[1]',N'NVARCHAR(MAX)') below
         SELECT(--
-               SELECT  COALESCE(NCHAR(167) + QUOTENAME(c2.name) + N' CCOL: ' + c2.computed_column_definition,N'')
+               SELECT  COALESCE(NCHAR(096) + QUOTENAME(c2.name) + N' CCOL: ' + c2.computed_column_definition,N'')
                  FROM [##SQLXL_Index_sys_index_columns] AS ic2
                  JOIN [##SQLXL_Index_sys_columns]       AS c2
                    ON ic2.database_id = c2.database_id
@@ -11572,8 +11567,7 @@ END;
  <FUTURE> add sys.edge_constraint_clauses
 \******************************************************************************************************************************************/
 UPDATE tgt
-   SET constraints = COALESCE(tgt.constraints + NCHAR(167),N'')
-                   + STUFF(chk.con,1,1,N'')
+   SET constraints = COALESCE(tgt.constraints,N'') + chk.con
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS tgt -- parent level composite record
   JOIN (-- Edge Constraints
 
@@ -11583,8 +11577,8 @@ SET ANSI_WARNINGS ON; -- FOR XML PATH used below
         SELECT ec.database_id
               ,ec.parent_object_id
               ,(-- get edge constraint names for this table. [STUFF] function applied above
-                SELECT  NCHAR(167) + cx.type + N':'
-                      + NCHAR(32) + QUOTENAME(LTRIM(RTRIM(cx.name)))
+                SELECT  NCHAR(096) + cx.type + N':'
+                      + NCHAR(032) + QUOTENAME(LTRIM(RTRIM(cx.name)))
                       + COALESCE(IIF(cx.definition LIKE '%~].~[%' ESCAPE '~',N' ,*FTN*',N'')
                                 +IIF(cx.is_disabled             = 1,N' ,DISABLED'    ,N'')
                                 +IIF(cx.is_not_for_replication  = 1,N' ,NOT_REPL'    ,N'')
@@ -11661,7 +11655,7 @@ SELECT
 --*/
        extended_properties = STUFF(-- Strip off leading unnecessary characters
                                      COALESCE((-- Database
-                                              SELECT NCHAR(10) + N'Database: ' + ep.name + N': ' + ep.value
+                                              SELECT NCHAR(096) + N'Database: ' + ep.name + N': ' + ep.value
                                                 FROM [##SQLXL_Index_sys_extended_properties] AS ep
                                                WHERE tgt.database_id = ep.database_id
                                                  AND 0               = ep.class
@@ -11676,7 +11670,7 @@ SELECT
                                             ,N'')
 
                                   + COALESCE((-- Parent schema
-                                              SELECT NCHAR(10) + N'Schema: ' + ep.name + N': ' + ep.value
+                                              SELECT NCHAR(096) + N'Schema: ' + ep.name + N': ' + ep.value
                                                 FROM [##SQLXL_Index_sys_extended_properties] AS ep
                                                WHERE tgt.database_id = ep.database_id
                                                  AND 3               = ep.class
@@ -11691,7 +11685,7 @@ SELECT
                                              ,N'')
 
                                   + COALESCE((-- Parent object
-                                              SELECT NCHAR(10) + ep.name + N': ' + ep.value
+                                              SELECT NCHAR(096) + ep.name + N': ' + ep.value
                                                 FROM [##SQLXL_Index_sys_extended_properties] AS ep
                                                WHERE tgt.database_id      = ep.database_id
                                                  AND 1                    = ep.class
@@ -11706,7 +11700,7 @@ SELECT
                                              ,N'')
 
                                   + COALESCE((-- Foreign Key Constraints
-                                              SELECT NCHAR(10) + ep.name + N': ' + ep.value
+                                              SELECT NCHAR(096) + ep.name + N': ' + ep.value
                                                 FROM [##SQLXL_Index_sys_extended_properties] AS ep
                                                WHERE tgt.database_id = ep.database_id
                                                  AND 1               = ep.class
@@ -11722,7 +11716,7 @@ SELECT
                                              ,N'')
 
                                   + COALESCE((-- Indexes
-                                              SELECT NCHAR(10) + ep.name + N': ' + ep.value
+                                              SELECT NCHAR(096) + ep.name + N': ' + ep.value
                                                 FROM [##SQLXL_Index_sys_extended_properties] AS ep
                                                WHERE tgt.database_id      = ep.database_id
                                                  AND 7                    = ep.class
@@ -11737,7 +11731,7 @@ SELECT
                                              ,N'')
 
                                   + COALESCE((-- Index Key & Included Columns
-                                              SELECT  NCHAR(10) + QUOTENAME(c.name) + N' ' + ep.name + N': ' + ep.value
+                                              SELECT  NCHAR(096) + QUOTENAME(c.name) + N' ' + ep.name + N': ' + ep.value
                                                 FROM [##SQLXL_Index_sys_index_columns]       AS ic
                                                 JOIN [##SQLXL_Index_sys_columns]             AS c
                                                   ON ic.database_id = c.database_id
@@ -11787,14 +11781,14 @@ SELECT tgt.database_id
        fkc_reference = (-- get Foreign Key Constraint referenced schema + table + column(s)
                         SELECT  N'SCH '
                               + QUOTENAME(ref_obj.schema_name)
-                              + NCHAR(167)
+                              + NCHAR(096)
                               + N'TBL '
                               + QUOTENAME(ref_obj.name)
-                              + NCHAR(167)
+                              + NCHAR(096)
                               + N'COL '
                               + STUFF(-- Strip off leading unnecessary characters
                                       (-- loop through columns in foreign key since can have more than one
-                                       SELECT  NCHAR(167)
+                                       SELECT  NCHAR(096)
                                              + N'        ,'         -- extra space added for multi-column display in spreadsheet
                                              + QUOTENAME(eix.name)
                                          FROM [##SQLXL_Index_sys_foreign_key_columns] AS fkc
@@ -12409,7 +12403,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
        overlap_code = CAST(STUFF(-- Strip off leading unnecessary characters
                                  (--
-                                  SELECT  NCHAR(167)
+                                  SELECT  NCHAR(096)
                                         + IIF(src.synergy_direction = N'>',src.synergy_direction,N'')
                                         + src.matching_COL
                                         + IIF(src.synergy_direction = N'<',src.synergy_direction,N'')
@@ -13028,7 +13022,7 @@ SET @sql = N'
 UPDATE tgt
    SET ' + STUFF(-- Strip off leading unnecessary characters
                  (-- list of all  columns to update
-                  SELECT NCHAR(13) + NCHAR(10) + N'      ,' + c.name + N' = COALESCE(src.' + c.name + N',0)'
+                  SELECT NCHAR(13)+NCHAR(010) + N'      ,' + c.name + N' = COALESCE(src.' + c.name + N',0)'
                     FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                    WHERE c.typ = N'SUM'
                      FOR XML PATH(N''), TYPE
@@ -13038,7 +13032,7 @@ UPDATE tgt
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N''P'') AS tgt                    -- instance level composite record
   JOIN (SELECT database_id
               ,parent_object_id'
-              + (SELECT NCHAR(13) + NCHAR(10)
+              + (SELECT NCHAR(13)+NCHAR(010)
                        + N'              ,'
                        + c.name + N' = SUM(' + c.name + N')'
                    FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
@@ -13081,7 +13075,10 @@ SET @sql = N'
 UPDATE tgt
    SET ' + STUFF(-- Strip off leading unnecessary characters
                  (-- list of all  columns to update
-                  SELECT NCHAR(13) + NCHAR(10) + N'      ,' + c.name + N' = COALESCE(src.' + c.name + N',0)'
+                  SELECT  NCHAR(13)+NCHAR(10)
+                        + N'      ,'
+                        + c.name
+                        + N' = COALESCE(src.' + c.name + N',0)'
                     FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                    WHERE c.typ = N'SUM'
                      FOR XML PATH(N''), TYPE
@@ -13091,9 +13088,10 @@ UPDATE tgt
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N''A'' ) AS tgt                  -- instance level composite record
  CROSS
   JOIN (SELECT na = 0'
-              + (SELECT NCHAR(13) + NCHAR(10)
+              + (SELECT  NCHAR(13)+NCHAR(10)
                        + N'              ,'
-                       + c.name + N' = SUM(' + c.name + N')'
+                       + c.name
+                       + N' = SUM(' + c.name + N')'
                    FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                   WHERE c.typ = N'SUM'
                   FOR XML PATH(N''), TYPE
@@ -13129,7 +13127,7 @@ SET @sql = N'
 UPDATE tgt
    SET ' + STUFF(-- Strip off leading unnecessary characters
                  (--
-                  SELECT NCHAR(13) + NCHAR(10) + N'      ,' + c.name + N' = src.' + c.name -- No COALESCE since no date is NULL
+                  SELECT NCHAR(13)+NCHAR(10) + N'      ,' + c.name + N' = src.' + c.name -- No COALESCE since no date is NULL
                     FROM [##SQLXL_Index_Compilation_Compute_Columns] AS c
                    WHERE c.typ = N'MAX'
                      FOR XML PATH(N''), TYPE
@@ -13140,7 +13138,7 @@ UPDATE tgt
   JOIN (SELECT database_id
               ,parent_object_id'
               + (--
-                 SELECT NCHAR(13) + NCHAR(10) + N'              ,'
+                 SELECT NCHAR(13)+NCHAR(10) + N'              ,'
                        + c.name + N' = '
                        + IIF(c.name LIKE N'%days_ago%',N'MIN',N'MAX')
                        + N'(COALESCE(' + c.name + N','
@@ -13183,7 +13181,7 @@ SET @sql = N'
 UPDATE tgt
    SET ' + STUFF(-- Strip off leading unnecessary characters
                  (--
-                  SELECT NCHAR(13) + NCHAR(10)
+                  SELECT NCHAR(13)+NCHAR(10)
                         + N'      ,'
                         + c.name + N' = IIF(' + REPLACE(c.name,N'_MS_AVG',N'_CNT') + N' ' + NCHAR(62) + N' 0' -- NCHAR(62) is ">"
                                        + N',1.0 * COALESCE(' + REPLACE(c.name,N'_MS_AVG',N'_MS_CNT')
@@ -14583,7 +14581,7 @@ INSERT
       (diagnostic
       )
 SELECT  'Trace Flag 834 (large-page allocations for the buffer pool) in use with Columnstore indexes - not a good thing! See:'
-      + NCHAR(167)
+      + NCHAR(096)
       + N'https://docs.microsoft.com/en-US/troubleshoot/sql/admin/performance-issues-using-columstore-indexes-large-pages (BI72)'
   FROM [##SQLXL_Instance_info] AS a
  WHERE 834 IN (-- list of all server-level trace flags
@@ -14988,20 +14986,20 @@ SELECT rec_type         = N'D'          -- database level composite record
 
 -- Diagnostic - DB - non-default - Database State is not not ONLINE
  IIF(d.state <> 0
-    ,NCHAR(167) + N'State: ' + d.state_desc
+    ,NCHAR(096) + N'State: ' + d.state_desc
     ,N'')
 
 -- Diagnostic - DB - non-default - Database is Non-Readable Secondary
 +IIF(    d.role_desc = N'SECONDARY'
      AND d.secondary_role_allow_connections_desc = N'NO'
-    ,NCHAR(167) + N'[NON-READABLE SECONDARY]'
+    ,NCHAR(096) + N'[NON-READABLE SECONDARY]'
     ,N'')
 
 -- Diagnostic - DB - non-default - Auto Close is ON
 -- Diagnostic - DB - non-default - Auto shrink is ON
 +IIF(   d.is_auto_close_on  > 0
      OR d.is_auto_shrink_on > 0
-    , NCHAR(167) + N'Auto '
+    , NCHAR(096) + N'Auto '
     + STUFF( IIF(d.is_auto_close_on  > 0,N'   CLOSE' ,N'')
            + IIF(d.is_auto_shrink_on > 0,N' & SHRINK',N'')
            ,1,3,N'')
@@ -15009,33 +15007,33 @@ SELECT rec_type         = N'D'          -- database level composite record
     ,N'')
 
 -- Diagnostic - DB - non-default - Database in [STANDBY] mode - read-only for restore log
-+IIF(d.is_in_standby > 0,NCHAR(167) + N'Database in [STANDBY] - read-only for restore log',N'')
++IIF(d.is_in_standby > 0,NCHAR(096) + N'Database in [STANDBY] - read-only for restore log',N'')
 
 -- Diagnostic - DB - non-default - Database NOT cleanly shut down
 +IIF(    d.is_cleanly_shutdown = 0
      AND d.is_auto_close_on    = 1
-    ,NCHAR(167) + N'[NOT] cleanly shut down'
+    ,NCHAR(096) + N'[NOT] cleanly shut down'
     ,N'')
 
 -- Diagnostic - DB - non-default - Database in READ ONLY mode
-+IIF(d.is_read_only > 0,NCHAR(167) + N'Database in [READ ONLY] mode',N'')
++IIF(d.is_read_only > 0,NCHAR(096) + N'Database in [READ ONLY] mode',N'')
 
 -- Diagnostic - DB - non-default - Recovery model is not FULL
-+IIF(d.recovery_model > 1,NCHAR(167) + N'Recovery model ' + QUOTENAME(d.recovery_model_desc),N'')
++IIF(d.recovery_model > 1,NCHAR(096) + N'Recovery model ' + QUOTENAME(d.recovery_model_desc),N'')
 
 -- Diagnostic - DB - non-default - Delayed durability ENABLED, ALLOWED or FORCED
-+IIF(d.delayed_durability > 0,NCHAR(167) + N'Delayed durability ' + QUOTENAME(d.delayed_durability_desc) + N', default [DISABLED]'
++IIF(d.delayed_durability > 0,NCHAR(096) + N'Delayed durability ' + QUOTENAME(d.delayed_durability_desc) + N', default [DISABLED]'
     ,N'')
 
 -- Diagnostic - DB - non-default - DB Mixed page allocations are OFF
-+IIF(d.is_mixed_page_allocation_on = 0,NCHAR(167) + N'DB Mixed page allocations [OFF], ON can reduce SGAM contention',N'')
++IIF(d.is_mixed_page_allocation_on = 0,NCHAR(096) + N'DB Mixed page allocations [OFF], ON can reduce SGAM contention',N'')
 
 -- Diagnostic - DB - non-default - Target recovery time = 0, using Automatic Checkpoints
 -- Diagnostic - DB - non-default - Target recovery time <> 0 (default 60 seconds)
 +IIF(COALESCE(d.target_recovery_time_in_seconds,0) = 0
-    ,NCHAR(167) + N'Target recovery time [ZERO], using Automatic Checkpoints'
+    ,NCHAR(096) + N'Target recovery time [ZERO], using Automatic Checkpoints'
     ,IIF(COALESCE(d.target_recovery_time_in_seconds,0) NOT IN (0,60)
-        ,NCHAR(167) + N'Target recovery time '
+        ,NCHAR(096) + N'Target recovery time '
                    + QUOTENAME(d.target_recovery_time_in_seconds)
                    + N' seconds, affects CHECKPOINT frequency'
         ,N'')
@@ -15045,7 +15043,7 @@ SELECT rec_type         = N'D'          -- database level composite record
 -- Diagnostic - DB - non-default - Database Collation <> Server Collation
 +IIF(   d.compatibility_level <> 10 * sis.ProductMajorVersion
      OR d.collation_name <> i.collation
-    , NCHAR(167) + N'DB '
+    , NCHAR(096) + N'DB '
     + STUFF( IIF(d.compatibility_level <> 10 * sis.ProductMajorVersion
                  , N', compatibility: ' + QUOTENAME(d.compatibility_level)
                  + N' <> server ' + QUOTENAME(10 * sis.ProductMajorVersion )
@@ -15053,12 +15051,12 @@ SELECT rec_type         = N'D'          -- database level composite record
            + IIF(d.collation_name <> i.collation
                  ,N', collation: ' + d.collation_name + N' <> Server: ' + i.collation
                  ,N'')
-           ,1,2,N'')
+           ,1,1,N'')
     ,N'')
 
 -- Diagnostic - DB - non-default - Database is Always On
 +IIF(d.replica_id IS NOT NULL OR d.group_database_id IS NOT NULL
-    , NCHAR(167) + N'Always On database:'
+    , NCHAR(096) + N'Always On database:'
     + N' Replica ID '   + QUOTENAME(CAST(d.replica_id        AS NVARCHAR(36))) -- uniqueidentifiers
     + N', Group DB ID ' + QUOTENAME(CAST(d.group_database_id AS NVARCHAR(36))) -- uniqueidentifiers
     ,N'')
@@ -15074,7 +15072,7 @@ SELECT rec_type         = N'D'          -- database level composite record
               OR d.is_auto_create_stats_incremental_on = 1
              )
         )
-    ,NCHAR(167) + N'Stats: '
+    ,NCHAR(096) + N'Stats: '
 -- Diagnostic - DB - non-default - Statistics are NOT Auto created
                + STUFF( IIF(d.is_auto_create_stats_on = 0,N', auto create [OFF]',N'')
 
@@ -15094,50 +15092,50 @@ SELECT rec_type         = N'D'          -- database level composite record
 
 -- Diagnostic - DB - non-default - Statistics Auto update asynchronous ON
                       + IIF(d.is_auto_update_stats_async_on = 1
-                          ,NCHAR(167) + N', auto update stats async [ON]'
+                          ,NCHAR(096) + N', auto update stats async [ON]'
                           ,N'')
-                      ,1,2,N'')
+                      ,1,1,N'')
     ,N'')
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 --
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - non-default - additional Memory optimized features (e.g. Hybrid Buffer Pool) are enabled
-+IIF(d.is_memory_optimized_ENABLED > 0,NCHAR(167) + N'XTP In-Memory optimized [ENABLED]',N'')
++IIF(d.is_memory_optimized_ENABLED > 0,NCHAR(096) + N'XTP In-Memory optimized [ENABLED]',N'')
 
 -- Diagnostic - DB - non-default - Query parameterization FORCED
-+IIF(d.is_parameterization_forced = 1,NCHAR(167) + N'Query parameterization [FORCED]',N'')
++IIF(d.is_parameterization_forced = 1,NCHAR(096) + N'Query parameterization [FORCED]',N'')
 
 -- Diagnostic - DB - non-default - Date correlation optimization ENABLED
-+IIF(d.is_date_correlation_on = 0,NCHAR(167) + N'Date correlation optimization [OFF]',N'')
++IIF(d.is_date_correlation_on = 0,NCHAR(096) + N'Date correlation optimization [OFF]',N'')
 
 -- Diagnostic - DB - non-default - Supplemental logging ENABLED
-+IIF(d.is_supplemental_logging_enabled > 0,NCHAR(167) + N'Supplemental logging [ENABLED]',N'')
++IIF(d.is_supplemental_logging_enabled > 0,NCHAR(096) + N'Supplemental logging [ENABLED]',N'')
 
 -- Diagnostic - DB - non-default - tempdb spills to remote store ENABLED
-+IIF(d.is_tempdb_spill_to_remote_store > 0,NCHAR(167) + N'tempdb spills to [REMOTE STORE]',N'')
++IIF(d.is_tempdb_spill_to_remote_store > 0,NCHAR(096) + N'tempdb spills to [REMOTE STORE]',N'')
 
 -- Diagnostic - DB - non-default - Result set caching - Azure Synapse Analytics Gen2 -  ENABLED
-+IIF(d.is_result_set_caching_on > 0,NCHAR(167) + N'Result set caching [ON]',N'') -- Azure Synapse Analytics Gen2
++IIF(d.is_result_set_caching_on > 0,NCHAR(096) + N'Result set caching [ON]',N'') -- Azure Synapse Analytics Gen2
 
 -- Diagnostic - DB - non-default - Read committed snapshot isolation ENABLED
-+IIF(d.is_read_committed_snapshot_on > 0,NCHAR(167) + N'Read committed snapshot [ON]',N'')
++IIF(d.is_read_committed_snapshot_on > 0,NCHAR(096) + N'Read committed snapshot [ON]',N'')
 
 -- Diagnostic - DB - non-default - Snapshot isolation ENABLED
-+IIF(d.snapshot_isolation_state > 0,NCHAR(167) + N'Snapshot isolation ' + QUOTENAME(d.snapshot_isolation_state_desc),N'')
++IIF(d.snapshot_isolation_state > 0,NCHAR(096) + N'Snapshot isolation ' + QUOTENAME(d.snapshot_isolation_state_desc),N'')
 
 -- Diagnostic - DB - non-default - Change Data Capture ENABLED
-+IIF(d.is_cdc_enabled > 0,NCHAR(167) + N'Change Data Capture (CDC) [ENABLED]',N'')
++IIF(d.is_cdc_enabled > 0,NCHAR(096) + N'Change Data Capture (CDC) [ENABLED]',N'')
 
 -- Diagnostic - DB - non-default - Change Feed ENABLED
-+IIF(d.is_change_feed_enabled > 0,NCHAR(167) + N'Change Feed [ENABLED]',N'')
++IIF(d.is_change_feed_enabled > 0,NCHAR(096) + N'Change Feed [ENABLED]',N'')
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Query Store
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Diagnostic - DB - Good to know - Query Store Status & Properties
 +IIF(sis.ProductMajorVersion  >= 13 -- only show if SQL Server version 2016+
-    ,NCHAR(167) + N'Query Store ' + QUOTENAME(qso.actual_state_desc)
+    ,NCHAR(096) + N'Query Store ' + QUOTENAME(qso.actual_state_desc)
 
 -- Diagnostic - DB - non-default - Query Store Readonly - Reason
     + IIF(qso.readonly_reason > 0
@@ -15156,7 +15154,7 @@ SELECT rec_type         = N'D'          -- database level composite record
          ,N'') -- IIF(qso.readonly_reason > 0
 
     + IIF(qso.actual_state > 0
-         , NCHAR(167) + N'> Size - Max: ' + [dbo].[SQLXL_3SD](qso.max_storage_size_mb    ,N'MB')
+         , NCHAR(096) + N'> Size - Max: ' + [dbo].[SQLXL_3SD](qso.max_storage_size_mb    ,N'MB')
                       + N' Used: '        + [dbo].[SQLXL_3SD](qso.current_storage_size_mb,N'MB')
                       + IIF(qso.max_storage_size_mb > 0
                            ,N' (' + [dbo].[SQLXL_3SD](1.0 * qso.current_storage_size_mb / qso.max_storage_size_mb,N'%') + N')'
@@ -15166,7 +15164,7 @@ SELECT rec_type         = N'D'          -- database level composite record
                       + N' Max Plans: '            + [dbo].[SQLXL_3SD](qso.max_plans_per_query   ,N'I')
 
          -----------------------------------------------------
-         + NCHAR(167) + N'> Capture mode '   + QUOTENAME(COALESCE(qso.query_capture_mode_desc,N'ALL')) -- default for 2016 is ALL
+         + NCHAR(096) + N'> Capture mode '   + QUOTENAME(COALESCE(qso.query_capture_mode_desc,N'ALL')) -- default for 2016 is ALL
                       + N' Size cleanup '     + QUOTENAME(qso.size_based_cleanup_mode_desc)
                       + N' Stale threshold: ' + [dbo].[SQLXL_3SD](qso.stale_query_threshold_days,N'I') + N' days'
                       + IIF(sis.ProductMajorVersion  >= 14  -- 2017+
@@ -15188,7 +15186,7 @@ SELECT rec_type         = N'D'          -- database level composite record
 
 -- Diagnostic - DB - Query Store settings and properties, actual_state_additional_info
     + IIF(qso.actual_state_additional_info > N''
-         ,NCHAR(167) + N'> State Info: ' +qso.actual_state_additional_info
+         ,NCHAR(096) + N'> State Info: ' +qso.actual_state_additional_info
          ,N'')
     ,N'') -- IIF(sis.ProductMajorVersion  >= 13)
 
@@ -15202,7 +15200,7 @@ SELECT rec_type         = N'D'          -- database level composite record
      OR d.is_cursor_close_on_commit_on  = 0
      OR d.is_arithabort_on              = 0
      OR d.is_concat_null_yields_null_on = 0
-    , NCHAR(167)
+    , NCHAR(096)
     + N'ANSI DEFAULTS OFF: '
     + STUFF(-- Strip off leading unnecessary characters
 -- Diagnostic - DB - ANSI DEFAULT is ON: ansi_null_default
@@ -15219,33 +15217,33 @@ SELECT rec_type         = N'D'          -- database level composite record
            + IIF(d.is_arithabort_on              = 0,N', ARITHABORT'             ,N'')
 -- Diagnostic - DB - ANSI DEFAULT is ON: concat_null_yields_null
            + IIF(d.is_concat_null_yields_null_on = 0,N', CONCAT NULL YIELDS NULL',N'')
-           ,1,2,N'')
+           ,1,1,N'')
     ,N'')
 
 -- Diagnostic - DB - non-default - ANSI Quoted identifier ON
-+IIF(d.is_quoted_identifier_on > 0,NCHAR(167) + N'ANSI Quoted identifier [ON]',N'')
++IIF(d.is_quoted_identifier_on > 0,NCHAR(096) + N'ANSI Quoted identifier [ON]',N'')
 
 -- Diagnostic - DB - non-default - ANSI Numeric roundabort ON
-+IIF(d.is_numeric_roundabort_on > 0,NCHAR(167) + N'Numeric roundabort [ON]',N'')
++IIF(d.is_numeric_roundabort_on > 0,NCHAR(096) + N'Numeric roundabort [ON]',N'')
 
 -- Diagnostic - DB - non-default - Recursive triggers ON
-+IIF(d.is_recursive_triggers_on > 0,NCHAR(167) + N'Recursive triggers [ON]',N'')
++IIF(d.is_recursive_triggers_on > 0,NCHAR(096) + N'Recursive triggers [ON]',N'')
 
 -- Diagnostic - DB - non-default - Local cursor default ON
-+IIF(d.is_local_cursor_default > 0,NCHAR(167) + N'Local cursor default [ON]',N'')
++IIF(d.is_local_cursor_default > 0,NCHAR(096) + N'Local cursor default [ON]',N'')
 
 -- Diagnostic - DB - non-default - Fulltext ENABLED
-+IIF(d.is_fulltext_enabled > 0,NCHAR(167) + N'Fulltext [ENABLED]',N'')
++IIF(d.is_fulltext_enabled > 0,NCHAR(096) + N'Fulltext [ENABLED]',N'')
 
 -- Diagnostic - DB - non-default - Database marked NOT Trustworthy
-+IIF(d.is_trustworthy_on = 0,NCHAR(167) + N'Database marked [NOT TRUSTWORTHY]',N'')
++IIF(d.is_trustworthy_on = 0,NCHAR(096) + N'Database marked [NOT TRUSTWORTHY]',N'')
 
 -- Diagnostic - DB - non-default - Database chaining ON
-+IIF(d.is_db_chaining_on > 0,NCHAR(167) + N'Database chaining [ON]',N'')
++IIF(d.is_db_chaining_on > 0,NCHAR(096) + N'Database chaining [ON]',N'')
 
 -- Diagnostic - DB - non-default - Encrypted
 +IIF(d.is_encrypted > 0
-    ,NCHAR(167) + N'Encrypted' + IIF(d.is_master_key_encrypted_by_server > 0
+    ,NCHAR(096) + N'Encrypted' + IIF(d.is_master_key_encrypted_by_server > 0
                                     ,N', Master key encrypted by server'
                                     ,N'')
     ,N'')
@@ -15253,60 +15251,60 @@ SELECT rec_type         = N'D'          -- database level composite record
 -- NOTE - DB - column [is_subscribed] - BOL: "This column isn't used. It will always return 0"
 
 -- Diagnostic - DB - non-default - Publication database in  replication
-+IIF(d.is_merge_published > 0,NCHAR(167) + N'Publication database in  replication',N'')
++IIF(d.is_merge_published > 0,NCHAR(096) + N'Publication database in  replication',N'')
 
 -- Diagnostic - DB - non-default - Distribution Database for replication
-+IIF(d.is_distributor > 0,NCHAR(167) + N'Distribution Database for replication',N'')
++IIF(d.is_distributor > 0,NCHAR(096) + N'Distribution Database for replication',N'')
 
 -- Diagnostic - DB - non-default - Database in Sync with backup
-+IIF(d.is_sync_with_backup > 0,NCHAR(167) + N'Database Replication synchronization with backup',N'')
++IIF(d.is_sync_with_backup > 0,NCHAR(096) + N'Database Replication synchronization with backup',N'')
 
 -- Diagnostic - DB - non-default - Database is Published
-+IIF(d.is_published > 0,NCHAR(167) + N'Published',N'')
++IIF(d.is_published > 0,NCHAR(096) + N'Published',N'')
 
 -- Diagnostic - DB - non-default - Database Broker DISABLED
 -- Diagnostic - DB - non-default - Honor broker priority is OFF
 +IIF(   d.is_broker_enabled = 0
      OR d.is_honor_broker_priority_on = 0
-    , NCHAR(167)
+    , NCHAR(096)
     + STUFF( IIF(d.is_broker_enabled = 0,N', Broker [DISABLED]',N'')
            + IIF(d.is_honor_broker_priority_on = 0,N', Honor broker priority [OFF]',N'')
-           ,1,2,N'')
+           ,1,1,N'')
     ,N'')
 
 -- Diagnostic - DB - non-default - Reuse of Log space is waiting on
-+IIF(d.log_reuse_wait > 0,NCHAR(167) + N'Log reuse wait ' + QUOTENAME(d.log_reuse_wait_desc),N'')
++IIF(d.log_reuse_wait > 0,NCHAR(096) + N'Log reuse wait ' + QUOTENAME(d.log_reuse_wait_desc),N'')
 
 -- Diagnostic - DB - non-default - User Access is not MULTI_USER
-+IIF(d.user_access > 0,NCHAR(167) + N'User Access ' + QUOTENAME(d.user_access_desc),N'')
++IIF(d.user_access > 0,NCHAR(096) + N'User Access ' + QUOTENAME(d.user_access_desc),N'')
 
 -- Diagnostic - DB - non-default - Accelerated database recovery ON
-+IIF(d.is_accelerated_database_recovery_on > 0,NCHAR(167) + N'Accelerated database recovery [ON], default [OFF]',N'')
++IIF(d.is_accelerated_database_recovery_on > 0,NCHAR(096) + N'Accelerated database recovery [ON], default [OFF]',N'')
 
 -- Diagnostic - DB - non-default - Federation member
-+IIF(d.is_federation_member > 0,NCHAR(167) + N'Database is Federation member',N'')
++IIF(d.is_federation_member > 0,NCHAR(096) + N'Database is Federation member',N'')
 
 -- Diagnostic - DB - non-default - Ledger Database Enabled
-+IIF(d.is_ledger_on > 0,NCHAR(167) + N'Ledger Database [ENABLED]',N'')
++IIF(d.is_ledger_on > 0,NCHAR(096) + N'Ledger Database [ENABLED]',N'')
 
 -- Diagnostic - DB - non-default - Remote data archive ENABLED - deprecated SQL 2022+
-+IIF(d.is_remote_data_archive_enabled > 0,NCHAR(167) + N'Remote data archive [ENABLED] - deprecated SQL 2022+',N'')
++IIF(d.is_remote_data_archive_enabled > 0,NCHAR(096) + N'Remote data archive [ENABLED] - deprecated SQL 2022+',N'')
 
 -- Diagnostic - DB - non-default - Temporal history retention Enabled
-+IIF(d.is_temporal_history_retention_enabled > 0,NCHAR(167) + N'Temporal history retention [ENABLED]',N'')
++IIF(d.is_temporal_history_retention_enabled > 0,NCHAR(096) + N'Temporal history retention [ENABLED]',N'')
 
 -- Diagnostic - DB - non-default - Data retention Enabled - automatic deletion of obsolete records
-+IIF(d.is_data_retention_enabled > 0,NCHAR(167) + N'Data retention [ENABLED] - automatic deletion of obsolete records',N'')
++IIF(d.is_data_retention_enabled > 0,NCHAR(096) + N'Data retention [ENABLED] - automatic deletion of obsolete records',N'')
 
 -- Diagnostic - DB - non-default - Stale page detection Enabled - Azure Synapse Analytics Gen2.
-+IIF(d.is_stale_page_detection_on > 0,NCHAR(167) + N'Stale page detection [ON]',N'')
++IIF(d.is_stale_page_detection_on > 0,NCHAR(096) + N'Stale page detection [ON]',N'')
 
 -- Diagnostic - DB - non-default - Memory optimized tables elevate to SNAPSHOT is OFF
-+IIF(d.is_memory_optimized_elevate_to_snapshot_on = 0,NCHAR(167) + N'XTP Memory optimized elevate to SNAPSHOT [OFF]',N'')
++IIF(d.is_memory_optimized_elevate_to_snapshot_on = 0,NCHAR(096) + N'XTP Memory optimized elevate to SNAPSHOT [OFF]',N'')
 
 -- Diagnostic - DB - non-default - Snapshot source database
 +IIF(d.source_database_id > 0
-    ,NCHAR(167) + N'Snapshot source DB '
+    ,NCHAR(096) + N'Snapshot source DB '
                + QUOTENAME((--
                             SELECT name
                               FROM [##SQLXL_Index_sys_databases] x
@@ -15316,38 +15314,38 @@ SELECT rec_type         = N'D'          -- database level composite record
 
 -- Diagnostic - DB - non-default - Physical database name <> DB name
 +IIF(d.physical_database_name <> d.name
-    ,NCHAR(167) + N'Physical database name ' + QUOTENAME(d.physical_database_name)
+    ,NCHAR(096) + N'Physical database name ' + QUOTENAME(d.physical_database_name)
     ,N'')
 
 -- Diagnostic - DB - non-default - Contained database status PARTIAL
 +IIF(d.containment > 0
-    , NCHAR(167) + N'Contained database status ' + d.containment_desc + N', default [NONE]'
+    , NCHAR(096) + N'Contained database status ' + d.containment_desc + N', default [NONE]'
 -- Diagnostic - DB - non-default - Contained database default language
-    + IIF(d.default_language_lcid > 0,NCHAR(167) + N'> Default language ' + QUOTENAME(d.default_language_name),N'')
+    + IIF(d.default_language_lcid > 0,NCHAR(096) + N'> Default language ' + QUOTENAME(d.default_language_name),N'')
 -- Diagnostic - DB - non-default - Contained database fulltext language
-    + IIF(d.default_fulltext_language_lcid > 0,NCHAR(167) + N'> Fulltext language ' + QUOTENAME(d.default_fulltext_language_name),N'')
+    + IIF(d.default_fulltext_language_lcid > 0,NCHAR(096) + N'> Fulltext language ' + QUOTENAME(d.default_fulltext_language_name),N'')
 -- Diagnostic - DB - non-default - Contained database 2 digit year cutoff
-    + IIF(d.two_digit_year_cutoff > 0,NCHAR(167) + N'> 2 digit year cutoff ' + QUOTENAME(d.two_digit_year_cutoff),N'')
+    + IIF(d.two_digit_year_cutoff > 0,NCHAR(096) + N'> 2 digit year cutoff ' + QUOTENAME(d.two_digit_year_cutoff),N'')
 -- Diagnostic - DB - non-default - Contained DB nested triggers ON
-    + IIF(d.is_nested_triggers_on > 0,NCHAR(167) + N'> Nested triggers [ON]',N'')
+    + IIF(d.is_nested_triggers_on > 0,NCHAR(096) + N'> Nested triggers [ON]',N'')
 -- Diagnostic - DB - non-default - Contained DB transform noise words ON
-    + IIF(d.is_transform_noise_words_on > 0,NCHAR(167) + N'> Transform noise words [ON]',N'')
+    + IIF(d.is_transform_noise_words_on > 0,NCHAR(096) + N'> Transform noise words [ON]',N'')
     ,N'')
 
 -- Diagnostic - DB - non-default - Page verify option not CHECKSUM
-+IIF(d.page_verify_option <> 2,NCHAR(167) + N'Page verify option ' + d.page_verify_option_desc,N'')
++IIF(d.page_verify_option <> 2,NCHAR(096) + N'Page verify option ' + d.page_verify_option_desc,N'')
 
 -- Diagnostic - DB - non-default - Memory Optimized resource pool ID
-+IIF(d.resource_pool_id > 0,NCHAR(167) + N'XTP Memory optimized resource pool ID ' + CAST(d.resource_pool_id AS NVARCHAR(20)),N'')
++IIF(d.resource_pool_id > 0,NCHAR(096) + N'XTP Memory optimized resource pool ID ' + CAST(d.resource_pool_id AS NVARCHAR(20)),N'')
 
 -- Diagnostic - DB - non-default - Catalog Collation type not DATABASE DEFAULT - Azure SQL Database
 +IIF(d.catalog_collation_type > 0
-    ,NCHAR(167) + N'Catalog Collation type ' + d.catalog_collation_type_desc + N', default [DATABASE_DEFAULT]'
+    ,NCHAR(096) + N'Catalog Collation type ' + d.catalog_collation_type_desc + N', default [DATABASE_DEFAULT]'
     ,N'')
 
 -- Diagnostic - DB - Recently created or attached (< 90 days)
 +IIF(DATEDIFF(DAY,d.create_date,sis.Collection_DTTM) < 90
-    ,NCHAR(167) + N'Created/Attached on ' + CONVERT(NVARCHAR(11),d.create_date,2)
+    ,NCHAR(096) + N'Created/Attached on ' + CONVERT(NVARCHAR(11),d.create_date,2)
                + N' - ' + CAST(DATEDIFF(DAY,d.create_date,sis.Collection_DTTM) AS NVARCHAR(20)) + N' Days'
     ,N'')
 
@@ -15548,7 +15546,7 @@ SELECT rec_type         = N'D'          -- database level composite record
 -- Diagnostic - DB - Configuration non-default - XTP_PROCEDURE_EXECUTION_STATISTICS is ON
 -- Diagnostic - DB - Configuration non-default - XTP_QUERY_EXECUTION_STATISTICS is ON
         (--
-         SELECT  NCHAR(167)
+         SELECT  NCHAR(096)
                + N'Scoped config '
                + dbsc.name
                + N' value '
@@ -15616,10 +15614,10 @@ SELECT *
               ,i.object_id
               ,i.index_id
               ,i.type
-              ,diagnostic = STUFF(-- remove unneeded leading NCHAR(167)
+              ,diagnostic = STUFF(-- remove unneeded leading NCHAR(096)
 -- Diagnostic - Parent - is Memory Optimized (BI73) (XTP)
                                  + IIF(obj.is_memory_optimized = 1
-                                      , NCHAR(167)
+                                      , NCHAR(096)
                                       + N'<MEMORY OPTIMIZED> (BI73)' + IIF(i.type = N'U' -- User Table
 -- Diagnostic - Parent - is Memory Optimized (BI73) (XTP) Durability description
                                                                            , N' Durability: ' + obj.durability_desc
@@ -15630,13 +15628,13 @@ SELECT *
 
 -- Diagnostic - Table - is Clustered Columnstore
                                  + IIF(i.tbl_is_clustered_columnstore = 1
-                                      , NCHAR(167)
+                                      , NCHAR(096)
                                       + N'<COLUMNSTORE TABLE> (BI61)'
                                       ,N'')
 
 -- Diagnostic - Table - is Internal (System) Table & internal type description
                                  + IIF(i.obj_type = N'IT'                          -- system internal table
-                                      , NCHAR(167) + N'<' + i.obj_type_desc + N'>'
+                                      , NCHAR(096) + N'<' + i.obj_type_desc + N'>'
                                       + IIF(i.internal_type_desc IS NOT NULL
                                            ,N' ' + QUOTENAME(i.internal_type_desc)
                                            ,N'')
@@ -15644,14 +15642,14 @@ SELECT *
 
 -- Diagnostic - Parent - is Temporal Type
                                  + IIF(obj.temporal_type = 1                       -- HISTORY_TABLE (associated with a temporal table)
-                                      ,NCHAR(167) + N'<SYSTEM_VERSIONED ' + obj.temporal_type_desc + N'> (BI110)'
+                                      ,NCHAR(096) + N'<SYSTEM_VERSIONED ' + obj.temporal_type_desc + N'> (BI110)'
                                       ,N'')
 
 -- Diagnostic - Parent - is History - Ledger
                                  + IIF(obj.ledger_type   = 1 -- LEDGER HISTORY_TABLE (associated with an updatable ledger table)
-                                      , NCHAR(167) + N'<LEDGER ' + obj.ledger_type_desc + N'> (BI110)'
+                                      , NCHAR(096) + N'<LEDGER ' + obj.ledger_type_desc + N'> (BI110)'
                                       + IIF(i.type = N'U' -- User Table
-                                           ,NCHAR(167) + N'> Versioned: ' + COALESCE(QUOTENAME(par_obj.schema_name)
+                                           ,NCHAR(096) + N'> Versioned: ' + COALESCE(QUOTENAME(par_obj.schema_name)
                                                                                    + N'.'
                                                                                    + QUOTENAME(par_obj.name)
                                                                                    ,N'<Missing Parent table>')
@@ -15660,12 +15658,12 @@ SELECT *
 
 -- Diagnostic - Parent - is DROPPED LEDGER TABLE
                                  + IIF(obj.is_dropped_ledger_table = 1
-                                      ,NCHAR(167) + N'<DROPPED_LEDGER_TABLE> (BI110)'
+                                      ,NCHAR(096) + N'<DROPPED_LEDGER_TABLE> (BI110)'
                                       ,N'')
 
 -- Diagnostic - Parent - is History - Change Data Captured
                                  + IIF(obj.cdc_is_history_table = 1
-                                      ,NCHAR(167) + N'<CDC HISTORY TABLE> (BI110)'
+                                      ,NCHAR(096) + N'<CDC HISTORY TABLE> (BI110)'
 -- Diagnostic - Parent - is Change Data Capture, Net changes enabled/disabled
                                       + IIF(    i.type = N'U'                      -- User Table
                                             AND obj.cdc_supports_net_changes = 1
@@ -15675,12 +15673,12 @@ SELECT *
 
 -- Diagnostic - Parent - is Table Valued Function
                                  + IIF(i.obj_type = N'TF' -- SQL table-valued-function SQL 2012+
-                                      ,NCHAR(167) + N'<' + i.obj_type_desc + N'>'
+                                      ,NCHAR(096) + N'<' + i.obj_type_desc + N'>'
                                       ,N'')
 
 -- Diagnostic - Parent - is View
                                  + IIF(i.obj_type = N'V'  -- View
-                                      ,NCHAR(167) + N'<' + i.obj_type_desc + N'>'
+                                      ,NCHAR(096) + N'<' + i.obj_type_desc + N'>'
                                                   + IIF(i.type = N'V' -- View
                                                        , IIF(obj.is_dropped_ledger_view = 1,N' <DROPPED>',N'')
                                                        + IIF(obj.ledger_view_type > 0,N' <' + obj.ledger_view_type_desc + N'>',N'')
@@ -15692,20 +15690,20 @@ SELECT *
                                         THEN
 -- Diagnostic - Parent - Change Tracking Enabled
                                              IIF(obj.ctt_is_track_columns_updated_on = 1
-                                                ,NCHAR(167) + N'<CHANGE TRACKING ENABLED>'
+                                                ,NCHAR(096) + N'<CHANGE TRACKING ENABLED>'
                                                 ,N'')
                                            + CASE WHEN obj.temporal_type = 2
 -- Diagnostic - Parent - History - System Versioned source table
-                                                  THEN  NCHAR(167)
+                                                  THEN  NCHAR(096)
                                                       + N'<' + obj.temporal_type_desc + N'> (BI110)'
-                                                      + NCHAR(167)
+                                                      + NCHAR(096)
 -- Diagnostic - Parent - History - System Versioned Temporal, retention
                                                       + N'> Retention '
                                                       + IIF(obj.history_retention_period_unit_desc = N'INFINITE'
                                                            ,N'INFINITE'
                                                            , CAST(obj.history_retention_period AS NVARCHAR(20))
                                                            + obj.history_retention_period_unit_desc)
-                                                      + NCHAR(167)
+                                                      + NCHAR(096)
                                                       + N'> Versions: '
 -- Diagnostic - Parent - History - System Versioned Temporal, history table
                                                       + COALESCE(QUOTENAME(par_obj.schema_name)
@@ -15715,11 +15713,11 @@ SELECT *
                                                                 )
 -- Diagnostic - Parent - History - is Updatable Ledger
                                                   WHEN obj.ledger_type   = 2
-                                                  THEN  NCHAR(167)
+                                                  THEN  NCHAR(096)
                                                       + N'<' + obj.ledger_type_desc + N'>'                         -- UPDATABLE_LEDGER_TABLE
 -- Diagnostic - Parent - History - Updatable Ledger View Name, SQL2022+ & Azure SQL Database
                                                       + IIF(obj.ledger_view_id > 0
-                                                           , NCHAR(167) + N'> Ledger View '
+                                                           , NCHAR(096) + N'> Ledger View '
                                                            + IIF(lv.is_dropped_ledger_view = 1,N'*DROPPED* ',N'')
                                                            + COALESCE(QUOTENAME(lv.name),N'')
                                                            ,N'')
@@ -15739,7 +15737,7 @@ SELECT *
                                                        )
 -- Diagnostic - Index - is HEAP
 -- Diagnostic - index - is Foreign Key Constraint
-                                        THEN NCHAR(167) + N'<' + i.type_desc + N'>'
+                                        THEN NCHAR(096) + N'<' + i.type_desc + N'>'
 -- Diagnostic - Index - is Clustered Rowstore
 -- Diagnostic - Index - is NonClustered Rowstore
 -- Diagnostic - Index - is Nonclustered HASH on in-memory table (BI61)
@@ -15754,7 +15752,7 @@ SELECT *
                                                        ,N'7' -- Hash index on In-Memory Clustered Columnstore
                                                        ,N'M' -- missing nonclustered rowstore index
                                                        )
-                                        THEN NCHAR(167) + N'<' + i.type_desc + N' INDEX>'
+                                        THEN NCHAR(096) + N'<' + i.type_desc + N' INDEX>'
                                         ELSE N''
                                    END  -- CASE WHEN i.type IN (N'0'
 
@@ -15837,24 +15835,24 @@ SELECT i.rec_type
 ---------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - COLUMN CHANGE TRACKING ENABLED
 +IIF(tbl.ctt_is_track_columns_updated_on = 1
-    , NCHAR(167)
+    , NCHAR(096)
     + N'COLUMN CHANGE TRACKING ENABLED - Auto Cleanup '
     + IIF(d.is_auto_cleanup_on = 1,N'[ON]',N'[OFF]')
     + N' Retention = ' + CAST(retention_period AS NVARCHAR(20))
     + N' ' + retention_period_units_desc
     ,N'')
 -- Diagnostic - Table - EXTERNAL TABLE
-+IIF(tbl.is_external                     = 1,NCHAR(167) + QUOTENAME(N'EXTERNAL TABLE'),N'')
++IIF(tbl.is_external                     = 1,NCHAR(096) + QUOTENAME(N'EXTERNAL TABLE'),N'')
 -- Diagnostic - Table - FILETABLE
-+IIF(tbl.is_filetable                    = 1,NCHAR(167) + QUOTENAME(N'FILETABLE'),N'')
++IIF(tbl.is_filetable                    = 1,NCHAR(096) + QUOTENAME(N'FILETABLE'),N'')
 -- Diagnostic - Table - GRAPH NODE
-+IIF(tbl.is_node                         = 1,NCHAR(167) + QUOTENAME(N'GRAPH NODE'),N'')
++IIF(tbl.is_node                         = 1,NCHAR(096) + QUOTENAME(N'GRAPH NODE'),N'')
 -- Diagnostic - Table - GRAPH EDGE
-+IIF(tbl.is_edge                         = 1,NCHAR(167) + QUOTENAME(N'GRAPH EDGE'),N'')
++IIF(tbl.is_edge                         = 1,NCHAR(096) + QUOTENAME(N'GRAPH EDGE'),N'')
 -- Diagnostic - Table - REMOTE DATA ARCHIVE ENABLED
-+IIF(tbl.is_remote_data_archive_enabled  = 1,NCHAR(167) + QUOTENAME(N'REMOTE DATA ARCHIVE ENABLE - DEPRECATED 2022+D'),N'')
++IIF(tbl.is_remote_data_archive_enabled  = 1,NCHAR(096) + QUOTENAME(N'REMOTE DATA ARCHIVE ENABLE - DEPRECATED 2022+D'),N'')
 -- Diagnostic - Table - is SUBSCRIBED SYNCHRONOUS
-+IIF(tbl.is_sync_tran_subscribed         = 1,NCHAR(167) + QUOTENAME(N'SUBSCRIBED SYNCHRONOUS'),N'')
++IIF(tbl.is_sync_tran_subscribed         = 1,NCHAR(096) + QUOTENAME(N'SUBSCRIBED SYNCHRONOUS'),N'')
 ---------------------------------------------------------------------------------------------------
 +IIF(   tbl.is_published           > 0
      OR tbl.is_schema_published    > 0
@@ -15862,7 +15860,7 @@ SELECT i.rec_type
      OR tbl.is_merge_published     > 0
      OR tbl.has_replication_filter > 0
 -- Diagnostic - Table - is PUBLISHED
-    ,NCHAR(167) + QUOTENAME(N'PUBLISHED'
+    ,NCHAR(096) + QUOTENAME(N'PUBLISHED'
 
 -- Diagnostic - Table - is SCHEMA PUBLISHED
                + STUFF( IIF(tbl.is_schema_published    > 0,N', SCHEMA'  ,N'')
@@ -15875,9 +15873,9 @@ SELECT i.rec_type
     ,N'')
 ---------------------------------------------------------------------------------------------------
 -- Diagnostic - Table - Is empty
-+IIF(i.tbl_is_empty = 1,NCHAR(167) + QUOTENAME(N'EMPTY'),N'')
++IIF(i.tbl_is_empty = 1,NCHAR(096) + QUOTENAME(N'EMPTY'),N'')
 -- Diagnostic - Table - Locked for BULK LOAD
-+IIF(tbl.lock_on_bulk_load > 0,NCHAR(167) + QUOTENAME(N'Locked for BULK LOAD'),N'') -- Locked for BULK LOAD
++IIF(tbl.lock_on_bulk_load > 0,NCHAR(096) + QUOTENAME(N'Locked for BULK LOAD'),N'') -- Locked for BULK LOAD
 ---------------------------------------------------------------------------------------------------
 ,1,1,N'') -- End of STUFF from ~110 lines ago
   FROM (SELECT *
@@ -15928,12 +15926,12 @@ SELECT rec_type = N'P'                                      -- parent level comp
       ,diagnostic = STUFF(-- Strip off leading unnecessary characters
 -- Diagnostic - Table - Created without "ANSI NULLS ON"
  IIF(tbl.uses_ansi_nulls = 0
-    ,NCHAR(167) + N'Created without "ANSI NULLS ON"'
+    ,NCHAR(096) + N'Created without "ANSI NULLS ON"'
     ,N'')
 
 -- Diagnostic - Table - Assembly definition changed by ALTER ASSEMBLY
 +IIF(tbl.has_unchecked_assembly_data > 0
-    ,NCHAR(167) + N'Assembly definition changed by ALTER ASSEMBLY'
+    ,NCHAR(096) + N'Assembly definition changed by ALTER ASSEMBLY'
     ,N'')
 ----------------------------------------------------------------------------------------------------
 ,1,1,N'')
@@ -15976,7 +15974,7 @@ SELECT p.rec_type
 -- Diagnostic - Table - text stored in row - limit (up to 200 bytes)
  IIF(   obj.text_in_row_limit > 0
      OR lob.lob_pct IS NOT NULL
-    ,NCHAR(167) + N'LOB stored in row - size limit '
+    ,NCHAR(096) + N'LOB stored in row - size limit '
                 + IIF(obj.text_in_row_limit = 0
                      ,N'NONE SET'
                      ,CAST(obj.text_in_row_limit AS NVARCHAR(20)) + N' bytes')
@@ -15986,17 +15984,17 @@ SELECT p.rec_type
     ,N'')
 
 -- Diagnostic - Table - Large types out of row - adds 16 byte pointer
-+IIF(obj.large_value_types_out_of_row > 0,NCHAR(167) + N'Large types out of row - adds 16 byte pointer',N'')
++IIF(obj.large_value_types_out_of_row > 0,NCHAR(096) + N'Large types out of row - adds 16 byte pointer',N'')
 
 -- Diagnostic - Table - Lock Escalation DISABLED
 +IIF(obj.lock_escalation = 1
-    ,NCHAR(167) + N'Lock Escalation ' + QUOTENAME(obj.lock_escalation_desc) + N' Consider Enabling Table or Auto (for partitions)'
+    ,NCHAR(096) + N'Lock Escalation ' + QUOTENAME(obj.lock_escalation_desc) + N' Consider Enabling Table or Auto (for partitions)'
     ,N'')
 
 -- Diagnostic - Table - is Partitioned & partitioning column name (BI64)
 +IIF(   raw.partition_CNT         > 1
      OR raw.partition_column_name > N''
-    ,NCHAR(167) + N'Partitioned on '
+    ,NCHAR(096) + N'Partitioned on '
                 + QUOTENAME(raw.partition_column_name)
                 + N' - '
                 + CAST(raw.partition_CNT AS NVARCHAR(20)) + N' partitions (BI64)'
@@ -16005,13 +16003,13 @@ SELECT p.rec_type
 -- Diagnostic - Table - Lock Escalation TABLE with Partitions
 +IIF(    obj.lock_escalation = 0
      AND p.partition_column_ID > 0
-    ,NCHAR(167) + N'Lock Escalation ' + QUOTENAME(obj.lock_escalation_desc) + N' Use AUTO for Partitioned tables'
+    ,NCHAR(096) + N'Lock Escalation ' + QUOTENAME(obj.lock_escalation_desc) + N' Use AUTO for Partitioned tables'
     ,N'')
 
 -- Diagnostic - Table - indexes are more than 2X the size of the physical table (index types 0,1,5)
 +IIF(    raw.reserved_page_PG_CNT > 0
      AND (1.0 * (p.reserved_page_PG_CNT - raw.reserved_page_PG_CNT) / raw.reserved_page_PG_CNT) > 1.0
-    ,NCHAR(167) + N'Indexes'
+    ,NCHAR(096) + N'Indexes'
                + IIF(hs.parent_object_id IS NOT NULL
                     ,N' & HST/IT'
                     ,N'')
@@ -16123,7 +16121,7 @@ SELECT p.rec_type
      AND (   p.nonclustered_index_CNT >= 4
           OR idx_rd.idx_cnt           > 2
          )
-    , NCHAR(167)
+    , NCHAR(096)
     + N'Nonclustered indexes: '
     + CAST(p.nonclustered_index_CNT AS NVARCHAR(20))
     + IIF(idx_rd.idx_cnt > 0
@@ -16150,40 +16148,40 @@ SELECT p.rec_type
 -- Objects with Code Definitions (functions, views)
 ----------------------------------------------------------------------------------------------------
 -- Diagnostic - Code Object - Does not use ANSI NULLS
-+IIF(par_obj.uses_ansi_nulls = 0,NCHAR(167) + N'Does not use ANSI NULLS',N'')
++IIF(par_obj.uses_ansi_nulls = 0,NCHAR(096) + N'Does not use ANSI NULLS',N'')
 
 -- Diagnostic - Code Object - Uses Quoted Identifier
-+IIF(par_obj.uses_quoted_identifier = 1,NCHAR(167) + N'Uses Quoted Identifier',N'')
++IIF(par_obj.uses_quoted_identifier = 1,NCHAR(096) + N'Uses Quoted Identifier',N'')
 
 -- Diagnostic - Code Object - Is NOT Schema Bound
-+IIF(par_obj.is_schema_bound = 0 ,NCHAR(167) + N'Is NOT Schema Bound',N'')
++IIF(par_obj.is_schema_bound = 0 ,NCHAR(096) + N'Is NOT Schema Bound',N'')
 
 -- Diagnostic - Code Object - Does NOT use Database Collation
-+IIF(par_obj.uses_database_collation = 0,NCHAR(167) + N'Does NOT Use Database Collation',N'')
++IIF(par_obj.uses_database_collation = 0,NCHAR(096) + N'Does NOT Use Database Collation',N'')
 
 -- Diagnostic - Code Object - Contains WITH RECOMPILE
-+IIF(par_obj.is_recompiled =  1,NCHAR(167) + N'Contains WITH RECOMPILE',N'')
++IIF(par_obj.is_recompiled =  1,NCHAR(096) + N'Contains WITH RECOMPILE',N'')
 
 -- Diagnostic - Code Object - Does NOT return NULL on NULL input
 +IIF(    par_obj.null_on_null_input =  0
      AND par_obj.type <> N'V'            -- View
-    ,NCHAR(167) + N'Does NOT return NULL on NULL input',N'')
+    ,NCHAR(096) + N'Does NOT return NULL on NULL input',N'')
 
 -- Diagnostic - Code Object - Executes AS OWNER
-+IIF(par_obj.execute_as_principal_id = -2,NCHAR(167) + N'Executes AS OWNER',N'')
++IIF(par_obj.execute_as_principal_id = -2,NCHAR(096) + N'Executes AS OWNER',N'')
 
 -- Diagnostic - Code Object - Executes AS PRINCIPAL ID
 +IIF(par_obj.execute_as_principal_id >  0
-    ,NCHAR(167) + N'Executes AS PRINCIPAL ID ' + CAST(par_obj.execute_as_principal_id AS NVARCHAR(20))
+    ,NCHAR(096) + N'Executes AS PRINCIPAL ID ' + CAST(par_obj.execute_as_principal_id AS NVARCHAR(20))
     ,N'')
 
 -- Diagnostic - Code Object - Is natively compiled
-+IIF(par_obj.uses_native_compilation =  1,NCHAR(167) + N'Is natively compiled',N'')
++IIF(par_obj.uses_native_compilation =  1,NCHAR(096) + N'Is natively compiled',N'')
 
 ------------------------------------------------------------
 -- Diagnostic - Table Valued Function - is INLINEABLE, inlining OFF or ON
 +IIF(par_obj.is_inlineable =  1
-    ,NCHAR(167) + N'Is inlineable' + IIF(par_obj.inline_type = 1,N', inlining [ON]',N', Inlining *OFF*')
+    ,NCHAR(096) + N'Is inlineable' + IIF(par_obj.inline_type = 1,N', inlining [ON]',N', Inlining *OFF*')
     ,N'')
 
 ------------------------------------------------------------
@@ -16260,14 +16258,14 @@ SELECT p.rec_type
 -- Diagnostic - Table - LOB data space name and description
       ,diagnostic = STUFF(-- Strip off leading unnecessary characters
                            CASE WHEN tbl.lob_data_space_id > 0
-                                THEN  NCHAR(167)
+                                THEN  NCHAR(096)
                                     + N'LOB data space ' + QUOTENAME(lob_ds.data_space_name)
                                     + N' type ' + QUOTENAME(lob_ds.data_space_type_desc)
                                 ELSE N''
                            END
 -- Diagnostic - Table - Filestream data space name and description
                          + CASE WHEN tbl.filestream_data_space_id > 0
-                                THEN  NCHAR(167)
+                                THEN  NCHAR(096)
                                     + N'Filestream data spc '
                                     + QUOTENAME(fs_ds.data_space_name)
                                     + N' type '
@@ -16658,7 +16656,7 @@ SELECT rec_type   = N'P'  -- parent level composite record
                         OR cx.is_disabled         = 1
                         OR cx.is_not_trusted      = 1
                         OR cx.is_system_named     = 1
-                       , NCHAR(167) + N'>'
+                       , NCHAR(096) + N'>'
                        + STUFF(-- trim off unneeded leading characters
 -- Diagnostic - Table/Column Constraint - is PUBLISHED
                                 IIF(cx.is_published        = 1,N', Published',N'')
@@ -16676,20 +16674,20 @@ SELECT rec_type   = N'P'  -- parent level composite record
 -- Diagnostic - Table/Column Constraint - table is Replicated, column has REPLICATION enabled
                   + IIF(    tbl.is_replicated         = 1
                         AND cx.is_not_for_replication = 0
-                       ,NCHAR(167) + N'> Replicated - consider "NOT FOR REPLICATION"'
+                       ,NCHAR(096) + N'> Replicated - consider "NOT FOR REPLICATION"'
                        ,N'')
 
 -- Diagnostic - Table/Column Constraint - does not use database collation
-                  + IIF(cx.uses_database_collation = 0,NCHAR(167) + N'> Does not use DATABASE COLLATION',N'')
+                  + IIF(cx.uses_database_collation = 0,NCHAR(096) + N'> Does not use DATABASE COLLATION',N'')
 
 -- Diagnostic - Table/Column Constraint - uses a SQL procedure - can force serialization (BI94)
-                  + IIF(cx.uses_sql_proc = 1,NCHAR(167) + N'> references a procedure - can force serialization (BI94)' ,N'')
+                  + IIF(cx.uses_sql_proc = 1,NCHAR(096) + N'> references a procedure - can force serialization (BI94)' ,N'')
 
 -- Diagnostic - Table/Column Constraint - uses a SQL function - can force serialization (BI94)
-                  + IIF(cx.uses_sql_ftn  = 1,NCHAR(167) + N'> references a function - can force serialization (BI94)' ,N'')
+                  + IIF(cx.uses_sql_ftn  = 1,NCHAR(096) + N'> references a function - can force serialization (BI94)' ,N'')
 
 -- Diagnostic - Table/Column Constraint - uses a SQL method - can force serialization (BI94)
-                  + IIF(cx.uses_sql_mthd = 1,NCHAR(167) + N'> references a SQL method - can force serialization (BI94)',N'')
+                  + IIF(cx.uses_sql_mthd = 1,NCHAR(096) + N'> references a SQL method - can force serialization (BI94)',N'')
 
 /*** LOCAL TESTING ***
 SELECT *
@@ -16756,20 +16754,20 @@ SELECT rec_type   = N'P'  -- parent level composite record
 -- Diagnostic - Table - Has Computed Column
 -- Diagnostic - Table - Computed Column is non-persisted (BI100)
       ,diagnostic = IIF(c.is_persisted = 0,N'Non-persisted ',N'') + N'Computed Column '
-                  + NCHAR(167) + N'> ' + QUOTENAME(c.name)
+                  + NCHAR(096) + N'> ' + QUOTENAME(c.name)
 
 -- Diagnostic - Table - Computed Column - uses a SQL procedure - can force serialization (BI99)
-                 + IIF(c.uses_sql_proc = 1,NCHAR(167) + N'> references a procedure - can force serialization (BI99)' ,N'')
+                 + IIF(c.uses_sql_proc = 1,NCHAR(096) + N'> references a procedure - can force serialization (BI99)' ,N'')
 
 -- Diagnostic - Table - Computed Column - uses a SQL function - can force serialization (BI99)
-                 + IIF(c.uses_sql_ftn  = 1,NCHAR(167) + N'> references a function - can force serialization (BI99)' ,N'')
+                 + IIF(c.uses_sql_ftn  = 1,NCHAR(096) + N'> references a function - can force serialization (BI99)' ,N'')
 
 -- Diagnostic - Table - Computed Column - uses a SQL method - can force serialization (BI99)
-                 + IIF(c.uses_sql_mthd = 1,NCHAR(167) + N'> references a SQL method - can force serialization (BI94)',N'')
+                 + IIF(c.uses_sql_mthd = 1,NCHAR(096) + N'> references a SQL method - can force serialization (BI94)',N'')
 
 -- Diagnostic - Table - has non-persisted Computed Columns as index key column
 -- Diagnostic - Table - has non-persisted Computed Columns as index included column
-                 + COALESCE( NCHAR(167)
+                 + COALESCE( NCHAR(096)
                            + N'> In Index(s): '
                            + STUFF(-- Strip off leading unnecessary characters
                                    (-- List of indexes with included column in key or includes
@@ -16785,7 +16783,7 @@ SELECT rec_type   = N'P'  -- parent level composite record
                                            ic.index_id
                                        FOR XML PATH (N''), TYPE
                                    ).value('(./text())[1]',N'NVARCHAR(MAX)')
-                                  ,1,2,N'')
+                                  ,1,1,N'')
                           ,N'')
   FROM [##SQLXL_Index_sys_columns] AS c
  WHERE c.is_computed  = 1
@@ -16911,7 +16909,7 @@ SELECT rec_type   = N'P'  -- parent level composite record
       ,p.parent_object_id
       ,type       = N'U'  -- User Table
 -- Diagnostic - Table - Change data capture filegroup name
-      ,diagnostic = NCHAR(167)
+      ,diagnostic = NCHAR(096)
                   + IIF(obj.cdc_filegroup_name IS NOT NULL
                        ,N'Filegroup Name ' + QUOTENAME(obj.cdc_filegroup_name)
                        ,N'Uses default Filegroup')
@@ -17035,7 +17033,7 @@ SELECT rec_type      = N'P'  -- parent level composite record
 
 + N' column ' + QUOTENAME(sc.name)
 + IIF(sc.increment_value IS NOT NULL OR sc.seq_increment IS NOT NULL
-     , IIF(LEN(sc.name) > 57,NCHAR(167) + N'> ',N' ')
+     , IIF(LEN(sc.name) > 57,NCHAR(096) + N'> ',N' ')
      + N'at ' + [dbo].[SQLXL_3SD](100.0 * CAST(COALESCE(sc.Last_Value,sc.seq_current_value,0) AS BIGINT) / cte.max_value
                                  ,N'N'
                                  )         -- no check for zero, always > 0 from cte
@@ -17104,7 +17102,7 @@ SELECT i.rec_type
 +IIF(   i.is_disabled                = 1
      OR i.is_not_trusted             = 1
      OR i.is_ignored_in_optimization = 1
-    ,NCHAR(167)
+    ,NCHAR(096)
 -- Diagnostic - Index - is DISABLED (BI42)
    + LTRIM( IIF(i.is_disabled = 1,N' *Disabled* (BI42)',N'')
 
@@ -17118,17 +17116,17 @@ SELECT i.rec_type
 
 -- Diagnostic - Index - Duplicate keys ignored
 +IIF(i.ignore_dup_key = 1
-    ,NCHAR(167) + N'Duplicate keys ignored, inserted rows can be discarded'
+    ,NCHAR(096) + N'Duplicate keys ignored, inserted rows can be discarded'
     ,N'')
 
 -- Diagnostic - Index - Duplicate key warningsuppressed on index Refresh
 +IIF(i.suppress_dup_key_messages = 1
-    ,NCHAR(167) + N'Duplicate key messages are suppressed on index Rebuild'
+    ,NCHAR(096) + N'Duplicate key messages are suppressed on index Rebuild'
     ,N'')
 
 -- Diagnostic - Index - is Hypothetical (BI41)
 +IIF(i.is_hypothetical = 1
-    ,NCHAR(167) + N'Hypothetical, can''t be used, holds stats (BI41)'
+    ,NCHAR(096) + N'Hypothetical, can''t be used, holds stats (BI41)'
     ,N'')
 ------------------------------------------------------------
 ,1,1,N'')
@@ -17166,7 +17164,7 @@ SELECT rec_type   = N'I'               -- index level composite record
       ,i.index_id
       ,i.type
       ,diagnostic = IIF(i.compression_delay > 0
-                       ,N'> Columnstore compression delay ' + CAST(i.compression_delay AS NVARCHAR(20)) + N' minutes' + NCHAR(167)
+                       ,N'> Columnstore compression delay ' + CAST(i.compression_delay AS NVARCHAR(20)) + N' minutes' + NCHAR(096)
                        ,N'')
                   + STUFF(s.diagnostic,1,1,N'')
   FROM [##SQLXL_Index_Startup]     AS sis
@@ -17174,7 +17172,7 @@ SELECT rec_type   = N'I'               -- index level composite record
   JOIN [##SQLXL_Index_sys_indexes] AS i
  OUTER
  APPLY (SELECT -- double select to accomodate the "XML TYPE" clause below
-       (SELECT  NCHAR(167) + N'> '
+       (SELECT  NCHAR(096) + N'> '
               + CAST(COUNT(1) AS NVARCHAR(20)) + N' Rowgroup(s) ' + state_desc
               + IIF(trim_reason_desc IS NOT NULL,N' Trimmed ' + trim_reason_desc,N'')
               + IIF(transition_to_compressed_state_desc IS NOT NULL,N' Transition ' + transition_to_compressed_state_desc,N'')
@@ -17266,17 +17264,17 @@ SELECT i.rec_type
                         OR i.si_bounding_box_ymin IS NOT NULL
                         OR i.si_bounding_box_xmax IS NOT NULL
                         OR i.si_bounding_box_ymax IS NOT NULL
-                       ,NCHAR(167)
+                       ,NCHAR(096)
                        + N'> '
 -- Diagnostic - Index - Spatial index - tesellation scheme - bounding box x & y min & max
                        + STUFF( IIF(i.si_bounding_box_xmin IS NOT NULL,N',box_xmin:' + CAST(i.si_bounding_box_xmin AS NVARCHAR(20)),N'')
                               + IIF(i.si_bounding_box_ymin IS NOT NULL,N',box_ymin:' + CAST(i.si_bounding_box_ymin AS NVARCHAR(20)),N'')
                               + IIF(i.si_bounding_box_xmax IS NOT NULL,N',box_xmax:' + CAST(i.si_bounding_box_xmax AS NVARCHAR(20)),N'')
                               + IIF(i.si_bounding_box_ymax IS NOT NULL,N',box_ymax:' + CAST(i.si_bounding_box_ymax AS NVARCHAR(20)),N'')
-                              ,1,2,N'')
+                              ,1,1,N'')
                        ,N'')
 -- Diagnostic - Index - Spatial index - tesellation scheme - level grid 1 - 4 description
-                  + NCHAR(167)
+                  + NCHAR(096)
                   + N'> Grid1:' + COALESCE(i.si_level_1_grid_desc,N'AUTO')
                   + N' Grid2:'  + COALESCE(i.si_level_2_grid_desc,N'AUTO')
                   + N' Grid3:'  + COALESCE(i.si_level_3_grid_desc,N'AUTO')
@@ -17311,14 +17309,14 @@ SELECT i.rec_type
                  + IIF(ftx.has_crawl_completed = 0
                       ,N' In Progress ' + [dbo].[SQLXL_DTTM_HMSM](i.collection_DTTM - ftx.crawl_start_date)
                       ,N' Completed '   + [dbo].[SQLXL_DTTM_HMSM](i.collection_DTTM - ftx.crawl_end_date) + N' ago')
-                 + NCHAR(167)
+                 + NCHAR(096)
                  + N'Catalog ID ' + QUOTENAME(ftc.fulltext_catalog_ID)
                  + N' Name '      + QUOTENAME(ftc.name) + IIF(ftc.is_default = 1,N' (DEFAULT)',N'')
-                 + NCHAR(167)
+                 + NCHAR(096)
                  + N'Semantic Search Columns -'
                  + N' ON '  + [dbo].[SQLXL_3SD](ic.semantics_ON ,N'I')
                  + N' OFF ' + [dbo].[SQLXL_3SD](ic.semantics_OFF,N'I')
-                 + NCHAR(167)
+                 + NCHAR(096)
                  + N'Uses Unique Index '   + QUOTENAME(ftx.unique_index_id)
                  + N' Stoplist '           + QUOTENAME(IIF(ftx.stoplist_ID = 0,N'DEFAULT',CAST(ftx.stoplist_ID AS NVARCHAR(20))))
                  + N' Property List '      + QUOTENAME(IIF(ftx.property_list_id IS NULL
@@ -17541,14 +17539,14 @@ SELECT i.rec_type
        AND i.obj_type_hdr       NOT IN (N'HST' -- Not a History/archive table
                                        ,N'INT' -- Not a system internal table
                                        )
-      THEN  NCHAR(167) + N'Locks not allowed - '
+      THEN  NCHAR(096) + N'Locks not allowed - '
           + STUFF( IIF(i.allow_page_locks = 0,N', Page',N'')
                  + IIF(    i.allow_row_locks = 0 -- locks not allowed. value for non-indexes is NULL
                        AND i.type       NOT IN (N'5' -- row locks not supported on clustered columnstore
                                                ,N'6' -- row locks not supported on nonclustered columnstore index
                                                )
                       ,N', Row' ,N'')
-                 ,1,2,N'')
+                 ,1,1,N'')
       ELSE N''
  END  -- CASE WHEN (   (    i.allow_row_locks = 0
 
@@ -17559,11 +17557,11 @@ SELECT i.rec_type
 -- Diagnostic - Index - table partitioned, index isn't
 +IIF(COALESCE(i.partition_function_name,N'NONE') <> COALESCE(p.partition_function_name,N'NONE')
     ,IIF(i.partition_function_name IS NULL
-        , NCHAR(167) + N'Index not partitioned, table is - '
+        , NCHAR(096) + N'Index not partitioned, table is - '
                     + QUOTENAME(COALESCE(p.partition_function_name,N'NOT PARTITIONED'))
                     + N' (BI65)'
-        , NCHAR(167) + N'Index Partition function does not match Table (BI65)'
-        + NCHAR(167) + N'> IDX ' + QUOTENAME(COALESCE(i.partition_function_name,N'NOT PARTITIONED'))
+        , NCHAR(096) + N'Index Partition function does not match Table (BI65)'
+        + NCHAR(096) + N'> IDX ' + QUOTENAME(COALESCE(i.partition_function_name,N'NOT PARTITIONED'))
                     + N' TBL '  + QUOTENAME(COALESCE(p.partition_function_name,N'NOT PARTITIONED'))
         )
     ,N'')
@@ -17666,7 +17664,7 @@ SELECT i.rec_type
 +IIF(   i.fill_factor         NOT IN (0,100)
      OR i.page_splits_to_write_PCT > 1.0
      OR i.page_merge_to_write_PCT  > 1.0
-    ,NCHAR(167) + N'Fill ' + [dbo].[SQLXL_3SD](i.fill_factor,N'I') + N'%'
+    ,NCHAR(096) + N'Fill ' + [dbo].[SQLXL_3SD](i.fill_factor,N'I') + N'%'
                + IIF(i.fill_factor NOT IN (0,100),N' (BI40)',N''),N'')
 
 -- Diagnostic - Index - Padding - Fill_Factor < 100% and PADDING not enabled
@@ -17729,7 +17727,7 @@ SELECT rec_type       = N'I'                                 -- index level comp
                         OR cx.is_disabled         = 1
                         OR cx.is_not_trusted      = 1
                         OR cx.is_system_named     = 1
-                       , NCHAR(167) + N'>'
+                       , NCHAR(096) + N'>'
                        + STUFF(-- trim off unneeded leading characters
 -- Diagnostic - Index Column Constraint - is PUBLISHED
                                 IIF(cx.is_published        = 1,N', Published',N'')
@@ -17747,20 +17745,20 @@ SELECT rec_type       = N'I'                                 -- index level comp
 -- Diagnostic - Index Column Constraint - table is Replicated, column has REPLICATION enabled
                   + IIF(    tbl.is_replicated         = 1
                         AND cx.is_not_for_replication = 0
-                       ,NCHAR(167) + N'> Replicated - consider "NOT FOR REPLICATION"'
+                       ,NCHAR(096) + N'> Replicated - consider "NOT FOR REPLICATION"'
                        ,N'')
 
 -- Diagnostic - Index Column constraint - uses non-database collation
-                  + IIF(cx.uses_database_collation = 0,NCHAR(167) + N'> uses non-Database Collation',N'')
+                  + IIF(cx.uses_database_collation = 0,NCHAR(096) + N'> uses non-Database Collation',N'')
 
 -- Diagnostic - Index Column constraint - references a procedure - can force serialization (BI94)
-                  + IIF(cx.uses_sql_proc           = 1,NCHAR(167) + N'> references procedure - can force serialization (BI94)' ,N'')
+                  + IIF(cx.uses_sql_proc           = 1,NCHAR(096) + N'> references procedure - can force serialization (BI94)' ,N'')
 
 -- Diagnostic - Index Column constraint - references a function - can force serialization (BI94)
-                  + IIF(cx.uses_sql_ftn            = 1,NCHAR(167) + N'> references function - can force serialization (BI94)'  ,N'')
+                  + IIF(cx.uses_sql_ftn            = 1,NCHAR(096) + N'> references function - can force serialization (BI94)'  ,N'')
 
 -- Diagnostic - Index Column constraint - references a SQL method - can force serialization (BI94)
-                  + IIF(cx.uses_sql_mthd           = 1,NCHAR(167) + N'> references SQL method - can force serialization (BI94)',N'')
+                  + IIF(cx.uses_sql_mthd           = 1,NCHAR(096) + N'> references SQL method - can force serialization (BI94)',N'')
 
 /*** LOCAL TESTING
 SELECT cx.database_id,cx.parent_object_id,cx.object_id,cx.parent_column_ID,ic.object_id,c.object_id,c.column_ID
@@ -17812,10 +17810,10 @@ SELECT rec_type   = N'I'                                     -- index level comp
       ,ic.index_id
       ,ic.type
       ,diagnostic = N'Computed Column '
-                  + NCHAR(167) + N'> ' + QUOTENAME(c.name)
-                  + IIF(c.uses_sql_proc = 1,NCHAR(167) + N'> references a procedure - can force serialization (BI99)' ,N'')
-                  + IIF(c.uses_sql_ftn  = 1,NCHAR(167) + N'> references a function - can force serialization (BI99)' ,N'')
-                  + IIF(c.uses_sql_mthd = 1,NCHAR(167) + N'> references a SQL method - can force serialization (BI99)',N'')
+                  + NCHAR(096) + N'> ' + QUOTENAME(c.name)
+                  + IIF(c.uses_sql_proc = 1,NCHAR(096) + N'> references a procedure - can force serialization (BI99)' ,N'')
+                  + IIF(c.uses_sql_ftn  = 1,NCHAR(096) + N'> references a function - can force serialization (BI99)' ,N'')
+                  + IIF(c.uses_sql_mthd = 1,NCHAR(096) + N'> references a SQL method - can force serialization (BI99)',N'')
   FROM [##SQLXL_Index_sys_index_columns] AS ic
   JOIN [##SQLXL_Index_sys_columns]       AS c
     ON ic.database_id = c.database_id
@@ -17915,7 +17913,7 @@ SELECT i.rec_type
      AND i.type NOT IN (N'5'  -- clustered columnstore
                        ,N'6'  -- nonclustered columnstore index
                        )
-    ,NCHAR(167) + N'High ratio PAGE to ROW locks - '
+    ,NCHAR(096) + N'High ratio PAGE to ROW locks - '
                + [dbo].[SQLXL_3SD](100.0 * i.page_lock_to_row_lock_RAT,N'N') + N'x'
     ,N'')
 /*** LOCAL TESTING ***
@@ -18043,7 +18041,7 @@ SELECT i.rec_type
 + IIF(i.stathdr_Updated IS NULL
      ,N''
 -- Diagnostic - Index Stats - Index Histogram Buckets count
-     , NCHAR(167)
+     , NCHAR(096)
      + N'> Histogram steps ' -- extra space added to make 2nd column in cell align
      + IIF(i.stathdr_steps IS NULL,N'N/A',[dbo].[SQLXL_3SD](i.stathdr_steps,N'I'))
      ------------------------------------------------------------------------------
@@ -18077,7 +18075,7 @@ SELECT i.rec_type
 + IIF(i.stathdr_Updated IS NULL
      ,N''
 -- Diagnostic - Index Stats - statistics rowcount delta from index record count
-     , NCHAR(167)
+     , NCHAR(096)
      + N'> Row Delta '
      + CASE WHEN i.row_CNT = i.stathdr_Rows_CNT
             THEN N'[none]'
@@ -18124,7 +18122,7 @@ SELECT i.rec_type
       OR i.lead_element_data_type LIKE N'%CHAR%'
       OR i.lead_element_data_type LIKE N'%TEXT%'
       -- NOTE: stats_no_recompute handled above
-     , NCHAR(167)
+     , NCHAR(096)
      + N'> '
      + STUFF(-- Strip off leading unnecessary characters
 -- Diagnostic - Index Stats - Auto Created
@@ -18165,7 +18163,7 @@ SELECT i.rec_type
                      ,N', String summary statistics created'
                      ,N', NO string summary statistics')
                  ,N'')
-            ,1,2,N'') -- STUFF
+            ,1,1,N'') -- STUFF
      ,N'')
 
   FROM [##SQLXL_Index_Startup]     AS sis
@@ -18285,24 +18283,24 @@ SELECT i.rec_type
       ,diagnostic = STUFF(-- Strip off leading unnecessary characters
 
 -- Diagnostic - Index - Covers Foreign Key(s)
- IIF(i.covers_fkc_IDs IS NOT NULL,NCHAR(167) + N'Covers Foreign Key(s) ' +i.covers_fkc_IDs,N'')
+ IIF(i.covers_fkc_IDs IS NOT NULL,NCHAR(096) + N'Covers Foreign Key(s) ' +i.covers_fkc_IDs,N'')
 
 -- Diagnostic - Index - is partitioned & partitioning column (BI64)
 +IIF(i.ios_partition_CNT > 1 OR i.partition_column_ID > 0
-    ,NCHAR(167) + N'Partitioned on ' + QUOTENAME(COALESCE(i.partition_column_name,N'PART COL NOT FOUND')) + N' - '
+    ,NCHAR(096) + N'Partitioned on ' + QUOTENAME(COALESCE(i.partition_column_name,N'PART COL NOT FOUND')) + N' - '
                + COALESCE(CAST(i.partition_CNT AS NVARCHAR(20)),N'PART CNT NOT FOUND')
                + N' partitions (BI64)'
     ,N'')
 
 -- Diagnostic - Index - Used by Change Data Capture
-+IIF(i.name = obj.cdc_index_name,NCHAR(167) + N'Used by Change Data Capture (CDC) on this table',N'')
++IIF(i.name = obj.cdc_index_name,NCHAR(096) + N'Used by Change Data Capture (CDC) on this table',N'')
 
 -- system named objects. some objects (CK,DF,EC,FK,PK,AO,UQ) escape getting flagged
 -- Diagnostic - Index - System named
-+IIF(i.is_system_named = 1,NCHAR(167) + N'System named',N'')
++IIF(i.is_system_named = 1,NCHAR(096) + N'System named',N'')
 
 -- Diagnostic - Index - Created by Database Tuning Advisor (DTA)
-+IIF(CHARINDEX(N'_DTA_',i.name) > 0,NCHAR(167) + N'Created through Database Tuning Advisor (DTA)',N'')
++IIF(CHARINDEX(N'_DTA_',i.name) > 0,NCHAR(096) + N'Created through Database Tuning Advisor (DTA)',N'')
 
 -----------------------------------------------------
 -- Diagnostic - Index - Clustered Rowstore - More than 3 Key columns or more than 16 bytes (BI24)
@@ -18322,7 +18320,7 @@ SELECT i.rec_type
                  )
              )
          )
-   ,NCHAR(167) + N'Big key: '
+   ,NCHAR(096) + N'Big key: '
               + IIF(i.stathdr_average_key_length > 0
                    ,CAST(i.stathdr_average_key_length      AS NVARCHAR(20)) + N' Avg Stats Len bytes'
                    ,CAST(i.key_total_datatype_length_bytes AS NVARCHAR(20)) + N' Col Len bytes'
@@ -18338,7 +18336,7 @@ SELECT i.rec_type
 +IIF(    i.type                  = N'0' -- rowstore heap
      AND obj.is_memory_optimized = 0
      AND c.[Column Descriptors] IS NOT NULL
-    ,NCHAR(167) + N'Candidate Clustering key' + NCHAR(167) + N'> ' + c.[Column Descriptors]
+    ,NCHAR(096) + N'Candidate Clustering key' + NCHAR(096) + N'> ' + c.[Column Descriptors]
     ,N'')
 
 -----------------------------------------------------
@@ -18581,7 +18579,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
 -- Diagnostic - Table - has what looks like a GUID stored as something else
       ,diagnostic = IIF(ic.is_included_column = 0,N'Key ',N'')
                   + N'Column ' + QUOTENAME(sc.name)
-                  + NCHAR(167)
+                  + NCHAR(096)
                   + N'> Possible UNIQUEID, type is ' + UPPER(sc.system_type_name)
                   + N'(' + IIF(sc.max_length = -1,N'MAX',CAST(sc.max_length AS NVARCHAR(4))) + N')'
   FROM [##SQLXL_Index_sys_index_columns] AS ic
@@ -18663,7 +18661,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
                          + IIF(ed.non_index > 0
                               ,N', ' + CAST(ed.non_index    AS NVARCHAR(20)) + N' non-key column(s) (BI34) '
                                      + COALESCE((--
-                                                 SELECT NCHAR(167) + N'> ' + QUOTENAME(c.name)
+                                                 SELECT NCHAR(096) + N'> ' + QUOTENAME(c.name)
                                                    FROM [##SQLXL_Index_sys_sql_expression_dependencies] AS edc
                                                    LEFT OUTER
                                                    JOIN [##SQLXL_Index_sys_columns]       AS c
@@ -18685,7 +18683,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
                                                     AND ic.column_ID            IS NULL
                                                     FOR XML PATH(N''), TYPE
                                                 ).value('(./text())[1]',N'NVARCHAR(MAX)')
-                                               ,NCHAR(167) + N'> Column not found')
+                                               ,NCHAR(096) + N'> Column not found')
                               ,N'')
                          ,1,1,N'')
   FROM (--
@@ -18852,7 +18850,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
                                  AND i.type             = cfs.type
                                  FOR XML PATH(N''), TYPE
                              ).value('(./text())[1]',N'NVARCHAR(MAX)')
-                            ,NCHAR(167) + N'> Column not found')
+                            ,NCHAR(096) + N'> Column not found')
   FROM (--
         SELECT database_id
               ,parent_object_id
@@ -19120,7 +19118,7 @@ SELECT rec_type   = N'I'                                    -- index level compo
                 + STUFF(                N', ' + CAST(ic.cnt AS NVARCHAR(20)) + N' cols'
                        + IIF(ic.len > 0,N', ' + CAST(ic.len AS NVARCHAR(20)) + N' bytes',N'')
                        + IIF(ic.big > 0,N', ' + CAST(ic.big AS NVARCHAR(20)) + N' MAX',N'')
-                       ,1,2,N'')
+                       ,1,1,N'')
   FROM (-- all candidate indexes with big/many included columns
         SELECT ic.database_id
               ,ic.object_id
@@ -19195,10 +19193,10 @@ SELECT rec_type   = N'I'                                    -- index level compo
       ,i.index_id
       ,i.type
       ,diagnostic = N'[RESUMABLE OPERATION - ' + r.state_desc + N']'
-                  + NCHAR(167) + N'> Started: '
+                  + NCHAR(096) + N'> Started: '
                               + CAST(DATEDIFF(DAY,r.start_time,GETDATE()) AS NVARCHAR(20))
                               + N' days ago)'
-                  + NCHAR(167) + N'> Paused:'
+                  + NCHAR(096) + N'> Paused:'
                               + CONVERT(NVARCHAR(11),r.last_pause_time,11)
                               + N'@'
                               + CONVERT(NVARCHAR(8),r.last_pause_time,114)
@@ -19251,7 +19249,7 @@ STUFF(-- Strip off leading unnecessary characters
      OR i.Lead_Element_is_Sequence        = 1
      OR i.Lead_Element_is_newsequentialid = 1
      OR i.Lead_Element_is_newid           = 1
-    ,NCHAR(167) + N'Lead Key is '
+    ,NCHAR(096) + N'Lead Key is '
                + IIF(i.Lead_Element_is_Identity        = 1,N'IDENTITY'       ,N'')
                + IIF(i.Lead_Element_is_Sequence        = 1,N'SEQUENCE'       ,N'')
                + IIF(i.Lead_Element_is_newsequentialid = 1,N'NEWSEQUENTIALID',N'')
@@ -19269,12 +19267,12 @@ STUFF(-- Strip off leading unnecessary characters
               OR i.Lead_Element_is_Sequence        = 1
               OR i.Lead_Element_is_newsequentialid = 1
              )
-    ,NCHAR(167) + N'optimize_for_sequential_key ENABLED (2019+), lead key not SEQ UNIQ (BI121)'
+    ,NCHAR(096) + N'optimize_for_sequential_key ENABLED (2019+), lead key not SEQ UNIQ (BI121)'
     ,N'')
 
 -- Diagnostic - Index - Lead Key - is NEWID and index is not unique
 +IIF(i.Lead_Element_is_newid = 1
-    , NCHAR(167) + N'Lead Key is ' + N'NEWID'
+    , NCHAR(096) + N'Lead Key is ' + N'NEWID'
     + IIF(i.is_unique = 0,N', index not UNIQUE',N'')
     ,N'')
 
@@ -19283,7 +19281,7 @@ STUFF(-- Strip off leading unnecessary characters
 +IIF(i.stathdr_Unfiltered_Rows > 99
     ,IIF(    100.0 * i.lead_element_uniqueness / i.stathdr_Unfiltered_Rows > 5.0
          AND i.Key_Columns_CNT > (1 + IIF(i.partition_function_id > 0,1,0)) -- if partitioned must have partitioned column
-        ,  NCHAR(167) + N'Lead key low uniqueness - ' + [dbo].[SQLXL_3SD](i.lead_element_uniqueness,N'N') + N' rows, '
+        ,  NCHAR(096) + N'Lead key low uniqueness - ' + [dbo].[SQLXL_3SD](i.lead_element_uniqueness,N'N') + N' rows, '
          + [dbo].[SQLXL_3SD](1.0 * i.lead_element_uniqueness / i.stathdr_Unfiltered_Rows,N'%') + N' of table'
         ,N'')
     ,N'')
@@ -19296,7 +19294,7 @@ STUFF(-- Strip off leading unnecessary characters
           OR i.Lead_Element_is_newid           = 1
          )
      AND i.Key_Columns_CNT > (1 + IIF(i.partition_function_id > 0,1,0)) -- if partitioned must have partitioned column
-    ,NCHAR(167) + IIF(i.type = N'1' -- clustered rowstore index
+    ,NCHAR(096) + IIF(i.type = N'1' -- clustered rowstore index
                      ,N'> has '  + CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(20)) + N' unneeded col(s)'
                      ,N'> move ' + CAST(i.Key_Columns_CNT - 1 AS NVARCHAR(20)) + N' unneeded columns to Include'
                      )
@@ -19305,7 +19303,7 @@ STUFF(-- Strip off leading unnecessary characters
 +IIF(    i.type                          IN (N'1')                   -- clustered rowstore index
      AND obj.is_memory_optimized          = 0                        -- base mem opt table is always HEAP
      AND i.tbl_cx_uniq_ordered_column_ID <> i.Lead_Element_column_ID
-    ,NCHAR(167) + N'Candidate Rebuilding key ' + NCHAR(167) + N'> ' + c.[Column Descriptors]
+    ,NCHAR(096) + N'Candidate Rebuilding key ' + NCHAR(096) + N'> ' + c.[Column Descriptors]
     ,N'')
 -- Diagnostic - Index - Lead Key - is string/text and summary statistics have not been computed
 +IIF(    i.parent_object_type = N'U' -- User Table
@@ -19314,7 +19312,7 @@ STUFF(-- Strip off leading unnecessary characters
          )
      AND i.stathdr_String_index IS NULL
      AND i.row_CNT               > 0
-    , NCHAR(167) + N'Lead key ' + UPPER(i.Lead_Element_Data_Type) + N', String Summary statistics are '
+    , NCHAR(096) + N'Lead key ' + UPPER(i.Lead_Element_Data_Type) + N', String Summary statistics are '
     + IIF(i.stathdr_String_index = N'YES',N'',N'*NOT* ') + N'computed'
     ,N'')
 ------------------------------------------------------------
@@ -19557,7 +19555,7 @@ SELECT i.rec_type
         IIF(   ip.is_primary_key       = 1
             OR ip.is_unique_constraint = 1
             OR ip.is_unique            = 1
-           ,NCHAR(167) + N'- With '
+           ,NCHAR(096) + N'- With '
            + STUFF(-- Strip off leading unnecessary characters
 -- Diagnostic - Index - Heap - with PRIMARY KEY (BI47)
                     IIF(ip.is_primary_key = 1
@@ -19574,7 +19572,7 @@ SELECT i.rec_type
                         AND ip.is_unique = 1
                        ,N', Unique index (BI47)'
                        ,N'')
-                  ,1,2,N'')
+                  ,1,1,N'')
            ,N'')
        ------------------------------------------------------------
       + IIF(   p.row_CNT            > 0
@@ -19583,7 +19581,7 @@ SELECT i.rec_type
             OR p.ius_user_total_CNT > 0
 
 -- Diagnostic - Index - Heap - Number of data rows or empty
-           ,NCHAR(167)
+           ,NCHAR(096)
            + N'> Rows: ' + IIF(p.row_CNT > 0,[dbo].[SQLXL_3SD](p.row_CNT,N'I'),N'0')                           -- number of rows else empty
 
 -- Diagnostic - Index - Heap - with indexes - Count
@@ -19601,7 +19599,7 @@ SELECT i.rec_type
                             ,[dbo].[SQLXL_3SD](p.ius_user_updates_CNT,N'I')
                             ,N'0')
        ------------------------------------------------------------
-           + NCHAR(167)
+           + NCHAR(096)
            + N'> OPS'
 -- Diagnostic - Index - Heap - with query operations - Reads
            + N' RDS: ' + IIF(p.ops_total_read_CNT   > 0,[dbo].[SQLXL_3SD](p.ops_total_read_CNT  ,N'I'),N'0')
@@ -19611,7 +19609,7 @@ SELECT i.rec_type
            + N' DEL: ' + IIF(p.ops_total_delete_CNT > 0,[dbo].[SQLXL_3SD](p.ops_total_delete_CNT,N'I'),N'0') + N' (BI49)'
        ------------------------------------------------------------
            + IIF(p.ops_total_write_CNT > 0 OR p.ius_user_updates_CNT > 0
-                , NCHAR(167)
+                , NCHAR(096)
                 + N'> Read to Write ratio:'
 -- Diagnostic - Index - Heap - Usage read to write ratio
                 + N' USG ' + [dbo].[SQLXL_3SD](COALESCE(i.ius_read_to_write_RAT,0),N'N') + N'x '
@@ -19621,7 +19619,7 @@ SELECT i.rec_type
            ,N'')
        ------------------------------------------------------------
       + IIF(p.ios_forwarded_fetch_CNT > 0
-           , NCHAR(167)
+           , NCHAR(096)
            + N'> FWD FETCH:'
 -- Diagnostic - Index - Heap - with Forwarded Fetches (BI43)
            + [dbo].[SQLXL_3SD](p.ios_forwarded_fetch_CNT,N'I')
@@ -19725,7 +19723,7 @@ SELECT i.rec_type
       ,diagnostic = STUFF(-- Strip off leading unnecessary characters
 -- Diagnostic - Index - Clustered Rowstore - index Not Unique (BI28)
        IIF(i.is_unique = 0
-          , NCHAR(167) + N'CX not UNIQUE (BI28)'
+          , NCHAR(096) + N'CX not UNIQUE (BI28)'
 -- Diagnostic - Index - Clustered Rowstore - no statistics found
           + IIF(dv.all_density IS NULL
                ,N', no statistics found'
@@ -19746,7 +19744,7 @@ SELECT i.rec_type
 
 -- Diagnostic - Index - Clustered Rowstore - index is unique but statistics are not - out of date?
       + IIF(i.is_unique = 1 AND 1.0 * dv.all_density * i.stathdr_Rows_CNT > 1.005
-           , NCHAR(167) + N'CX unique - '
+           , NCHAR(096) + N'CX unique - '
            + [dbo].[SQLXL_3SD](1.0 * dv.all_density * i.stathdr_Rows_CNT,N'N')
            + N' records per key, check stats'
            ,N'')
@@ -19805,22 +19803,22 @@ SELECT i.rec_type
 
        IIF(i.partition_CNT > 1 AND i.tbl_is_heap = 1
 -- Diagnostic - Index - Partitioned nonclustered rowstore index found on Heap
-          ,NCHAR(167) + N'Heap - Nonclustered index has ' + [dbo].[SQLXL_3SD](i.partition_CNT,N'I') + N' partitions'
+          ,NCHAR(096) + N'Heap - Nonclustered index has ' + [dbo].[SQLXL_3SD](i.partition_CNT,N'I') + N' partitions'
           ,N'')
 
      + IIF(i.is_primary_key = 1 AND i.tbl_is_heap = 1
 -- Diagnostic - Index - nonclustered rowstore index primary key found on Heap (BI47)
-          ,NCHAR(167) + N'PRIMARY KEY on Heap - (BI47)'
+          ,NCHAR(096) + N'PRIMARY KEY on Heap - (BI47)'
           ,N'')
 
      + IIF(i.is_primary_key = 0 AND i.is_unique_constraint = 1 AND i.tbl_is_heap = 1
 -- Diagnostic - Index - Unique Constraint nonclustered rowstore index found on Heap (BI47)
-          ,NCHAR(167) + N'Unique Constraint on Heap - (BI47)'
+          ,NCHAR(096) + N'Unique Constraint on Heap - (BI47)'
           ,N'')
 
      + IIF(i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND i.tbl_is_heap = 1 AND i.is_unique = 1
 -- Diagnostic - Index - Unique nonclustered rowstore index found on Heap (BI47)
-          ,NCHAR(167) + N'Unique index found on Heap - (BI47)'
+          ,NCHAR(096) + N'Unique index found on Heap - (BI47)'
           ,N'')
 
      ,1,1,N'')
@@ -20155,7 +20153,7 @@ SELECT rec_type   = N'I'                -- index level composite record
 -- Diagnostic - Foreign Key Constraint - Any action forces serializable isolation (BI71)
                   + IIF(   fk.delete_referential_action > 0
                         OR fk.update_referential_action > 0
-                       ,NCHAR(167) + N'> NOTE: action forces serializable isolation (BI71)'
+                       ,NCHAR(096) + N'> NOTE: action forces serializable isolation (BI71)'
                        ,N'')
   FROM [##SQLXL_Index_sys_objects] AS fk
  WHERE fk.type = N'F' -- foreign key constraint
@@ -20195,7 +20193,7 @@ SELECT i.rec_type
  N'Uncovered FKC (BI72)'
 +IIF(i.fkc_missing_index_CNT > 0 -- candidate missing indexes found
 -- Diagnostic - Foreign Key Constraint - elements found in Missing indexes
-    ,NCHAR(167) + N'> In '    + CAST(i.fkc_missing_index_CNT AS NVARCHAR(20)) + N' MIX Candidate(s) '
+    ,NCHAR(096) + N'> In '    + CAST(i.fkc_missing_index_CNT AS NVARCHAR(20)) + N' MIX Candidate(s) '
                 + N' Adv: '   + IIF(a.mix_Advantage_AMT > 0
                                    ,[dbo].[SQLXL_3SD](1.0 * COALESCE(i.mix_Advantage_AMT,0) / a.mix_Advantage_AMT,N'%')
                                    ,N'')
@@ -20211,7 +20209,7 @@ SELECT i.rec_type
                                                           / (a.mix_avg_user_impact_AMT + a.mix_avg_system_impact_AMT)
                                                      ,N'%')
                                    ,N'')
-    + NCHAR(167) + N'> MIX Count: ' + [dbo].[SQLXL_3SD](COALESCE(i.missing_index_CNT      ,0),N'I')
+    + NCHAR(096) + N'> MIX Count: ' + [dbo].[SQLXL_3SD](COALESCE(i.missing_index_CNT      ,0),N'I')
                  + N' Compiles: '   + [dbo].[SQLXL_3SD](COALESCE(i.mix_unique_compiles_CNT,0),N'I')
                  + N' USG: '        + [dbo].[SQLXL_3SD](COALESCE(i.ius_user_total_CNT     ,0),N'I')
                                     + IIF(p.ius_user_total_CNT > 0
@@ -20372,16 +20370,16 @@ SELECT i.rec_type
       ,i.object_id
       ,i.index_id
       ,i.type
-      ,diagnostic = STUFF(-- remove unneeded leading NCHAR(167)
+      ,diagnostic = STUFF(-- remove unneeded leading NCHAR(096)
 -- Diagnostic - Missing index - candidate to cover foreign key constraint
         IIF(mix.fkc_id IS NOT NULL
-           , NCHAR(167)
+           , NCHAR(096)
            + N'> Possible cover for Foreign Key(s) '
            + STUFF(mix.fkc_id,1,1,N'')
            ,N'')
 -- Diagnostic - Missing index - Most resource intensive query generating MIX request
       + IIF(LTRIM(RTRIM(i.mqy_query_text)) > N''
-           ,NCHAR(167) + N'See column "M" in Metadata for largest resource query generating MIX'
+           ,NCHAR(096) + N'See column "M" in Metadata for largest resource query generating MIX'
            ,N'')
       ,1,1,N'')
   FROM (-- missing indexes only
@@ -20510,7 +20508,7 @@ SELECT p.rec_type
                         AND IIF(a.mix_Advantage_AMT > 0.0
                                ,p.mix_Advantage_AMT / a.mix_Advantage_AMT
                                ,0.0) > 0.02
-                       ,NCHAR(167) + N'> Consider Nonclustered Columnstore?'
+                       ,NCHAR(096) + N'> Consider Nonclustered Columnstore?'
                        ,N'')
   FROM (--
         SELECT *
@@ -20656,7 +20654,7 @@ SELECT src.database_id
       ,src.type,
 --*/
        prescription = CASE WHEN sx.object_id <> s.object_id -- index_id = object_id for a foreign key constraint
-                           THEN N'Remove FKC' + NCHAR(167) + N' Redundant'
+                           THEN N'Remove FKC' + NCHAR(096) + N' Redundant'
                            WHEN (   sx.object_id = s.object_id
                                  OR s.object_id IS NULL
                                 )
@@ -20672,17 +20670,17 @@ SELECT src.database_id
                                + IIF(   src.is_disabled            = 1
                                      OR src.is_not_trusted         = 1
                                      OR src.is_not_for_replication = 0
-                                    , NCHAR(167)
+                                    , NCHAR(096)
                                     + STUFF( IIF(src.is_disabled          = 1,N' & Enable' ,N'')
                                            + IIF(src.is_not_trusted       = 1,N' & Trust'  ,N'')
                                            + IIF(src.is_not_for_replication = 0 AND t.is_replicated = 1
                                                 ,N' & Disable Replication'
                                                 ,N'')
-                                           ,1,2,N'')
+                                           ,1,1,N'')
                                     ,N'')
                                + IIF(   COALESCE(s.ovl,0)            = 1
                                      OR COALESCE(s.con,0)            = 1
-                                    , NCHAR(167)
+                                    , NCHAR(096)
                                     + STUFF( IIF(COALESCE(s.ovl,0)    = 1,N', Overlaps' ,N'')
                                            + IIF(COALESCE(s.con,0)    = 1,N', Contained',N'')
                                            ,1,1,N'')
@@ -20798,22 +20796,22 @@ SELECT i.database_id
       ,i.type,
 --*/
        prescription =  N'Remove'
-                     + NCHAR(167) + N' Overlaps CX Seq'
+                     + NCHAR(096) + N' Overlaps CX Seq'
                                  + CASE WHEN tgt.is_primary_key         = 1
-                                        THEN NCHAR(167) + N' Add PK to CX'
+                                        THEN NCHAR(096) + N' Add PK to CX'
                                         WHEN tgt.is_unique_constraint   = 1
                                          AND ncr.is_primary_key       = 0
                                          AND ncr.is_unique_constraint = 0
-                                        THEN NCHAR(167) + N' Add UQ to CX'
+                                        THEN NCHAR(096) + N' Add UQ to CX'
                                         WHEN tgt.is_unique              = 1
                                          AND ncr.is_primary_key       = 0
                                          AND ncr.is_unique_constraint = 0
                                          AND ncr.is_unique            = 0
-                                        THEN NCHAR(167) + N' Add UNIQ to CX'
+                                        THEN NCHAR(096) + N' Add UNIQ to CX'
                                         ELSE N''
                                    END
-                     + NCHAR(167) + N'Review'
-                     + NCHAR(167) + N' Check app for key scan'
+                     + NCHAR(096) + N'Review'
+                     + NCHAR(096) + N' Check app for key scan'
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS tgt  -- index level composite record
   JOIN (--
         SELECT s.database_id
@@ -21407,7 +21405,7 @@ SELECT i.database_id
        prescription = N'Retain'
                      + STUFF(-- Strip off leading unnecessary characters
                              (--
-                              SELECT NCHAR(167) + N' ' + rex.prescription
+                              SELECT NCHAR(096) + N' ' + rex.prescription
                                 FROM [##prescription]       AS rex
                                WHERE tgt.database_id      = rex.database_id
                                  AND tgt.parent_object_id = rex.parent_object_id
@@ -21488,8 +21486,8 @@ SELECT i.database_id
                               + IIF(uniq_idx.is_unique_constraint = 1,N' USE IDX UQ ' + QUOTENAME(uniq_idx.index_id),N'')
                               ,N' USE IDX ' + QUOTENAME(uniq_idx.index_id)
                               )
-                         + IIF(uniq_idx.is_primary_key       = 1,NCHAR(167) + N' Make PK',N'')
-                         + IIF(uniq_idx.is_unique_constraint = 1,NCHAR(167) + N' Make UNIQUE',N'')
+                         + IIF(uniq_idx.is_primary_key       = 1,NCHAR(096) + N' Make PK',N'')
+                         + IIF(uniq_idx.is_unique_constraint = 1,NCHAR(096) + N' Make UNIQUE',N'')
                          ,N' See candidate')
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS i  -- index level composite record
 
@@ -21549,7 +21547,7 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT i.database_id,tgt.parent_object_id,i.object_id,i.index_id,i.type,
 --*/
-       prescription = N'Remove' + NCHAR(167) + N' Use new CX on ' + tgt.tbl_cx_uniq_ordered_column_TYP
+       prescription = N'Remove' + NCHAR(096) + N' Use new CX on ' + tgt.tbl_cx_uniq_ordered_column_TYP
   FROM (-- heaps with candidate unique ordered columns
         SELECT database_id
               ,parent_object_id
@@ -21832,10 +21830,10 @@ SELECT i.database_id
       ,i.index_id
       ,i.type,
 --*/
-       prescription = COALESCE(tgt.prescription + NCHAR(167),N'')
+       prescription = COALESCE(tgt.prescription + NCHAR(096),N'')
                      + N'Request'
                      + (--
-                        SELECT NCHAR(167) + N' ' + rex.prescription
+                        SELECT NCHAR(096) + N' ' + rex.prescription
                           FROM [##prescription]       AS rex
                          WHERE tgt.database_id      = rex.database_id
                            AND tgt.parent_object_id = rex.parent_object_id
@@ -22083,7 +22081,7 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       prescription = COALESCE(tgt.prescription + NCHAR(167),N'') -- should not be anything added before this point
+       prescription = COALESCE(tgt.prescription + NCHAR(096),N'') -- should not be anything added before this point
                     + N'Request new NCS'                        -- NOTE: keep in synch with related ACTION codes
   FROM [##SQLXL_Index_Startup] AS sis
  CROSS
@@ -22145,7 +22143,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,
        prescription = IIF(tgt.type = N'M' -- missing nonclustered rowstore index
                          ,N'Reject'
                          ,N'Replace')
-                    + NCHAR(167)
+                    + NCHAR(096)
                     + N' Use ' + IIF(p.new_ncs = 1,N'new',N'existing') + N' NCS'   -- NOTE: keep in synch with related ACTION codes
   FROM (SELECT NULL
           FROM [##SQLXL_Index_Startup]
@@ -22216,8 +22214,8 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       prescription = N'Request' + NCHAR(167) + N' MIX Hi Gain'
-                    + IIF(tgt.overlap_code IS NOT NULL,NCHAR(167) + N' MIX Synergies',N'')
+       prescription = N'Request' + NCHAR(096) + N' MIX Hi Gain'
+                    + IIF(tgt.overlap_code IS NOT NULL,NCHAR(096) + N' MIX Synergies',N'')
   FROM (SELECT *
           FROM [##SQLXL_Index_Compilation]
          WHERE rec_type      = N'I'  -- index level composite record
@@ -22262,7 +22260,7 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       prescription  = N'Reject' + NCHAR(167) + N' MIX low Gain'
+       prescription  = N'Reject' + NCHAR(096) + N' MIX low Gain'
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS tgt  -- index level composite record
  WHERE tgt.type          = N'M' -- missing nonclustered rowstore index
    ------------------------------------------
@@ -22289,7 +22287,7 @@ SELECT tgt.database_id
       ,tgt.index_id
       ,tgt.type,
 --*/
-       prescription = N'Retain' + NCHAR(167) + N' Best Same Sequence'
+       prescription = N'Retain' + NCHAR(096) + N' Best Same Sequence'
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS tgt  -- index level composite record
   JOIN (--
         SELECT rn = ROW_NUMBER() OVER (PARTITION BY seq.database_id
@@ -22393,7 +22391,7 @@ SELECT i.database_id
       ,i.index_id
       ,i.type,
 --*/
-       prescription = N'Remove' + NCHAR(167) + N' Use Retained NCX'                                 -- Keep in synch with idx_type_hdr
+       prescription = N'Remove' + NCHAR(096) + N' Use Retained NCX'                                 -- Keep in synch with idx_type_hdr
   FROM (--
         SELECT DISTINCT
                o.database_id
@@ -22442,7 +22440,7 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       prescription = N'Remove' + NCHAR(167) + N' Overlaps NCX Seq'            -- Keep in synch with idx_type_hdr
+       prescription = N'Remove' + NCHAR(096) + N' Overlaps NCX Seq'            -- Keep in synch with idx_type_hdr
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS tgt  -- index level composite record
   JOIN (-- low usage same sequence indexes
         SELECT o.database_id
@@ -22499,7 +22497,7 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       prescription = N'Remove' + NCHAR(167) + N' low R/W Ratio'
+       prescription = N'Remove' + NCHAR(096) + N' low R/W Ratio'
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS tgt  -- index level composite record
   JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS p  -- parent level composite record
     ON tgt.database_id              = p.database_id
@@ -22536,7 +22534,7 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       tgt.prescription = N'Remove' + NCHAR(167) + N' Lo/No Activity'
+       tgt.prescription = N'Remove' + NCHAR(096) + N' Lo/No Activity'
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS tgt  -- index level composite record
   JOIN (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'P') AS p    -- parent level composite record
     ON tgt.database_id      = p.database_id
@@ -22624,13 +22622,13 @@ SELECT database_id
       ,N'Refactor'
       ,sort         = @srt
       ,prescription = N'Use ' + tbl_cx_uniq_ordered_column_TYP
-                    + IIF(fill_factor NOT IN (0,100),NCHAR(167) + N' FillFactor 100%',N'')
+                    + IIF(fill_factor NOT IN (0,100),NCHAR(096) + N' FillFactor 100%',N'')
                       -- check if covering Foreign Key Constraint, if do gonna need another index created to provide cover
                     + IIF(CHARINDEX(N'Covers FKC',prescription) > 0
-                         ,NCHAR(167) + N' Recreate FKC cover'
+                         ,NCHAR(096) + N' Recreate FKC cover'
                          ,N'')
                     + IIF(partition_column_ID > 0
-                         ,NCHAR(167) + N' Include Partition'
+                         ,NCHAR(096) + N' Include Partition'
                          ,N'')
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS i  -- index level composite record
  WHERE type                           = N'1'                                   -- clustered rowstore index
@@ -23242,10 +23240,10 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       prescription = COALESCE(tgt.prescription + NCHAR(167),N'')
+       prescription = COALESCE(tgt.prescription + NCHAR(096),N'')
                     + N'Refactor'
                     + (--
-                       SELECT NCHAR(167) + N' ' + rex.prescription
+                       SELECT NCHAR(096) + N' ' + rex.prescription
                          FROM [##prescription]     AS rex
                         WHERE tgt.database_id      = rex.database_id
                           AND tgt.parent_object_id = rex.parent_object_id
@@ -23369,17 +23367,17 @@ SELECT i.database_id
       ,N'Review'
       ,sort         = @srt
       ,prescription = STUFF(-- Strip off leading unnecessary characters
-                           + IIF(i.is_ignored_in_optimization = 1,NCHAR(167) + N' Ignored in optimization',N'')
-                           + IIF(i.is_hypothetical            = 1,NCHAR(167) + N' Hypothetical',N'')
-                           + IIF(i.is_disabled                = 1,NCHAR(167) + N' Disabled',N'')
-                           + IIF(i.ignore_dup_key             = 1,NCHAR(167) + N' Dupl keys ignored',N'')
-                           + IIF(i.suppress_dup_key_messages  = 1,NCHAR(167) + N' Dupl key msg suppressed',N'')
+                           + IIF(i.is_ignored_in_optimization = 1,NCHAR(096) + N' Ignored in optimization',N'')
+                           + IIF(i.is_hypothetical            = 1,NCHAR(096) + N' Hypothetical',N'')
+                           + IIF(i.is_disabled                = 1,NCHAR(096) + N' Disabled',N'')
+                           + IIF(i.ignore_dup_key             = 1,NCHAR(096) + N' Dupl keys ignored',N'')
+                           + IIF(i.suppress_dup_key_messages  = 1,NCHAR(096) + N' Dupl key msg suppressed',N'')
                            + IIF(i.compression_delay_mm       > 0
-                                ,NCHAR(167) + N' Compression delay ' + CAST(i.compression_delay_mm AS NVARCHAR(20))
+                                ,NCHAR(096) + N' Compression delay ' + CAST(i.compression_delay_mm AS NVARCHAR(20))
                                 ,N'')
-                           + IIF(i.auto_created               = 1,NCHAR(167) + N' Auto created',N'')
-                           + IIF(kc.is_enforced               = 0,NCHAR(167) + kc.type + N' Constraint NOT ENFORCED',N'')
-                           ,1,2,N'')
+                           + IIF(i.auto_created               = 1,NCHAR(096) + N' Auto created',N'')
+                           + IIF(kc.is_enforced               = 0,NCHAR(096) + kc.type + N' Constraint NOT ENFORCED',N'')
+                           ,1,1,N'')
   FROM (SELECT *
           FROM [##SQLXL_Index_Compilation]
          WHERE rec_type          = N'I'                                      -- index level composite record
@@ -23564,7 +23562,7 @@ SELECT i.database_id
                            ,1,1,N'')
                     + IIF(    i.stathdr_Rows_CNT             >  0  -- special case of no activity
                           AND i.stathdr_Statistics_age_days <= 30  -- and recently updated statistics
-                         ,NCHAR(167) + N' Has statistics'
+                         ,NCHAR(096) + N' Has statistics'
                          ,N'')
   FROM (SELECT *
           FROM [##SQLXL_Index_Compilation]
@@ -23629,7 +23627,7 @@ SELECT database_id
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS i  -- index level composite record
  WHERE type = N'M' -- missing nonclustered rowstore index
    ------------------------------------------
-   AND prescription LIKE N'Request' + NCHAR(167) + N' MIX Hi Gain%' -- Keep ACTION in synch
+   AND prescription LIKE N'Request' + NCHAR(096) + N' MIX Hi Gain%' -- Keep ACTION in synch
    AND EXISTS (-- nonclustered rowstore index
                SELECT NULL
                  FROM [##SQLXL_Index_Synergies] AS o
@@ -23927,10 +23925,10 @@ SELECT i.database_id
       ,N'Review'
       ,sort         = @srt,
        STUFF(-- Strip off leading unnecessary characters
-              IIF(s.seq_CNT > 0,NCHAR(167) + N' Synergy: Sequence' ,N'')
-            + IIF(s.ovl_CNT > 0,NCHAR(167) + N' Synergy: Overlap' ,N'')
-            + IIF(s.con_CNT > 0,NCHAR(167) + N' Synergy: Contained',N'')
-            ,1,2,N'')
+              IIF(s.seq_CNT > 0,NCHAR(096) + N' Synergy: Sequence' ,N'')
+            + IIF(s.ovl_CNT > 0,NCHAR(096) + N' Synergy: Overlap' ,N'')
+            + IIF(s.con_CNT > 0,NCHAR(096) + N' Synergy: Contained',N'')
+            ,1,1,N'')
   FROM (SELECT * FROM [##SQLXL_Index_Compilation] WHERE rec_type = N'I') AS i  -- index level composite record
   JOIN (--
         SELECT database_id
@@ -24050,10 +24048,10 @@ SELECT tgt.database_id
       ,tgt.index_id
       ,tgt.type,
 --*/
-       prescription = COALESCE(tgt.prescription + NCHAR(167),N'')
+       prescription = COALESCE(tgt.prescription + NCHAR(096),N'')
                     + N'Review'
                     + (--
-                       SELECT NCHAR(167) + N' ' + rex.prescription
+                       SELECT NCHAR(096) + N' ' + rex.prescription
                          FROM [##prescription]       AS rex
                         WHERE tgt.database_id      = rex.database_id
                           AND tgt.parent_object_id = rex.parent_object_id
@@ -24134,9 +24132,9 @@ SELECT i.database_id
       ,i.type
       ,N'Refresh'
       ,sort         = @srt
-      ,prescription = STUFF( IIF(cs.deleted_rows_CNT  > 8192,NCHAR(167) + i.idx_type_hdr + N' Deleted rows'                ,N'')
-                           + IIF(cs.open_rows_CNT     > 8192,NCHAR(167) + i.idx_type_hdr + N' Open delta rows'             ,N'')
-                           + IIF(cs.trim_rowgroup_CNT > 1   ,NCHAR(167) + i.idx_type_hdr + N' Trimmed compressed rowgroups',N'')
+      ,prescription = STUFF( IIF(cs.deleted_rows_CNT  > 8192,NCHAR(096) + i.idx_type_hdr + N' Deleted rows'                ,N'')
+                           + IIF(cs.open_rows_CNT     > 8192,NCHAR(096) + i.idx_type_hdr + N' Open delta rows'             ,N'')
+                           + IIF(cs.trim_rowgroup_CNT > 1   ,NCHAR(096) + i.idx_type_hdr + N' Trimmed compressed rowgroups',N'')
                             ,1,1,N'')
   FROM (--
         SELECT database_id
@@ -24402,11 +24400,11 @@ UPDATE tgt
 SET ANSI_WARNINGS ON;
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       prescription = COALESCE(tgt.prescription + NCHAR(167),N'')
+       prescription = COALESCE(tgt.prescription + NCHAR(096),N'')
                     + N'Refresh'
                     + (--
                        SELECT TOP 1
-                              NCHAR(167) + N' ' + rex.prescription
+                              NCHAR(096) + N' ' + rex.prescription
                          FROM [##prescription]       AS rex
                         WHERE tgt.database_id      = rex.database_id
                           AND tgt.parent_object_id = rex.parent_object_id
@@ -24466,7 +24464,7 @@ UPDATE tgt
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.parent_object_id,tgt.object_id,tgt.index_id,tgt.type,
 --*/
-       prescription = N'TBD ' + obj_type_hdr + NCHAR(167) + idx_type_hdr
+       prescription = N'TBD ' + obj_type_hdr + NCHAR(096) + idx_type_hdr
   FROM [##SQLXL_Index_Compilation] AS tgt
  WHERE tgt.rec_type     = N'I'                              -- index level composite record
    AND tgt.prescription IS NULL
@@ -24895,7 +24893,7 @@ SELECT rec_type,database_id,parent_object_id,object_id,index_id,type,
 --*/
        Diagnostics = STUFF(-- Strip off leading unnecessary characters
                            (--
-                            SELECT NCHAR(167) + f.diagnostic
+                            SELECT NCHAR(096) + f.diagnostic
                               FROM (
                                     SELECT i = 1
                                           ,diagnostic_ID
@@ -25935,33 +25933,33 @@ Excel Column Label Formats passed to VBA code
 --------------------------------------------------------------------------------------------------------------------------------------------
 = IIF(i.rec_type = N'A' -- instance level composite record
      ,N'Instance/Sample'
-     ,N'DB ' + COALESCE(QUOTENAME(i.database_name),N'<database_name?>')   -- Database
+     ,N'DB ' + QUOTENAME(REPLACE(i.database_name,N'^',N' '))
      )
 -- Schema -----------------------------------------------------------
 +IIF(i.rec_type NOT IN (N'A' -- instance level composite record
                        ,N'D' -- database level composite record
                        )
-    ,N' SCH ' + COALESCE(QUOTENAME(i.schema_Name),N'<Schema_Name?>')
+    ,N' SCH ' + QUOTENAME(REPLACE(i.schema_Name,N'^',N' '))
     ,N'')
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Line 2A - Parent Object - if different than Object
 --------------------------------------------------------------------------------------------------------------------------------------------
 +IIF(i.parent_object_id <> i.object_id
-    ,NCHAR(167) + N'PAR ' + QUOTENAME(par_obj.name)
+    ,NCHAR(096) + N'PAR ' + QUOTENAME(REPLACE(par_obj.name,N'^',N' '))
     ,N''
     )
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Line 2B - Object
 --------------------------------------------------------------------------------------------------------------------------------------------
-+ NCHAR(167) + i.obj_type_hdr + N' ' + QUOTENAME(par_obj.name)
++ NCHAR(096) + i.obj_type_hdr + N' ' + QUOTENAME(REPLACE(obj.name,N'^',N' '))
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Line 3 Index
 --------------------------------------------------------------------------------------------------------------------------------------------
 +IIF(i.rec_type = N'I'                                                          -- index level composite record
-    ,NCHAR(167) + COALESCE(i.idx_type_hdr,N'<idx_type_hdr>')
+    ,NCHAR(096) + COALESCE(i.idx_type_hdr,N'<idx_type_hdr>')
     + N' ' + COALESCE(QUOTENAME(CASE WHEN i.internal_type > 202
-                                     THEN i.obj_name
-                                     ELSE i.name
+                                     THEN REPLACE(i.obj_name,N'^',N' ')
+                                     ELSE REPLACE(i.name    ,N'^',N' ')
                                 END),N'<type_name?>')
     ,N'')
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -25979,7 +25977,7 @@ Excel Column Label Formats passed to VBA code
                       ,N'4'                       -- Spatial index
                       )
          OR i.internal_type IS NOT NULL           -- indexes on internal tables
-        , NCHAR(167)
+        , NCHAR(096)
         + STUFF(-- Strip off leading unnecessary characters
                 IIF(i.is_primary_key = 1
                    ,N' PRIMARY KEY'
@@ -26013,7 +26011,7 @@ Excel Column Label Formats passed to VBA code
 --------------------------------------------------------------------------------------------------------------------------------------------
 +IIF(i.rec_type = N'A'  -- instance level composite record
     ,N''
-    ,NCHAR(167))
+    ,NCHAR(096))
 +IIF(i.rec_type <> N'A' -- instance level composite record
     ,N'DB ' + COALESCE(QUOTENAME(i.database_id),N'<database_id?>')
     ,N'')
@@ -26052,14 +26050,14 @@ Excel Column Label Formats passed to VBA code
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Detailed diagnostic information for each index and objects
 --------------------------------------------------------------------------------------------------------------------------------------------
-,[Diagnostics] = LEFT(i.[diagnostics]
+,[Diagnostics] = LEFT(REPLACE(i.[diagnostics],N'^',N' ')
                      + CASE WHEN i.rec_type = N'I'
                              AND i.type     = N'F' -- foreign key constraint
-                            THEN  NCHAR(167)
+                            THEN  NCHAR(096)
                                 + N'-- Foreign Key Reference ---'
-                                + NCHAR(167)
-                                + COALESCE(i.fkc_reference,N'<fkc_reference?>')             -- Referenced schema + table + column(s)
-                                + NCHAR(167)
+                                + NCHAR(096)
+                                + REPLACE(i.fkc_reference,N'^',N' ')                        -- Referenced schema + table + column(s)
+                                + NCHAR(096)
                                 + N'OID DB ' + QUOTENAME(i.database_id)                     -- Referenced Database ID
                                 + N' TBL '   + COALESCE(QUOTENAME(i.fkc_referenced_object_id)
                                                        ,N'fkc_referenced_object_id?')       -- Referenced Table ID
@@ -26086,9 +26084,9 @@ Excel Column Label Formats passed to VBA code
                       ,IIF(i.type IN (N'2' -- nonclustered rowstore index
                                      ,N'M' -- missing nonclustered rowstore index
                                      )
-                          ,NCHAR(167) + N'-- Included --------------------------'
+                          ,NCHAR(096) + N'-- Included --------------------------'
                           ,N'')
-                      + NCHAR(167) + i.Included_column_info
+                      + NCHAR(096) + i.Included_column_info
                       ,N'')
 
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -26104,39 +26102,39 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                           ,N'4'   -- Spatial Index
                           ,N'T'   -- full-text index of a tabular object
                           )
-           THEN NCHAR(167) + i.idx_type_hdr
+           THEN NCHAR(096) + i.idx_type_hdr
 
            WHEN i.type     = N'F'   -- foreign key constraint
-           THEN  NCHAR(167)
+           THEN  NCHAR(096)
                + N'KEY   '          -- extra space added to make 2nd column in cell align
                + CAST(COALESCE(i.Key_Columns_CNT,0) AS NVARCHAR(20))
                + N' LEN '
                + [dbo].[SQLXL_3SD](COALESCE(i.key_total_datatype_length_bytes,0.0),N'B')
 
            WHEN i.type     = N'M'   -- missing nonclustered rowstore index
-           THEN  NCHAR(167)
+           THEN  NCHAR(096)
                + N'KEY   '          -- extra space added to make 2nd column in cell align
                + CAST(COALESCE(i.Key_Columns_CNT,0) AS NVARCHAR(20))
                + N' LEN '
                + [dbo].[SQLXL_3SD](COALESCE(i.key_total_datatype_length_bytes,0.0),N'I') + N'B'
-               + NCHAR(167)
+               + NCHAR(096)
                + N'INC   '          -- extra space added to make 2nd column in cell align
                + CAST(COALESCE(i.Included_Columns_CNT,0) AS NVARCHAR(20))
                + N' LEN ' + [dbo].[SQLXL_3SD](COALESCE(i.inc_total_datatype_length_bytes,0),N'I') + N'B'
 
            WHEN i.type     = N'V'   -- View
-           THEN  NCHAR(167) + N'View'
+           THEN  NCHAR(096) + N'View'
                + IIF(i.index_id = 0 -- HEAP (no index on view)
                     ,N' Unindexed'
                     ,N'')
 
            WHEN i.obj_type = N'TF'  -- SQL table-valued-function SQL 2012+
-           THEN NCHAR(167) + N'TVF' -- table functions w/o indexes have no stats other than PLAN CACHE
+           THEN NCHAR(096) + N'TVF' -- table functions w/o indexes have no stats other than PLAN CACHE
 
            ELSE -------------------------------------------------------------------------------------------------------------
                 -- reserved size on disk or InMemory
                 -------------------------------------------------------------------------------------------------------------
-                 NCHAR(167) + N'RSZ   ' -- extra space added to make 2nd column in cell align
+                 NCHAR(096) + N'RSZ   ' -- extra space added to make 2nd column in cell align
                + COALESCE((-- retrieve & format computed metric value
                            SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
                              FROM [##SQLXL_Index_Metrics] AS m
@@ -26156,7 +26154,7 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                -----------------------------------------------------------------------------------------------------------------------------
                -- Buffer cache usage & oercent of reserved space
                -----------------------------------------------------------------------------------------------------------------------------
-               + NCHAR(167) + N'BSZ   ' + [dbo].[SQLXL_3SD](COALESCE(i.buffer_total_KB_CNT,0),N'KB')
+               + NCHAR(096) + N'BSZ   ' + [dbo].[SQLXL_3SD](COALESCE(i.buffer_total_KB_CNT,0),N'KB')
                + IIF(i.reserved_page_PG_CNT > 0
                     ,N' (' + [dbo].[SQLXL_3SD](COALESCE(1.0 * i.buffer_total_KB_CNT / (i.reserved_page_PG_CNT * 8.0),0),N'%')
                     + N')'
@@ -26164,21 +26162,21 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                -----------------------------------------------------------------------------------------------------------------------------
                --
                -----------------------------------------------------------------------------------------------------------------------------
-               + NCHAR(167) + N'ROW  ' + [dbo].[SQLXL_3SD](i.row_CNT,'I') + IIF(i.has_filter = 1,N'(F)',N'')
+               + NCHAR(096) + N'ROW  ' + [dbo].[SQLXL_3SD](i.row_CNT,'I') + IIF(i.has_filter = 1,N'(F)',N'')
                + IIF(i.rec_type IN (N'H' -- historical/archive table composite record
                                    ,N'P' -- parent level composite record
                                    ,N'S' -- system/internal table composite record
                                    )
                     , N' COL ' + [dbo].[SQLXL_3SD](p.tbl_column_CNT,'I')
                     + IIF(i.row_CNT > 0
-                         ,NCHAR(167) + N'LEN   ' + [dbo].[SQLXL_3SD](i.tbl_row_size_byte_AVG,'B') + N' AVG'
+                         ,NCHAR(096) + N'LEN   ' + [dbo].[SQLXL_3SD](i.tbl_row_size_byte_AVG,'B') + N' AVG'
                          ,N'')
                     ,N'')
                -------------------------------------------------------------------------------------------------------------
                -- count of key index columns
                -----------------------------------------------------------------------------------------------------------------------------
                + IIF( i.rec_type = N'I'
-                    , NCHAR(167) + N'KEY   ' -- extra space added to make 2nd column in cell align
+                    , NCHAR(096) + N'KEY   ' -- extra space added to make 2nd column in cell align
                     + CASE i.type
                            WHEN N'0' THEN i.idx_type_hdr -- rowstore heap
                            WHEN N'5' THEN i.idx_type_hdr -- Clustered columnstore
@@ -26194,7 +26192,7 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                -- count of included index columns
                -----------------------------------------------------------------------------------------------------------------------------
                + IIF( i.rec_type = N'I'
-                    , NCHAR(167) + N'INC    ' -- extra space added to make 2nd column in cell align
+                    , NCHAR(096) + N'INC    ' -- extra space added to make 2nd column in cell align
                     + CASE i.type
                            WHEN N'0' THEN i.idx_type_hdr -- rowstore heap
                            WHEN N'1' THEN N'<all>'       -- Clustered Rowstore index
@@ -26211,7 +26209,7 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                -- Fill factor & tree padding
                -----------------------------------------------------------------------------------------------------------------------------
                + IIF( i.rec_type  = N'I'        -- index-level record
-                    , NCHAR(167) + N'FCT   '    -- extra space added to make 2nd column in cell align
+                    , NCHAR(096) + N'FCT   '    -- extra space added to make 2nd column in cell align
                     + CASE WHEN i.type = N'0'   -- rowstore heap
                            THEN i.idx_type_hdr
                            WHEN i.type IN (N'1',N'2',N'3',N'4',N'5',N'6',N'7',N'T') -- Not rowstore Heap, Missing Index, Foreign Key
@@ -26230,9 +26228,9 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
 ,[Total Use (%Nxt Lvl)~OPS/CMP TOT CNT~USR USG Contact TOT CNT~R/W OPS & USG Read/Write~WTC Wait CNT~WTS Wait SEC~LCK Lock CNT]
 = CASE WHEN i.obj_type = N'V' -- View
         AND i.type     = N'0' -- views without indexes don't record any usage stats other than in PLAN CACHE
-       THEN N'View Heap'  + NCHAR(167) + N'No data'
+       THEN N'View Heap'  + NCHAR(096) + N'No data'
        WHEN i.obj_type = N'F' -- foreign key constraint
-       THEN N'Foreign Key' + NCHAR(167) + N'No data'
+       THEN N'Foreign Key' + NCHAR(096) + N'No data'
        WHEN i.type = N'M'     -- missing nonclustered rowstore index
        THEN -- extra space added to make 2nd column in cell align
                           N'RDS  ' + COALESCE((-- retrieve & format computed metric value
@@ -26247,7 +26245,7 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                                                    AND N'ius_user_read_CNT' = m.metric
                                               )
                                              ,N'0')
-           + NCHAR(167) + N'(USG)'
+           + NCHAR(096) + N'(USG)'
        ELSE               N'RDS  '  + COALESCE((-- retrieve & format computed metric value
                                                 SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
                                                   FROM [##SQLXL_Index_Metrics] AS m
@@ -26260,7 +26258,7 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                                                    AND N'ops_total_read_CNT' = m.metric
                                                )
                                              ,N'0')
-           + NCHAR(167) + N'WRT '   + COALESCE((-- retrieve & format computed metric value
+           + NCHAR(096) + N'WRT '   + COALESCE((-- retrieve & format computed metric value
                                                 SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
                                                   FROM [##SQLXL_Index_Metrics] AS m
                                                  WHERE i.rec_type             = m.rec_type
@@ -26272,8 +26270,8 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                                                    AND N'ops_total_write_CNT' = m.metric
                                                )
                                              ,N'0')
-           + NCHAR(167) + N'R/W  '  + COALESCE([dbo].[SQLXL_3SD](i.ops_read_to_write_RAT,N'N')+N'x',N'n/a') -- value computed previously
-           + NCHAR(167) + N'WTS '   + COALESCE((-- retrieve & format computed metric value
+           + NCHAR(096) + N'R/W  '  + COALESCE([dbo].[SQLXL_3SD](i.ops_read_to_write_RAT,N'N')+N'x',N'n/a') -- value computed previously
+           + NCHAR(096) + N'WTS '   + COALESCE((-- retrieve & format computed metric value
                                                 SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
                                                   FROM [##SQLXL_Index_Metrics] AS m
                                                  WHERE i.rec_type               = m.rec_type
@@ -26285,7 +26283,7 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                                                    AND N'ops_total_wait_MS_CNT' = m.metric
                                                )
                                              ,N'0')
-           + NCHAR(167) + N'WTC '   + COALESCE((-- retrieve & format computed metric value
+           + NCHAR(096) + N'WTC '   + COALESCE((-- retrieve & format computed metric value
                                                 SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
                                                   FROM [##SQLXL_Index_Metrics] AS m
                                                  WHERE i.rec_type            = m.rec_type
@@ -26297,7 +26295,7 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
                                                    AND N'ops_total_wait_CNT' = m.metric
                                                )
                                              ,N'0')
-           + NCHAR(167) + N'LCK  '  + COALESCE((-- retrieve & format computed metric value
+           + NCHAR(096) + N'LCK  '  + COALESCE((-- retrieve & format computed metric value
                                                 SELECT m.metric_FMT + IIF(m.diagnostic IS NULL,N'',N' ' + m.diagnostic)
                                                   FROM [##SQLXL_Index_Metrics] AS m
                                                  WHERE i.rec_type            = m.rec_type
@@ -26314,128 +26312,133 @@ STUFF(CASE WHEN i.type IN (N'3'   -- XML Index
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Missing Index Query
 --------------------------------------------------------------------------------------------------------------------------------------------
-,[MIX Biggest Resource Query] = LEFT(
-                                REPLACE(
-                                REPLACE(
-                                REPLACE(
-                                REPLACE(i.mqy_query_text                 -- text string to reformat for import to excel
-                                       ,NCHAR(13) + NCHAR(10),NCHAR(167)) -- carriage return + line feed with backslash
-                                       ,NCHAR(13),NCHAR(167))             -- carriage return with backslash
-                                       ,NCHAR(10),NCHAR(167))             -- line feed with backslash
-                                       ,NCHAR(09),N'   ')                -- tab with 3 spaces
-                                    ,32767)
+,[MIX Biggest Resource Query]
+=    LEFT(
+  REPLACE(
+  REPLACE(
+  REPLACE(
+  REPLACE(
+  REPLACE(i.mqy_query_text                               -- text string to reformat for import to excel
+         ,N'^',N' ')                                     -- caret with space
+         ,NCHAR(013) + NCHAR(010),NCHAR(096)) -- carriage return + line feed with back tick & tilde
+         ,NCHAR(013)             ,NCHAR(096)) -- carriage return with back tick & tilde
+         ,NCHAR(010)             ,NCHAR(096)) -- line feed with back tick & tilde
+         ,NCHAR(009)             ,N'   '               ) -- tab with 3 spaces
+         ,32767)
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Constraint reference & Index Filter definition
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,[Constraints & Computed~CHK-Check, Key, DEF-Default~CCOL-Computed Column]
-       = STUFF(-- Strip off leading unnecessary characters
-               LEFT( IIF(i.constraints IS NOT NULL
-                        ,NCHAR(167) + REPLACE(
-                                      REPLACE(
-                                      REPLACE(
-                                      REPLACE(i.constraints                    -- text string to reformat for import to excel
-                                             ,NCHAR(13) + NCHAR(10),NCHAR(167)) -- carriage return + line feed with backslash
-                                             ,NCHAR(13),NCHAR(167))             -- carriage return with backslash
-                                             ,NCHAR(10),NCHAR(167))             -- line feed with backslash
-                                             ,NCHAR(09),N'   ')                -- tab with 3 spaces
-                       ,N'')
-                   ,32767)
-              ,1,1,N'')
+=    LEFT(
+    STUFF(-- Strip off leading unnecessary characters
+  REPLACE(
+  REPLACE(
+  REPLACE(
+  REPLACE(
+  REPLACE(i.constraints                                  -- text string to reformat for import to excel
+         ,N'^',N' ')                                     -- caret with space
+         ,NCHAR(013) + NCHAR(010),NCHAR(096)) -- carriage return + line feed with back tick & tilde
+         ,NCHAR(013)             ,NCHAR(096)) -- carriage return with back tick & tilde
+         ,NCHAR(010)             ,NCHAR(096)) -- line feed with back tick & tilde
+         ,NCHAR(009)             ,N'   '               ) -- tab with 3 spaces
+         ,1,1,N'')
+         ,32767)
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Index & Stats Filter Definitions
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,[Index Filters~Statistics Names~& Filters]
-       = STUFF(-- Strip off leading unnecessary characters
-               LEFT( IIF(i.has_filter = 1
-                        ,NCHAR(167) + N'IDX FLTR:'
-                                    + REPLACE(
-                                      REPLACE(
-                                      REPLACE(
-                                      REPLACE(i.filter_definition               -- text string to reformat for import to excel
-                                             ,NCHAR(13) + NCHAR(10),NCHAR(167)) -- carriage return + line feed
-                                             ,NCHAR(13),NCHAR(167))             -- carriage return
-                                             ,NCHAR(10),NCHAR(167))             -- line feed
-                                             ,NCHAR(09),N'   ')                 -- tab with 3 spaces
-                       ,N'')
+= REPLACE(
+    STUFF(-- Strip off leading unnecessary characters
+     LEFT( IIF(i.has_filter = 1
+              ,NCHAR(096) + N'IDX FLTR:'
+                          + REPLACE(
+                            REPLACE(
+                            REPLACE(i.filter_definition                 -- text string to reformat for import to excel
+                                   ,NCHAR(013) + NCHAR(010),NCHAR(096)) -- carriage return + line feed to line feed
+                                   ,NCHAR(013),NCHAR(096))              -- carriage return to line feed
+                                   ,NCHAR(009),N'   ')                  -- tab with 3 spaces
+             ,N'')
 
-                   + IIF(    i.stats_Name > N''
-                        ,NCHAR(167) + N'STAT:' + i.stats_Name                   -- NULL if filtered stat on a table column
-                        ,N'')
-                   + IIF(    i.stathdr_Filter_Expression > N''
-                         AND i.rec_type <> N'P'                                 -- parent level composite record
-                        ,NCHAR(167) + N'STAT FLTR:'
-                                    + REPLACE(
-                                      REPLACE(
-                                      REPLACE(
-                                      REPLACE(i.stathdr_Filter_Expression       -- text string to reformat for import to excel
-                                             ,NCHAR(13) + NCHAR(10),NCHAR(167)) -- carriage return + line feed
-                                             ,NCHAR(13),NCHAR(167))             -- carriage return
-                                             ,NCHAR(10),NCHAR(167))             -- line feed
-                                             ,NCHAR(09),N'   ')                 -- tab with 3 spaces
-                       ,N'')
-                   + IIF(    i.stathdr_Filter_Expression > N''
-                         AND i.rec_type = N'P'                                  -- parent level composite record
-                        ,NCHAR(167) + REPLACE(
-                                      REPLACE(
-                                      REPLACE(
-                                      REPLACE(i.stathdr_Filter_Expression       -- text string to reformat for import to excel
-                                             ,NCHAR(13) + NCHAR(10),NCHAR(167)) -- carriage return + line feed
-                                             ,NCHAR(13),NCHAR(167))             -- carriage return
-                                             ,NCHAR(10),NCHAR(167))             -- line feed
-                                             ,NCHAR(09),N'   ')                 -- tab with 3 spaces
-                       ,N'')
-                   ,32767)
-              ,1,1,N'')
+         + IIF(i.stats_Name > N''
+              ,NCHAR(096) + N'STAT:' + i.stats_Name                     -- NULL if filtered stat on a table column
+              ,N'')
+         + IIF(    i.stathdr_Filter_Expression > N''
+               AND i.rec_type <> N'P'                                   -- parent level composite record
+              ,NCHAR(096) + N'STAT FLTR:'
+                          + REPLACE(
+                            REPLACE(
+                            REPLACE(i.stathdr_Filter_Expression         -- text string to reformat for import to excel
+                                   ,NCHAR(013) + NCHAR(010),NCHAR(096)) -- carriage return + line feed to line feed
+                                   ,NCHAR(013),NCHAR(096))              -- carriage return to line feed
+                                   ,NCHAR(009),N'   ')                  -- tab with 3 spaces
+             ,N'')
+         + IIF(    i.stathdr_Filter_Expression > N''
+               AND i.rec_type = N'P'                                    -- parent level composite record
+              ,NCHAR(096) + REPLACE(
+                            REPLACE(
+                            REPLACE(i.stathdr_Filter_Expression         -- text string to reformat for import to excel
+                                   ,NCHAR(013) + NCHAR(010),NCHAR(096)) -- carriage return + line feed to line feed
+                                   ,NCHAR(013),NCHAR(096))              -- carriage return to line feed
+                                   ,NCHAR(009),N'   ')                  -- tab with 3 spaces
+             ,N'')
+         ,32767)
+         ,1,1,N'')   -- leading NCHAR(096)
+         ,N'^',N' ') -- caret with space
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Table Logical & Physical File Info
 --------------------------------------------------------------------------------------------------------------------------------------------
-,[Table File & Partitions] =
- STUFF(-- Strip off leading unnecessary characters
-         CASE WHEN i.data_space_id IS NOT NULL
-              THEN NCHAR(167) + N'Data Space' + N' ' + QUOTENAME(i.data_space_name)
-                  + N' ' + N'(' + CAST(i.data_space_id AS NVARCHAR(20)) + N')'
-              ELSE N''
-         END
-        --
-       + CASE WHEN i.data_space_logical_filename IS NOT NULL
-              THEN NCHAR(167) + N'Logical file name' + N' ' + QUOTENAME(i.data_space_logical_filename)
-              ELSE N''
-         END
-        --
-       + CASE WHEN i.partition_column_ID > 0
-              THEN NCHAR(167) + N'Partition COLUMN' + N' ' + QUOTENAME(i.partition_column_name)
-                  + N' ' + N'(' + CAST(i.partition_column_ID AS NVARCHAR(20)) + N')'
-              ELSE N''
-         END
-        --
-       + CASE WHEN i.partition_schemes_name IS NOT NULL
-              THEN NCHAR(167) + N'Partition scheme'  + N' ' + QUOTENAME(i.partition_schemes_name)
-              ELSE N''
-         END
-        --
-       + CASE WHEN i.partition_function_id > 0
-              THEN NCHAR(167) + N'Partition function' + N' ' + QUOTENAME(i.partition_function_name)
-                  + N' ' + N'(' + CAST(i.partition_function_id  AS NVARCHAR(20)) + N')'
-              ELSE N''
-         END
-       ,1,1,N'')
+,[Table File & Partitions]
+= REPLACE(
+    STUFF(-- Strip off leading unnecessary characters
+            CASE WHEN i.data_space_id IS NOT NULL
+                 THEN NCHAR(096) + N'Data Space' + N' ' + QUOTENAME(i.data_space_name)
+                     + N' ' + N'(' + CAST(i.data_space_id AS NVARCHAR(20)) + N')'
+                 ELSE N''
+            END
+           --
+          + CASE WHEN i.data_space_logical_filename IS NOT NULL
+                 THEN NCHAR(096) + N'Logical file name' + N' ' + QUOTENAME(i.data_space_logical_filename)
+                 ELSE N''
+            END
+           --
+          + CASE WHEN i.partition_column_ID > 0
+                 THEN NCHAR(096) + N'Partition COLUMN' + N' ' + QUOTENAME(i.partition_column_name)
+                     + N' ' + N'(' + CAST(i.partition_column_ID AS NVARCHAR(20)) + N')'
+                 ELSE N''
+            END
+           --
+          + CASE WHEN i.partition_schemes_name IS NOT NULL
+                 THEN NCHAR(096) + N'Partition scheme'  + N' ' + QUOTENAME(i.partition_schemes_name)
+                 ELSE N''
+            END
+           --
+          + CASE WHEN i.partition_function_id > 0
+                 THEN NCHAR(096) + N'Partition function' + N' ' + QUOTENAME(i.partition_function_name)
+                     + N' ' + N'(' + CAST(i.partition_function_id  AS NVARCHAR(20)) + N')'
+                 ELSE N''
+            END
+         ,1,1,N'')   -- leading NCHAR(096)
+         ,N'^',N' ') -- caret with space
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Extended Properties  -- replace CarriageReturn (13) & LineFeed(10) with ASCII 167, tab with 3 spaces
 --------------------------------------------------------------------------------------------------------------------------------------------
-,[Extended Properties]  = LEFT(
-                          REPLACE(
-                          REPLACE(
-                          REPLACE(
-                          REPLACE(i.extended_properties             -- text string to reformat for import to excel
-                                 ,NCHAR(13) + NCHAR(10),NCHAR(167)) -- carriage return + line feed with backslash
-                                 ,NCHAR(13),NCHAR(167))             -- carriage return with backslash
-                                 ,NCHAR(10),NCHAR(167))             -- line feed with backslash
-                                 ,NCHAR(09),N'   ')                 -- tab with 3 spaces
-                              ,32767)
+,[Extended Properties]
+=    LEFT(
+  REPLACE(
+  REPLACE(
+  REPLACE(
+  REPLACE(
+  REPLACE(i.extended_properties                          -- text string to reformat for import to excel
+         ,N'^',N' ')                                     -- caret with space
+         ,NCHAR(013) + NCHAR(010),NCHAR(096)) -- carriage return + line feed with back tick & tilde
+         ,NCHAR(013)             ,NCHAR(096)) -- carriage return with back tick & tilde
+         ,NCHAR(010)             ,NCHAR(096)) -- line feed with back tick & tilde
+         ,NCHAR(009)             ,N'   '               ) -- tab with 3 spaces
+         ,32767)
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 --Table Priority Metrics
@@ -27284,10 +27287,10 @@ WHILE 1 = 1 BEGIN
    SELECT TOP (1)
           @run_value = QUOTENAME(s.name) + N'.' + QUOTENAME(t.name)
          ,@sql = N'TRUNCATE TABLE ' + QUOTENAME(s.name) + N'.' + QUOTENAME(t.name) + N';'
-               + NCHAR(13) + NCHAR(10)
+               + NCHAR(013) + NCHAR(010)
                -- Drops MISSING index recommendations
                + N'ALTER index ALL ON ' + QUOTENAME(s.name) + N'.' + QUOTENAME(t.name) + N' REBUILD;'
-               + NCHAR(13) + NCHAR(10)
+               + NCHAR(013) + NCHAR(010)
                + N'DROP TABLE ' + QUOTENAME(s.name) + N'.' + QUOTENAME(t.name) + N';'
      FROM [sys].[tables]  AS t WITH (READUNCOMMITTED)
      JOIN [sys].[objects] AS o WITH (READUNCOMMITTED)
@@ -27967,13 +27970,13 @@ SELECT string = CASE t.RowNbr
                      THEN  N'Startup ' + s.text_value
                          + N' (' + CAST(DATEDIFF(DAY,s.text_value,GETDATE()) AS NVARCHAR(20))
                          + N' days ago)'
-                     ELSE LTRIM(REPLACE(t.string,NCHAR(09),N''))
+                     ELSE LTRIM(REPLACE(t.string,NCHAR(009),N''))
                 END
  FROM [dbo].[SQLXL_Parse_Strings]((SELECT text_value
                                      FROM [##SQLXL_Instance_info]
                                     WHERE source = N'Configuration'
                                       AND name   = N'@@VERSION'
-                                  ),NCHAR(10)) AS t
+                                  ),NCHAR(010)) AS t
  CROSS
   JOIN (-- Get SQL Server startup time
         SELECT text_value
@@ -28437,7 +28440,7 @@ SQLCMD -Q "EXEC [##SQLXL_Index_Present]" -s"ª" -y 0 -a 8000 -o "D:\TEMP\out.txt"
 SQLCMD Parameters used:
 ----------------------------------------------------------------------------------------------------
 -Q = SQL command to execute                - "EXEC [##SQLXL_Index_Present]"
--s = column delimiter                      - ASCII CHAR(166) is used to avoid collisions "ª"
+-s = column delimiter                      - ASCII CHAR(094) is used to avoid collisions "ª"
 -y = variable length type display width    - 0 = ALL
 -a = network packet size                   - 8000 bytes
 -o = output file and destination directory - "D:\TEMP\out.txt"
