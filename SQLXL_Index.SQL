@@ -1,4 +1,4 @@
--- VERSION 25.01.21.1
+-- VERSION 25.01.23.0
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc.
 session is connected to since you can't create temporary (#) functions in SQL Server
@@ -863,7 +863,7 @@ SELECT database_id               = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS 
                                       ,DB_ID()
                                       ,mid.database_id)
       ,mid.object_id
-      ,migs.group_handle
+      ,group_handle              = mig.index_group_handle
       ,mid.index_handle
       ,statement                 = mid.statement                COLLATE DATABASE_DEFAULT
       ,equality_columns          = mid.equality_columns         COLLATE DATABASE_DEFAULT
@@ -5648,15 +5648,15 @@ SET IMPLICIT_TRANSACTIONS OFF; -- occasionally implicit transactions are created
 --------------------------------------------------------------------------------------------------------------------------------------------
 CREATE
  TABLE #XL_IDX_sys_ShowStatistics_StatHeader
-      (Name                     NVARCHAR(128)  COLLATE ' + @collation_name + N'     NULL
+      (Name                     NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
       ,Updated                  DATETIME                                       NULL
       ,Rows                     BIGINT                                         NULL
       ,Rows_sampled             BIGINT                                         NULL
       ,steps                    INT                                            NULL
       ,Density                  FLOAT                                          NULL
       ,average_key_length       INT                                            NULL
-      ,String_index             NVARCHAR(3)    COLLATE ' + @collation_name + N'     NULL
-      ,Filter_Expression        NVARCHAR(4000) COLLATE ' + @collation_name + N'     NULL
+      ,String_index             NVARCHAR(20)   COLLATE ' + @collation_name + N'     NULL
+      ,Filter_Expression        NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
       ,Unfiltered_Rows          BIGINT                                         NULL
       ,Persisted_Sample_Percent TINYINT                                        NULL
       );'
@@ -5667,8 +5667,8 @@ CREATE
  TABLE [##SQLXL_Index_sys_ShowStatistics_StatHeader] -- persisted table
       (database_id              INT                                        NOT NULL
       ,object_id                INT                                        NOT NULL
-      ,object_name              SYSNAME        COLLATE ' + @collation_name + N'     NULL
-      ,stats_target_name        SYSNAME        COLLATE ' + @collation_name + N'     NULL
+      ,object_name              NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
+      ,stats_target_name        NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
       ,index_id                 INT                                            NULL
       ,column_ID                INT                                            NULL
       ,Statistics_age_days      INT                                            NULL
@@ -5679,7 +5679,7 @@ CREATE
       ,Density                  FLOAT                                          NULL
       ,average_key_length       INT                                            NULL
       ,String_index             NVARCHAR(3)    COLLATE ' + @collation_name + N'     NULL
-      ,Filter_Expression        NVARCHAR(4000) COLLATE ' + @collation_name + N'     NULL
+      ,Filter_Expression        NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
       ,Unfiltered_Rows          BIGINT                                         NULL
       ,Persisted_Sample_Percent TINYINT                                        NULL
       )
@@ -5704,8 +5704,8 @@ CREATE
  TABLE [##SQLXL_Index_sys_ShowStatistics_DensityVector] -- persisted table
       (database_id              INT                                             NOT NULL
       ,object_id                INT                                             NOT NULL
-      ,object_name              SYSNAME        COLLATE ' + @collation_name + N'     NULL
-      ,stats_target_name        SYSNAME        COLLATE ' + @collation_name + N'     NULL
+      ,object_name              NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
+      ,stats_target_name        NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
       ,index_id                 INT                                                 NULL
       ,column_ID                INT                                                 NULL
       ,row_ID                   SMALLINT                                        NOT NULL
@@ -5735,8 +5735,8 @@ CREATE
  TABLE [##SQLXL_Index_sys_ShowStatistics_Histogram_summary] -- persisted table
       (database_id              INT                                             NOT NULL
       ,object_id                INT                                             NOT NULL
-      ,object_name              SYSNAME        COLLATE ' + @collation_name + N'     NULL
-      ,stats_target_name        SYSNAME        COLLATE ' + @collation_name + N'     NULL
+      ,object_name              NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
+      ,stats_target_name        NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
       ,index_id                 INT                                                 NULL
       ,column_ID                INT                                                 NULL
       ,min_rows_per_value       FLOAT                                               NULL
@@ -5751,11 +5751,11 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Local Variables inside dynamic SQL
 --------------------------------------------------------------------------------------------------------------------------------------------
-DECLARE @database_name     SYSNAME       = N'''' COLLATE ' + @collation_name + N'
+DECLARE @database_name     NVARCHAR(MAX) = N'''' COLLATE ' + @collation_name + N'
        ,@object_id         INT
-       ,@index_id          NVARCHAR(11)  = N'''' COLLATE ' + @collation_name + N'
+       ,@index_id          NVARCHAR(20)  = N'''' COLLATE ' + @collation_name + N'
        ,@column_ID         INT
-       ,@object_name       NVARCHAR(257) = N'''' COLLATE ' + @collation_name + N'
+       ,@object_name       NVARCHAR(MAX) = N'''' COLLATE ' + @collation_name + N'
        ,@stats_target_name NVARCHAR(MAX) = N'''' COLLATE ' + @collation_name + N'
        ,@ssms_ads          TINYINT = (SELECT (1)
                                         FROM [sys].[dm_exec_sessions]
@@ -28259,7 +28259,7 @@ LOCAL TESTING LOCAL TESTING LOCAL TESTING LOCAL TESTING LOCAL TESTING LOCAL TEST
 \*########################################################################################################################################*/
 /*** LOCAL TESTING
 EXEC [##SQLXL_Index] @database_name = N'*'                  -- runs for ALL databases
-EXEC [##SQLXL_Index]                                        -- runs for all USER databases
+EXEC [##SQLXL_Index]                                        -- runs for ALL USER databases
 EXEC [##SQLXL_Index] @database_name = N'tempdb'             -- runs for a SINGLE database
 EXEC [##SQLXL_Index] @database_name = N'Elvis'              -- runs for a SINGLE database
 
