@@ -5791,7 +5791,7 @@ SELECT database_name = QUOTENAME(DB_NAME())
               ,i.index_id
               ,column_ID         = CAST(NULL AS INT)
               ,object_name       = QUOTENAME(obj.schema_name) + N''.'' + QUOTENAME(obj.name) COLLATE ' + @collation_name + N'
-              ,stats_target_name = QUOTENAME(i.name)                                         COLLATE ' + @collation_name + N'
+              ,stats_target_name = CAST(QUOTENAME(i.name) AS NVARCHAR(200))                  COLLATE ' + @collation_name + N'
           FROM (-- Get statistics for all index types, including FullText
                 SELECT database_id
                       ,object_id
@@ -5824,10 +5824,10 @@ SELECT database_name = QUOTENAME(DB_NAME())
         UNION
         SELECT ic.database_id
               ,ic.object_id
-              ,index_id              = CAST(NULL AS INT)
+              ,index_id          = CAST(NULL AS INT)
               ,ic.column_ID
-              ,object_name           = QUOTENAME(obj.schema_name) + N''.'' + QUOTENAME(obj.name) COLLATE ' + @collation_name + N'
-              ,stats_target_name     = QUOTENAME(c.name)                                         COLLATE ' + @collation_name + N'
+              ,object_name       = QUOTENAME(obj.schema_name) + N''.'' + QUOTENAME(obj.name) COLLATE ' + @collation_name + N'
+              ,stats_target_name = CAST(QUOTENAME(i.name) AS NVARCHAR(200))                  COLLATE ' + @collation_name + N'
           FROM (-- All Columns that have had stats computed, including by Statistics Auto Create
                 -- find candidate unique columns for HEAPS, columns that can takes advantage of new/existing NCS if added
                 SELECT database_id
@@ -6000,7 +6000,7 @@ BEGIN
 
    END TRY
    BEGIN CATCH
-      IF @ssms_ads > 0
+      IF @ssms_ads > 1
       AND CHARINDEX(N''.[#'',@object_name) = 0
       AND CHARINDEX(N''.[ifts'',@object_name) = 0 -- full text indexes before processing
          SELECT warning         = N''DBCC SHOW_STATISTICS DENSITY_VECTOR NOT FOUND''
