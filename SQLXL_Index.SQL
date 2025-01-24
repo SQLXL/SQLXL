@@ -1,4 +1,4 @@
--- VERSION 25.01.23.0
+-- VERSION 25.01.24.0
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc.
 session is connected to since you can't create temporary (#) functions in SQL Server
@@ -189,7 +189,7 @@ END CATCH
 GO
 
  ALTER PROCEDURE [##SQLXL_Index]
-      (@database_name                    SYSNAME = N''
+      (@database_name                    NVARCHAR(200) = N''
        -- Asterisk ("*") for all databases including system
        -- NULL for all user (non-system) databases
        -- "database name" for a single database
@@ -230,7 +230,7 @@ GO
 
 AS
 /*** LOCAL TESTING ***
-DECLARE @database_name SYSNAME = N''
+DECLARE @database_name NVARCHAR(200) = N'' COLLATE DATABASE_DEFAULT
 --*/
 
 DECLARE @msg           NVARCHAR(4000);
@@ -293,19 +293,19 @@ SET XACT_ABORT               ON; -- Automatically roll back the current transact
  Local Procedure variables
 \******************************************************************************************************************************************/
 DECLARE -- Used for database cursor below ----------------------------------------------------------
-        @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [sys].[databases] WHERE name = DB_NAME())
+        @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [sys].[databases] WHERE name = DB_NAME()) COLLATE DATABASE_DEFAULT
        ,@db_name_quoted NVARCHAR(MAX) = CASE WHEN @database_name IS NULL
                                              THEN N''
                                              WHEN @database_name COLLATE DATABASE_DEFAULT = N'*'
                                              THEN @database_name
                                              ELSE QUOTENAME(@database_name)
-                                        END
+                                        END COLLATE DATABASE_DEFAULT
        ---------------------------------------
-       ,@sql            NVARCHAR(MAX)
+       ,@sql            NVARCHAR(MAX) = N'' COLLATE DATABASE_DEFAULT
        ,@exec_dttm      DATETIME = GETDATE()
        ,@i              INT      = 1            -- database cursor loop counter, starts at 1
        ,@rowcount       BIGINT
-       ,@Pattern        NVARCHAR(15)  = '%[^' + NCHAR(009) + NCHAR(013) + NCHAR(010) + NCHAR(032) + N']%'
+       ,@Pattern        NVARCHAR(15)  = '%[^' + NCHAR(009) + NCHAR(013) + NCHAR(010) + NCHAR(032) + N']%' COLLATE DATABASE_DEFAULT
                         -- Includes Tabs, carriage returns, line feeds, spaces
        ---------------------------------------
        ,@ssms_ads       TINYINT  = (SELECT (1)
@@ -361,6 +361,11 @@ END;
  NOTE: for a writeup on the CTE method used below to handle column differences across SQL Server versions please see Aaron Bertrand's
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
+/*** LOCAL TESTING ***
+DECLARE @sql            NVARCHAR(MAX) = N''                   COLLATE DATABASE_DEFAULT
+       ,@ssms_ads       TINYINT       = 2
+       ,@database_name  NVARCHAR(200) = N'WIDEWORLDIMPORTERS' COLLATE DATABASE_DEFAULT;
+--*/
 BEGIN TRY
    DROP TABLE [##SQLXL_Index_sys_dm_hadr_database_replica];
 END TRY
@@ -453,14 +458,14 @@ AND OBJECT_ID(N'[sys].[dm_hadr_availability_replica_states]') IS NOT NULL -- che
 --------------------------------------------------------------------------------------------------------------------------------------------
 WITH newcol AS (-- columns added after SQL Server 2005. Semicolon not needed since CTE is inside IF statement
 SELECT -- [sys].[dm_hadr_database_replica_states] ---------------------------------------------------
-      is_primary_replica                    = CONVERT(BIT          ,NULL)
+      is_primary_replica                     = CONVERT(BIT          ,NULL)
       ,secondary_lag_seconds                 = CONVERT(BIGINT       ,NULL)
 --    ,quorum_commit_lsn                     = CONVERT(NUMERIC(25,0),NULL) -- omitted, not used
       ,quorum_commit_time                    = CONVERT(DATETIME     ,NULL)
        -- [sys].[availability_replicas] -------------------------------------------------------------
-      ,read_write_routing_url                = CONVERT(SYSNAME      ,NULL)
+      ,read_write_routing_url                = CONVERT(NVARCHAR(200),NULL)
       ,seeding_mode                          = CONVERT(TINYINT      ,NULL)
-      ,seeding_mode_desc                     = CONVERT(SYSNAME      ,NULL)
+      ,seeding_mode_desc                     = CONVERT(NVARCHAR(200),NULL)
        -- [sys].[dm_hadr_availability_replica_states] -----------------------------------------------
       ,write_lease_remaining_ticks                 = CONVERT(BIGINT  ,NULL)
       ,current_configuration_commit_start_time_utc = CONVERT(DATETIMEOFFSET ,NULL)
@@ -556,6 +561,7 @@ SELECT -- [sys].[dm_hadr_database_replica_states] ------------------------------
     ON hdrs.group_id   = hars.group_id
    AND hdrs.replica_id = hars.replica_id
    AND hdrs.is_local   = hars.is_local
+--<FUTURE> filter only selected database is only one selected
 ) AS qry -- from CROSS APPLY
 OPTION (MAXDOP 1,RECOMPILE);
 
@@ -586,10 +592,9 @@ END;
  - to simplify all database references to Azure SQL Database will use DB_ID()
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @sql            NVARCHAR(MAX)
+DECLARE @sql            NVARCHAR(MAX) = N''                   COLLATE DATABASE_DEFAULT
        ,@ssms_ads       TINYINT       = 2
-       ,@database_name  SYSNAME       = N'WIDEWORLDIMPORTERS';
-
+       ,@database_name  NVARCHAR(200) = N'WIDEWORLDIMPORTERS' COLLATE DATABASE_DEFAULT;
 --*/
 BEGIN TRY
    DROP TABLE [##SQLXL_Index_sys_databases]
@@ -847,8 +852,8 @@ END;    -- IF NOT EXISTS (
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 SET NOCOUNT OFF
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
-       ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
+       ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME()) COLLATE DATABASE_DEFAULT
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
        ,@ssms_ads       TINYINT       = 2 -- used below to output generated @sql code
@@ -863,7 +868,7 @@ SELECT database_id               = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS 
                                       ,DB_ID()
                                       ,mid.database_id)
       ,mid.object_id
-      ,group_handle              = mig.index_group_handle
+      ,group_handle              = mig.index_group_handle  -- used since record can be missing from [sys].[dm_db_missing_index_group_stats]
       ,mid.index_handle
       ,statement                 = mid.statement                COLLATE DATABASE_DEFAULT
       ,equality_columns          = mid.equality_columns         COLLATE DATABASE_DEFAULT
@@ -939,7 +944,7 @@ END;
  Already limited to selected databases above in [##SQLXL_Index_sys_dm_db_missing_index_details]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -989,7 +994,7 @@ END;
   https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/issues/3085
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -1107,7 +1112,7 @@ END;
  connected tenant is filtered out.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -1524,7 +1529,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -1541,7 +1546,7 @@ IF @i = 1 BEGIN -- first time through database loop, create new objects
 SELECT TOP (0)
        database_id         = CONVERT(INT           ,NULL)
       ,configuration_id    = CONVERT(INT           ,NULL)
-      ,name                = CONVERT(SYSNAME       ,NULL)   COLLATE ' + @collation_name + N'
+      ,name                = CONVERT(NVARCHAR(200) ,NULL)   COLLATE ' + @collation_name + N'
       ,value               = CONVERT(NVARCHAR(1000),NULL)   COLLATE ' + @collation_name + N'
       ,value_for_secondary = CONVERT(NVARCHAR(1000),NULL)   COLLATE ' + @collation_name + N'
       ,is_value_default    = CONVERT(BIT           ,NULL)
@@ -1601,7 +1606,7 @@ END;
  *Task* Collect [sys].[database_automatic_tuning_options]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -1674,7 +1679,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -1793,7 +1798,7 @@ END;
       NOTE: Up to two rows can be returned for each source table, one row for each capture instance.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -1812,12 +1817,12 @@ SELECT TOP (0)
       ,object_id            = CAST(NULL AS INT)
       ,version              = CAST(NULL AS INT)
       ,source_object_id     = CAST(NULL AS INT)
-      ,capture_instance     = CAST(NULL AS SYSNAME)         COLLATE ' + @collation_name + N'
+      ,capture_instance     = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,supports_net_changes = CAST(NULL AS BIT)
       ,has_drop_pending     = CAST(NULL AS BIT)
-      ,role_name            = CAST(NULL AS SYSNAME)         COLLATE ' + @collation_name + N'
-      ,index_name           = CAST(NULL AS SYSNAME)         COLLATE ' + @collation_name + N'
-      ,filegroup_name       = CAST(NULL AS SYSNAME)         COLLATE ' + @collation_name + N'
+      ,role_name            = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
+      ,index_name           = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
+      ,filegroup_name       = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,create_date          = CAST(NULL AS DATETIME)
       ,partition_switch     = CAST(NULL AS BIT)
       ,capture_instance_ID  = CAST(NULL AS INT)
@@ -1879,7 +1884,7 @@ END;
  Standalone since source did not exist until SQL2109
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -1895,24 +1900,24 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
 
    SET @sql = N'
 SELECT TOP (0)
-       database_id                    = CONVERT(INT     ,NULL)
-      ,name                           = CONVERT(SYSNAME ,NULL)  COLLATE ' + @collation_name + N'
-      ,object_id                      = CONVERT(INT     ,NULL)
-      ,principal_id                   = CONVERT(INT     ,NULL)
-      ,schema_id                      = CONVERT(INT     ,NULL)
-      ,parent_object_id               = CONVERT(INT     ,NULL)                                      -- for System, History, Constraints
-      ,type                           = CONVERT(TINYINT ,NULL)
-      ,type_desc                      = CONVERT(SYSNAME ,NULL)  COLLATE ' + @collation_name + N'
-      ,create_date                    = CONVERT(DATETIME,NULL)
-      ,modify_date                    = CONVERT(DATETIME,NULL)
-      ,is_ms_shipped                  = CONVERT(BIT     ,NULL)
-      ,is_published                   = CONVERT(BIT     ,NULL)
-      ,is_schema_published            = CONVERT(BIT     ,NULL)
-      ,is_disabled                    = CONVERT(BIT     ,NULL)
-      ,is_not_trusted                 = CONVERT(BIT     ,NULL)
-      ,is_system_named                = CONVERT(TINYINT ,NULL)
-      ,delete_referential_action      = CONVERT(TINYINT ,NULL)
-      ,delete_referential_action_desc = CONVERT(SYSNAME ,NULL)  COLLATE ' + @collation_name + N'
+       database_id                    = CONVERT(INT          ,NULL)
+      ,name                           = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,object_id                      = CONVERT(INT          ,NULL)
+      ,principal_id                   = CONVERT(INT          ,NULL)
+      ,schema_id                      = CONVERT(INT          ,NULL)
+      ,parent_object_id               = CONVERT(INT          ,NULL)                                      -- for System, History, Constraints
+      ,type                           = CONVERT(TINYINT      ,NULL)
+      ,type_desc                      = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,create_date                    = CONVERT(DATETIME     ,NULL)
+      ,modify_date                    = CONVERT(DATETIME     ,NULL)
+      ,is_ms_shipped                  = CONVERT(BIT          ,NULL)
+      ,is_published                   = CONVERT(BIT          ,NULL)
+      ,is_schema_published            = CONVERT(BIT          ,NULL)
+      ,is_disabled                    = CONVERT(BIT          ,NULL)
+      ,is_not_trusted                 = CONVERT(BIT          ,NULL)
+      ,is_system_named                = CONVERT(TINYINT      ,NULL)
+      ,delete_referential_action      = CONVERT(TINYINT      ,NULL)
+      ,delete_referential_action_desc = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
   INTO [##SQLXL_Index_sys_edge_constraints]
 OPTION (MAXDOP 1,RECOMPILE);'
 
@@ -2018,53 +2023,53 @@ DECLARE @Pattern NVARCHAR(15)  = ''%[^'' + NCHAR(009) + NCHAR(013) + NCHAR(010) 
                                -- Includes Tabs, carriage returns, line feeds, spaces
 
 ;WITH newcol AS (-- columns added after SQL Server 2005
-SELECT is_enforced                        = CONVERT(BIT,NULL)
-      ,data_retention_period              = CONVERT(INT,NULL)
-      ,data_retention_period_unit         = CONVERT(INT,NULL)
-      ,data_retention_period_unit_desc    = CONVERT(SYSNAME,NULL)                   COLLATE ' + @collation_name + N'
-      ,has_snapshot                       = CONVERT(BIT,NULL)
+SELECT is_enforced                        = CONVERT(BIT          ,NULL)
+      ,data_retention_period              = CONVERT(INT          ,NULL)
+      ,data_retention_period_unit         = CONVERT(INT          ,NULL)
+      ,data_retention_period_unit_desc    = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,has_snapshot                       = CONVERT(BIT          ,NULL)
       -- [sys].[objects] SQL 2014 ------------------------------------
       -- is_memory_optimized              -- updated in code below if > SQL 2012
-      ,uses_native_compilation            = CONVERT(BIT,NULL)
+      ,uses_native_compilation            = CONVERT(BIT          ,NULL)
       -- [sys].[objects] SQL 2019 ------------------------------------
-      ,is_inlineable                      = CONVERT(BIT,NULL)
-      ,inline_type                        = CONVERT(BIT,NULL)
+      ,is_inlineable                      = CONVERT(BIT          ,NULL)
+      ,inline_type                        = CONVERT(BIT          ,NULL)
       -- [sys].[objects] SQL 2022, Azure SQL Database - [sys].[views]
-      ,ledger_view_type                   = CONVERT(TINYINT,NULL)
-      ,ledger_view_type_desc              = CONVERT(SYSNAME,NULL)                   COLLATE ' + @collation_name + N'
-      ,is_dropped_ledger_view             = CONVERT(BIT,NULL)
+      ,ledger_view_type                   = CONVERT(TINYINT      ,NULL)
+      ,ledger_view_type_desc              = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,is_dropped_ledger_view             = CONVERT(BIT          ,NULL)
       -- [sys].[tables] SQL 2012+ ------------------------------------
-      ,is_filetable                       = CONVERT(BIT     ,NULL)
+      ,is_filetable                       = CONVERT(BIT          ,NULL)
        -- [sys].[tables] SQL 2014+ -----------------------------------
-      ,durability                         = CONVERT(TINYINT ,NULL)
-      ,durability_desc                    = CONVERT(SYSNAME ,NULL)                  COLLATE ' + @collation_name + N'
+      ,durability                         = CONVERT(TINYINT      ,NULL)
+      ,durability_desc                    = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
        -- [sys].[tables] SQL 2016+ -----------------------------------
-      ,temporal_type                      = CONVERT(TINYINT ,NULL)
-      ,temporal_type_desc                 = CONVERT(SYSNAME ,NULL)                  COLLATE ' + @collation_name + N'
-      ,history_table_id                   = CONVERT(INT     ,NULL)
-      ,is_remote_data_archive_enabled     = CONVERT(BIT     ,NULL)
-      ,is_external                        = CONVERT(BIT     ,NULL)
+      ,temporal_type                      = CONVERT(TINYINT      ,NULL)
+      ,temporal_type_desc                 = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,history_table_id                   = CONVERT(INT          ,NULL)
+      ,is_remote_data_archive_enabled     = CONVERT(BIT          ,NULL)
+      ,is_external                        = CONVERT(BIT          ,NULL)
        -- [sys].[tables],[sequences] SQL 2017+ -----------------------
-      ,is_node                            = CONVERT(BIT     ,NULL)
-      ,is_edge                            = CONVERT(BIT     ,NULL)
-      ,last_used_value                    = CONVERT(BIGINT ,NULL)
+      ,is_node                            = CONVERT(BIT          ,NULL)
+      ,is_edge                            = CONVERT(BIT          ,NULL)
+      ,last_used_value                    = CONVERT(BIGINT       ,NULL)
        -- [sys].[tables] SQL 2022+, Azure SQL Database ---------------
-      ,history_retention_period           = CONVERT(INT     ,NULL)
-      ,history_retention_period_unit      = CONVERT(INT     ,NULL)
-      ,history_retention_period_unit_desc = CONVERT(SYSNAME ,NULL)                  COLLATE ' + @collation_name + N'
-      ,ledger_type                        = CONVERT(TINYINT ,NULL)
-      ,ledger_type_desc                   = CONVERT(SYSNAME ,NULL)                  COLLATE ' + @collation_name + N'
-      ,ledger_view_id                     = CONVERT(INT     ,NULL)
-      ,is_dropped_ledger_table            = CONVERT(BIT     ,NULL)
+      ,history_retention_period           = CONVERT(INT          ,NULL)
+      ,history_retention_period_unit      = CONVERT(INT          ,NULL)
+      ,history_retention_period_unit_desc = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,ledger_type                        = CONVERT(TINYINT      ,NULL)
+      ,ledger_type_desc                   = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,ledger_view_id                     = CONVERT(INT          ,NULL)
+      ,is_dropped_ledger_table            = CONVERT(BIT          ,NULL)
        -- If change data capture (CDC) enabled on database -----------
-      ,version                            = CONVERT(INT     ,NULL)
-      ,capture_instance                   = CONVERT(SYSNAME ,NULL)                  COLLATE ' + @collation_name + N'
-      ,supports_net_changes               = CONVERT(BIT     ,NULL)
-      ,role_name                          = CONVERT(SYSNAME ,NULL)                  COLLATE ' + @collation_name + N'
-      ,index_name                         = CONVERT(SYSNAME ,NULL)                  COLLATE ' + @collation_name + N'
-      ,filegroup_name                     = CONVERT(SYSNAME ,NULL)                  COLLATE ' + @collation_name + N'
-      ,create_date                        = CONVERT(DATETIME,NULL)
-      ,partition_switch                   = CONVERT(BIT     ,NULL)
+      ,version                            = CONVERT(INT          ,NULL)
+      ,capture_instance                   = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,supports_net_changes               = CONVERT(BIT          ,NULL)
+      ,role_name                          = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,index_name                         = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,filegroup_name                     = CONVERT(NVARCHAR(200),NULL)  COLLATE ' + @collation_name + N'
+      ,create_date                        = CONVERT(DATETIME     ,NULL)
+      ,partition_switch                   = CONVERT(BIT          ,NULL)
 )'
 +IIF(@i = 1
     -- First database - create object using SELECT INTO
@@ -2574,7 +2579,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -2596,13 +2601,13 @@ SELECT TOP (0)
       -- [sys].[database_files] --------------------------------------
       ,file_id                            = CAST(NULL AS INT)
       -- [sys].[data_spaces] ------------------------------------------
-      ,data_space_name                    = CAST(NULL AS SYSNAME)           COLLATE ' + @collation_name + N'
+      ,data_space_name                    = CAST(NULL AS NVARCHAR(200))     COLLATE ' + @collation_name + N'
       ,data_space_type                    = CAST(NULL AS NVARCHAR(2))       COLLATE ' + @collation_name + N'
       ,data_space_type_desc               = CAST(NULL AS NVARCHAR(60))      COLLATE ' + @collation_name + N'
       ,data_space_is_default              = CAST(NULL AS BIT)
       ,data_space_is_system               = CAST(NULL AS BIT)
       -- [sys].[data_spaces] Partition schemes ----------------------
-      ,part_sch_space_name                = CAST(NULL AS SYSNAME)           COLLATE ' + @collation_name + N'
+      ,part_sch_space_name                = CAST(NULL AS NVARCHAR(200))     COLLATE ' + @collation_name + N'
       ,part_sch_space_type                = CAST(NULL AS NVARCHAR(2))       COLLATE ' + @collation_name + N'
       ,part_sch_space_type_desc           = CAST(NULL AS NVARCHAR(60))      COLLATE ' + @collation_name + N'
       ,part_sch_space_is_default          = CAST(NULL AS BIT)
@@ -2615,7 +2620,7 @@ SELECT TOP (0)
       ,file_guid                          = CAST(NULL AS UNIQUEIDENTIFIER)
       ,file_type                          = CAST(NULL AS TINYINT)
       ,file_type_desc                     = CAST(NULL AS NVARCHAR(60))      COLLATE ' + @collation_name + N'
-      ,file_logical_filename              = CAST(NULL AS SYSNAME)
+      ,file_logical_filename              = CAST(NULL AS NVARCHAR(200))
       ,file_physical_filename             = CAST(NULL AS NVARCHAR(260))     COLLATE ' + @collation_name + N'
       ,file_state                         = CAST(NULL AS TINYINT)
       ,file_state_desc                    = CAST(NULL AS NVARCHAR(60))      COLLATE ' + @collation_name + N'
@@ -2626,7 +2631,7 @@ SELECT TOP (0)
       -- [sys].[partition_schemes] -----------------------------------
       ,partition_function_id              = CAST(NULL AS INT)
       -- [sys].[partition_functions] ---------------------------------
-      ,partition_function_name            = CAST(NULL AS SYSNAME)           COLLATE ' + @collation_name + N'
+      ,partition_function_name            = CAST(NULL AS NVARCHAR(200))     COLLATE ' + @collation_name + N'
       ,partition_function_type            = CAST(NULL AS NVARCHAR(2))       COLLATE ' + @collation_name + N'
       ,partition_function_type_desc       = CAST(NULL AS NVARCHAR(60))      COLLATE ' + @collation_name + N'
       ,partition_function_fanout          = CAST(NULL AS INT)
@@ -2751,7 +2756,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -2841,7 +2846,7 @@ END -- IF OBJECT_ID('[sys].[destination_data_spaces]') IS NOT NULL
           13 = Server DDL trigger
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -2866,10 +2871,10 @@ SELECT TOP (0)
       ,is_schema_bound_reference = CAST(NULL AS BIT)
       ,referenced_class          = CAST(NULL AS TINYINT)
       ,referenced_class_desc     = CAST(NULL AS NVARCHAR(60))   COLLATE ' + @collation_name + N'
-      ,referenced_server_name    = CAST(NULL AS SYSNAME)        COLLATE ' + @collation_name + N'
-      ,referenced_database_name  = CAST(NULL AS SYSNAME)        COLLATE ' + @collation_name + N'
-      ,referenced_schema_name    = CAST(NULL AS SYSNAME)        COLLATE ' + @collation_name + N'
-      ,referenced_entity_name    = CAST(NULL AS SYSNAME)        COLLATE ' + @collation_name + N'
+      ,referenced_server_name    = CAST(NULL AS NVARCHAR(200))  COLLATE ' + @collation_name + N'
+      ,referenced_database_name  = CAST(NULL AS NVARCHAR(200))  COLLATE ' + @collation_name + N'
+      ,referenced_schema_name    = CAST(NULL AS NVARCHAR(200))  COLLATE ' + @collation_name + N'
+      ,referenced_entity_name    = CAST(NULL AS NVARCHAR(200))  COLLATE ' + @collation_name + N'
       ,referenced_id             = CAST(NULL AS INT)
       ,referenced_type           = CAST(NULL AS NVARCHAR(2))    COLLATE ' + @collation_name + N'
       ,referenced_minor_id       = CAST(NULL AS INT)
@@ -2892,19 +2897,19 @@ INSERT
   INTO [##SQLXL_Index_sys_sql_expression_dependencies] WITH (TABLOCKX)
 SELECT database_id                  = DB_ID()
       ,ed.referencing_id
-      ,referencing_type             = o_i.type                  COLLATE ' + @collation_name + N'
+      ,referencing_type             = o_i.type   COLLATE ' + @collation_name + N'
       ,ed.referencing_minor_id
       ,ed.referencing_class
-      ,ed.referencing_class_desc                                COLLATE ' + @collation_name + N'
+      ,ed.referencing_class_desc                 COLLATE ' + @collation_name + N'
       ,ed.is_schema_bound_reference
       ,ed.referenced_class
-      ,ed.referenced_class_desc                                 COLLATE ' + @collation_name + N'
-      ,ed.referenced_server_name                                COLLATE ' + @collation_name + N'
-      ,ed.referenced_database_name                              COLLATE ' + @collation_name + N'
-      ,ed.referenced_schema_name                                COLLATE ' + @collation_name + N'
-      ,ed.referenced_entity_name                                COLLATE ' + @collation_name + N'
+      ,ed.referenced_class_desc                  COLLATE ' + @collation_name + N'
+      ,ed.referenced_server_name                 COLLATE ' + @collation_name + N'
+      ,ed.referenced_database_name               COLLATE ' + @collation_name + N'
+      ,ed.referenced_schema_name                 COLLATE ' + @collation_name + N'
+      ,ed.referenced_entity_name                 COLLATE ' + @collation_name + N'
       ,ed.referenced_id
-      ,referenced_type              = o_d.type                  COLLATE ' + @collation_name + N'
+      ,referenced_type              = o_d.type   COLLATE ' + @collation_name + N'
       ,ed.referenced_minor_id
       ,ed.is_caller_dependent
       ,ed.is_ambiguous
@@ -2956,7 +2961,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
 END; -- IF @i = 1
 
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -2969,25 +2974,25 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
 +N'SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;SET NOCOUNT ON;SET IMPLICIT_TRANSACTIONS OFF;
 --------------------------------------------------------------------------------------------------------------------------------------------
 ;WITH newcol AS (-- columns added after SQL Server 2005
-SELECT -- SQL 2016+, Azure SQL Database -------------------------------------------------------
-       generated_always_type               = CONVERT(TINYINT,NULL)
-      ,generated_always_type_desc          = CONVERT(SYSNAME,NULL)                   COLLATE ' + @collation_name + N'
-      ,encryption_type                     = CONVERT(INT    ,NULL)
-      ,encryption_type_desc                = CONVERT(SYSNAME,NULL)                   COLLATE ' + @collation_name + N'
-      ,encryption_algorithm_name           = CONVERT(SYSNAME,NULL)                   COLLATE ' + @collation_name + N'
-      ,column_encryption_key_id            = CONVERT(INT    ,NULL)
-      ,column_encryption_key_database_name = CONVERT(SYSNAME,NULL)                   COLLATE ' + @collation_name + N'
-       -- SQL 2017+ ---------------------------------------------------------------------------
-      ,is_hidden                           = CONVERT(BIT    ,NULL)
-      ,is_masked                           = CONVERT(BIT    ,NULL)
-      ,graph_type                          = CONVERT(INT    ,NULL)
-      ,graph_type_desc                     = CONVERT(SYSNAME,NULL)                   COLLATE ' + @collation_name + N'
-      ,last_used_value                     = CONVERT(BIGINT ,NULL)
-       -- 2022+, Azure SQL Database -----------------------------------------------------------
-      ,is_data_deletion_filter_column      = CONVERT(BIT    ,NULL)
-      ,ledger_view_column_type             = CONVERT(TINYINT,NULL)
-      ,ledger_view_column_type_desc        = CONVERT(SYSNAME,NULL)                   COLLATE ' + @collation_name + N'
-      ,is_dropped_ledger_table_column      = CONVERT(BIT    ,NULL)
+SELECT -- SQL 2016+, Azure SQL Database -------------------------------------
+       generated_always_type               = CONVERT(TINYINT      ,NULL)
+      ,generated_always_type_desc          = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
+      ,encryption_type                     = CONVERT(INT          ,NULL)
+      ,encryption_type_desc                = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
+      ,encryption_algorithm_name           = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
+      ,column_encryption_key_id            = CONVERT(INT          ,NULL)
+      ,column_encryption_key_database_name = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
+       -- SQL 2017+ ---------------------------------------------------------
+      ,is_hidden                           = CONVERT(BIT          ,NULL)
+      ,is_masked                           = CONVERT(BIT          ,NULL)
+      ,graph_type                          = CONVERT(INT          ,NULL)
+      ,graph_type_desc                     = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
+      ,last_used_value                     = CONVERT(BIGINT       ,NULL)
+       -- 2022+, Azure SQL Database -----------------------------------------
+      ,is_data_deletion_filter_column      = CONVERT(BIT          ,NULL)
+      ,ledger_view_column_type             = CONVERT(TINYINT      ,NULL)
+      ,ledger_view_column_type_desc        = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
+      ,is_dropped_ledger_table_column      = CONVERT(BIT          ,NULL)
 )'
 +IIF(@i > 1
     , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_columns] WITH (TABLOCKX)'
@@ -3408,7 +3413,7 @@ END;
  *Task* Collect [sys].[edge_constraint_clauses]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -3471,7 +3476,7 @@ END;
  These do not exist in Azure SQL Database & Azure SQL Managed Instances per BOL as of 12/13/2024
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -3491,20 +3496,20 @@ SELECT TOP (0)
       ,object_id               = CAST(NULL AS INT)
       ,index_id                = CAST(NULL AS INT)
       ,spatial_index_type      = CAST(NULL AS TINYINT)
-      ,spatial_index_type_desc = CAST(NULL AS NVARCHAR(60)) COLLATE ' + @collation_name + N'
-      ,tessellation_scheme     = CAST(NULL AS SYSNAME)      COLLATE ' + @collation_name + N'
+      ,spatial_index_type_desc = CAST(NULL AS NVARCHAR(60))  COLLATE ' + @collation_name + N'
+      ,tessellation_scheme     = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,bounding_box_xmin       = CAST(NULL AS FLOAT(53))
       ,bounding_box_ymin       = CAST(NULL AS FLOAT(53))
       ,bounding_box_xmax       = CAST(NULL AS FLOAT(53))
       ,bounding_box_ymax       = CAST(NULL AS FLOAT(53))
       ,level_1_grid            = CAST(NULL AS SMALLINT)
-      ,level_1_grid_desc       = CAST(NULL AS NVARCHAR(60))     COLLATE ' + @collation_name + N'
+      ,level_1_grid_desc       = CAST(NULL AS NVARCHAR(60))  COLLATE ' + @collation_name + N'
       ,level_2_grid            = CAST(NULL AS SMALLINT)
-      ,level_2_grid_desc       = CAST(NULL AS NVARCHAR(60))     COLLATE ' + @collation_name + N'
+      ,level_2_grid_desc       = CAST(NULL AS NVARCHAR(60))  COLLATE ' + @collation_name + N'
       ,level_3_grid            = CAST(NULL AS SMALLINT)
-      ,level_3_grid_desc       = CAST(NULL AS NVARCHAR(60))     COLLATE ' + @collation_name + N'
+      ,level_3_grid_desc       = CAST(NULL AS NVARCHAR(60))  COLLATE ' + @collation_name + N'
       ,level_4_grid            = CAST(NULL AS SMALLINT)
-      ,level_4_grid_desc       = CAST(NULL AS NVARCHAR(60))     COLLATE ' + @collation_name + N'
+      ,level_4_grid_desc       = CAST(NULL AS NVARCHAR(60))  COLLATE ' + @collation_name + N'
       ,cells_per_object        = CAST(NULL AS INT)
   INTO [##SQLXL_Index_sys_spatial_indexes]
 OPTION (MAXDOP 1,RECOMPILE);'
@@ -3570,7 +3575,7 @@ END;
  This does not exist in Azure SQL Database & Azure SQL Managed Instances per BOL as of 12/13/2024
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -3646,7 +3651,7 @@ END;
              Azure SQL Managed Instance
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -3712,7 +3717,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -3866,7 +3871,7 @@ END;
        incrementing number used for version-stamping table rows. It does not preserve a date or time.
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -3941,7 +3946,7 @@ END;
  NOTE: per BOL, not available in Azure SQL Database
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -3959,7 +3964,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
 SELECT TOP (0)
        database_id              = CAST(NULL AS INT)
       ,fulltext_catalog_id      = CAST(NULL AS INT)
-      ,name                     = CAST(NULL AS SYSNAME)          COLLATE ' + @collation_name + N'
+      ,name                     = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,is_default               = CAST(NULL AS BIT)
       ,is_accent_sensitivity_on = CAST(NULL AS BIT)
       ,principal_id             = CAST(NULL AS INT)
@@ -4010,7 +4015,7 @@ END;
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @sql            NVARCHAR(MAX)
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4072,7 +4077,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4169,7 +4174,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4268,7 +4273,7 @@ END;   -- IF @i = 1 BEGIN
  *Task* Collect [sys].[extended_properties]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4334,7 +4339,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = N''
        ,@exec_dttm      DATETIME      = GETDATE()
        ,@i              INT           = 1
@@ -4361,15 +4366,15 @@ DECLARE @Pattern NVARCHAR(15) = ''%[^'' + NCHAR(009) + NCHAR(010) + NCHAR(013) +
 
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2012 --------------------------------------------------------------------
-       is_temporary                 = CONVERT(BIT    ,NULL)
+       is_temporary                 = CONVERT(BIT          ,NULL)
        -- SQL 2014 --------------------------------------------------------------------
-      ,is_incremental               = CONVERT(BIT    ,NULL)
+      ,is_incremental               = CONVERT(BIT          ,NULL)
        -- SQL 2019 --------------------------------------------------------------------
-      ,has_persisted_sample         = CONVERT(BIT    ,NULL)
-      ,stats_generation_method      = CONVERT(INT    ,NULL)
-      ,stats_generation_method_desc = CONVERT(SYSNAME,NULL)        COLLATE ' + @collation_name + N'
+      ,has_persisted_sample         = CONVERT(BIT          ,NULL)
+      ,stats_generation_method      = CONVERT(INT          ,NULL)
+      ,stats_generation_method_desc = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
        -- SQL 2022 --------------------------------------------------------------------
-      ,auto_drop                    = CONVERT(BIT    ,NULL)
+      ,auto_drop                    = CONVERT(BIT          ,NULL)
 )'
 +IIF(@i > 1
     , NCHAR(013) + NCHAR(010) + N'INSERT INTO [##SQLXL_Index_sys_stats] WITH (TABLOCKX)'
@@ -4436,7 +4441,7 @@ END;
  *Task* Collect [sys].[stats_columns]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4500,7 +4505,7 @@ END;
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 USE [WideWorldImporters]
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4574,7 +4579,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4663,7 +4668,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4762,7 +4767,7 @@ END;
  NOTE: _desc columns omitted since buckets are computed for each description value
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4871,7 +4876,7 @@ END;   -- IF @i = 2 BEGIN
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4887,19 +4892,19 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
 
    SET @sql = N'
 SELECT TOP(0)
-       database_id                 = CONVERT(INT    ,NULL)
-      ,partition_id                = CONVERT(BIGINT ,NULL)
-      ,object_id                   = CONVERT(INT    ,NULL)
-      ,index_id                    = CONVERT(INT    ,NULL)
-      ,partition_number            = CONVERT(INT    ,NULL)
-      ,hobt_id                     = CONVERT(BIGINT ,NULL)
-      ,internal_object_type        = CONVERT(TINYINT,NULL)
-      ,internal_object_type_desc   = CONVERT(SYSNAME,NULL)           COLLATE ' + @collation_name + N'
-      ,row_group_id                = CONVERT(INT    ,NULL)
-      ,rows                        = CONVERT(BIGINT ,NULL)
-      ,data_compression            = CONVERT(TINYINT,NULL)
-      ,data_compression_desc       = CONVERT(SYSNAME,NULL)           COLLATE ' + @collation_name + N'
-      ,optimize_for_sequential_key = CONVERT(BIT    ,NULL)
+       database_id                 = CONVERT(INT          ,NULL)
+      ,partition_id                = CONVERT(BIGINT       ,NULL)
+      ,object_id                   = CONVERT(INT          ,NULL)
+      ,index_id                    = CONVERT(INT          ,NULL)
+      ,partition_number            = CONVERT(INT          ,NULL)
+      ,hobt_id                     = CONVERT(BIGINT       ,NULL)
+      ,internal_object_type        = CONVERT(TINYINT      ,NULL)
+      ,internal_object_type_desc   = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
+      ,row_group_id                = CONVERT(INT          ,NULL)
+      ,rows                        = CONVERT(BIGINT       ,NULL)
+      ,data_compression            = CONVERT(TINYINT      ,NULL)
+      ,data_compression_desc       = CONVERT(NVARCHAR(200),NULL) COLLATE ' + @collation_name + N'
+      ,optimize_for_sequential_key = CONVERT(BIT          ,NULL)
   INTO [##SQLXL_Index_sys_internal_partitions];'
 
    EXECUTE [sys].[sp_executesql] @sql; IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
@@ -4966,7 +4971,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -4984,11 +4989,11 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
 SELECT TOP (0)
        database_id                    = CAST(NULL AS INT    )
       ,object_id                      = CAST(NULL AS INT    )
-      ,table_name                     = CAST(NULL AS SYSNAME)     COLLATE ' + @collation_name + N'
+      ,table_name                     = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,index_id                       = CAST(NULL AS INT    )
-      ,type                           = CAST(NULL AS NVARCHAR(2)) COLLATE ' + @collation_name + N'
-      ,type_desc                      = CAST(NULL AS SYSNAME)     COLLATE ' + @collation_name + N'
-      ,index_name                     = CAST(NULL AS SYSNAME)     COLLATE ' + @collation_name + N'
+      ,type                           = CAST(NULL AS NVARCHAR(2))   COLLATE ' + @collation_name + N'
+      ,type_desc                      = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
+      ,index_name                     = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,is_unique                      = CAST(NULL AS BIT    )
       -- [sys].[dm_db_xtp_object_stats] -----------------------
       ,row_insert_attempts            = CAST(NULL AS BIGINT )
@@ -5199,7 +5204,7 @@ END;
  *Task* Collect [sys].[allocation_units] & link to [sys].[dm_os_buffer_descriptors] & EXT
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -5310,7 +5315,7 @@ END;
  NOTE: includes all columns in [sys].[column_store_row_groups]
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -5334,14 +5339,14 @@ SELECT TOP (0)
       ,row_group_id                        = CAST(NULL AS INT     )
       ,delta_store_hobt_id                 = CAST(NULL AS BIGINT  )
       ,state                               = CAST(NULL AS TINYINT )
-      ,state_desc                          = CAST(NULL AS SYSNAME )              COLLATE ' + @collation_name + N'
+      ,state_desc                          = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,total_rows                          = CAST(NULL AS BIGINT  )
       ,deleted_rows                        = CAST(NULL AS BIGINT  )
       ,size_in_bytes                       = CAST(NULL AS BIGINT  )
       ,trim_reason                         = CAST(NULL AS TINYINT )
-      ,trim_reason_desc                    = CAST(NULL AS SYSNAME )              COLLATE ' + @collation_name + N'
+      ,trim_reason_desc                    = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,transition_to_compressed_state      = CAST(NULL AS TINYINT )
-      ,transition_to_compressed_state_desc = CAST(NULL AS SYSNAME )              COLLATE ' + @collation_name + N'
+      ,transition_to_compressed_state_desc = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,has_vertipaq_optimization           = CAST(NULL AS BIT     )
       ,generation                          = CAST(NULL AS BIGINT  )
       --------------------------------------------------------------
@@ -5407,7 +5412,7 @@ END;
        https://www.mssqltips.com/sqlservertip/5898/make-sql-server-dmv-queries-backward-compatible/
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -5519,7 +5524,7 @@ END;
  *Task* Collect [sys].[index_resumable_operations] - SQL 2017+
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -5538,7 +5543,7 @@ SELECT TOP (0)
        database_id          = CAST(NULL AS INT)
       ,object_id            = CAST(NULL AS INT)
       ,index_id             = CAST(NULL AS INT)
-      ,state_desc           = CAST(NULL AS SYSNAME)        COLLATE ' + @collation_name + N'
+      ,state_desc           = CAST(NULL AS NVARCHAR(200)) COLLATE ' + @collation_name + N'
       ,partition_CNT        = CAST(NULL AS BIGINT)
       ,start_time           = CAST(NULL AS DATETIME)
       ,last_pause_time      = CAST(NULL AS DATETIME)
@@ -5608,7 +5613,7 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
 END;
 
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = QUOTENAME(DB_NAME())
        ,@i              INT           = 1 -- database loop counter
        ,@sql            NVARCHAR(MAX) = N''
@@ -5649,39 +5654,39 @@ SET IMPLICIT_TRANSACTIONS OFF; -- occasionally implicit transactions are created
 CREATE
  TABLE #XL_IDX_sys_ShowStatistics_StatHeader
       (Name                     NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
-      ,Updated                  DATETIME                                       NULL
-      ,Rows                     BIGINT                                         NULL
-      ,Rows_sampled             BIGINT                                         NULL
-      ,steps                    INT                                            NULL
-      ,Density                  FLOAT                                          NULL
-      ,average_key_length       INT                                            NULL
+      ,Updated                  DATETIME                                            NULL
+      ,Rows                     BIGINT                                              NULL
+      ,Rows_sampled             BIGINT                                              NULL
+      ,steps                    INT                                                 NULL
+      ,Density                  FLOAT                                               NULL
+      ,average_key_length       INT                                                 NULL
       ,String_index             NVARCHAR(20)   COLLATE ' + @collation_name + N'     NULL
       ,Filter_Expression        NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
-      ,Unfiltered_Rows          BIGINT                                         NULL
-      ,Persisted_Sample_Percent TINYINT                                        NULL
+      ,Unfiltered_Rows          BIGINT                                              NULL
+      ,Persisted_Sample_Percent TINYINT                                             NULL
       );'
 
 +IIF(@i = 1
     ,N'
 CREATE
  TABLE [##SQLXL_Index_sys_ShowStatistics_StatHeader] -- persisted table
-      (database_id              INT                                        NOT NULL
-      ,object_id                INT                                        NOT NULL
+      (database_id              INT                                             NOT NULL
+      ,object_id                INT                                             NOT NULL
       ,object_name              NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
       ,stats_target_name        NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
-      ,index_id                 INT                                            NULL
-      ,column_ID                INT                                            NULL
-      ,Statistics_age_days      INT                                            NULL
-      ,Updated                  DATETIME                                       NULL
-      ,Rows                     BIGINT                                         NULL
-      ,Rows_sampled             BIGINT                                         NULL
-      ,steps                    INT                                            NULL
-      ,Density                  FLOAT                                          NULL
-      ,average_key_length       INT                                            NULL
+      ,index_id                 INT                                                 NULL
+      ,column_ID                INT                                                 NULL
+      ,Statistics_age_days      INT                                                 NULL
+      ,Updated                  DATETIME                                            NULL
+      ,Rows                     BIGINT                                              NULL
+      ,Rows_sampled             BIGINT                                              NULL
+      ,steps                    INT                                                 NULL
+      ,Density                  FLOAT                                               NULL
+      ,average_key_length       INT                                                 NULL
       ,String_index             NVARCHAR(3)    COLLATE ' + @collation_name + N'     NULL
       ,Filter_Expression        NVARCHAR(MAX)  COLLATE ' + @collation_name + N'     NULL
-      ,Unfiltered_Rows          BIGINT                                         NULL
-      ,Persisted_Sample_Percent TINYINT                                        NULL
+      ,Unfiltered_Rows          BIGINT                                              NULL
+      ,Persisted_Sample_Percent TINYINT                                             NULL
       )
   WITH (DATA_COMPRESSION = PAGE);'
     ,N'')
@@ -7693,10 +7698,10 @@ END;
 \#########################################################################################################################################*/
 
 /*** LOCAL TESTING ***
-DECLARE @sql       NVARCHAR(MAX)
-       ,@collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
-       ,@ssms_ads  TINYINT       = 2
-       ,@i         INT           = 1
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
+       ,@sql            NVARCHAR(MAX)
+       ,@ssms_ads       TINYINT       = 2
+       ,@i              INT           = 1
 --*/
 BEGIN TRY
    DROP TABLE [##SQLXL_Index_Compilation];
@@ -7731,7 +7736,7 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Element Names & Descriptions
 --------------------------------------------------------------------------------------------------------------------------------------------
-,collation_name                             SYSNAME        COLLATE ' + @collation_name + N'     NULL -- TABLE [##SQLXL_Index_Compilation]
+,collation_name                             NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL -- TABLE [##SQLXL_Index_Compilation]
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- COMPUTED prescribed Actions to take by Index & Table
@@ -7741,11 +7746,11 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Object Computed values - labels to flag compilation records
 --------------------------------------------------------------------------------------------------------------------------------------------
-,obj_type_pfx                               SYSNAME        COLLATE ' + @collation_name + N'     NULL
-,obj_type_hdr                               SYSNAME        COLLATE ' + @collation_name + N'     NULL
-,obj_type_dtl                               SYSNAME        COLLATE ' + @collation_name + N'     NULL
-,idx_type_hdr                               SYSNAME        COLLATE ' + @collation_name + N'     NULL
-,idx_type_dtl                               SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,obj_type_pfx                               NVARCHAR(3)    COLLATE ' + @collation_name + N'     NULL
+,obj_type_hdr                               NVARCHAR(3)    COLLATE ' + @collation_name + N'     NULL
+,obj_type_dtl                               NVARCHAR(15)   COLLATE ' + @collation_name + N'     NULL
+,idx_type_hdr                               NVARCHAR(3)    COLLATE ' + @collation_name + N'     NULL
+,idx_type_dtl                               NVARCHAR(3)    COLLATE ' + @collation_name + N'     NULL
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- additional "object" level info - [sys].[tables], [sys].[views], [sys].[triggers]
@@ -7757,7 +7762,7 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,tbl_is_empty                               BIT                                             NOT NULL DEFAULT(0)
 ,tbl_priority_metric                        FLOAT                                               NULL
-,tbl_cx_uniq_ordered_column_TYP             SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,tbl_cx_uniq_ordered_column_TYP             NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,tbl_cx_uniq_ordered_column_ID              BIGINT                                              NULL
 ,tbl_possible_uniq_column_ID                BIGINT                                              NULL
 ,tbl_smallest_uniq_Nonclustered_idx         BIGINT                                              NULL
@@ -7765,8 +7770,8 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- [sys].[indexes] - NOTE: other elements below in Shared Elements
 --------------------------------------------------------------------------------------------------------------------------------------------
-,type_desc                                  SYSNAME        COLLATE ' + @collation_name + N'     NULL
-,sub_type_desc                              SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,type_desc                                  NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
+,sub_type_desc                              NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
    -- Sources: [sys].[xml_indexes xml_index_type_description],[sys].[spatial_indexes spatial_index_type_desc]
 ,is_unique                                  BIT                                             NOT NULL DEFAULT(0) -- 1 = unique
 ,ignore_dup_key                             BIT                                             NOT NULL DEFAULT(0) -- 1 = ON
@@ -7788,7 +7793,7 @@ CREATE
 -- Shared elements between index & parent
 -- Sources: [sys].[internal_tables], [sys].[triggers]
 --------------------------------------------------------------------------------------------------------------------------------------------
-,name                                       SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,name                                       NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,is_disabled                                BIT                                             NOT NULL DEFAULT(0)
    -- Sources: [sys].[indexes],[sys].[foreign_keys],[sys].[fulltext_indexes] is_enabled (note value IS flipped here)
 ,is_not_trusted                             BIT                                             NOT NULL DEFAULT(0)
@@ -7801,16 +7806,16 @@ CREATE
 -- [sys].[xml_indexes]
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,xml_index_type                             TINYINT                                             NULL
-,xml_index_type_description                 SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,xml_index_type_description                 NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,xml_using_xml_index_id                     BIGINT                                              NULL
 ,xml_secondary_type                         CHAR(1)        COLLATE ' + @collation_name + N'     NULL
-,xml_secondary_type_desc                    SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,xml_secondary_type_desc                    NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,xml_path_ID                                BIGINT                                              NULL
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- [sys].[spatial_indexes]. Other tessealtion columns can be found in [##SQLXL_Index_sys_spatial_indexes]
 --------------------------------------------------------------------------------------------------------------------------------------------
-,si_tessellation_scheme                     SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,si_tessellation_scheme                     NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- [sys].[hash_indexes]
@@ -7822,12 +7827,12 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,ftx_unique_index_id                        BIGINT                                              NULL
 ,ftx_fulltext_catalog_ID                    BIGINT                                              NULL
-,ftx_fulltext_catalog_name                  SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,ftx_fulltext_catalog_name                  NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,ftx_change_tracking_state                  CHAR(1)        COLLATE ' + @collation_name + N'     NULL
-,ftx_change_tracking_state_desc             SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,ftx_change_tracking_state_desc             NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,ftx_has_crawl_completed                    BIT                                                 NULL
 ,ftx_crawl_type                             CHAR(1)        COLLATE ' + @collation_name + N'     NULL
-,ftx_crawl_type_desc                        SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,ftx_crawl_type_desc                        NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,ftx_crawl_start_date                       DATETIME                                            NULL
 ,ftx_crawl_end_date                         DATETIME                                            NULL
 --,ftx_incremental_timestamp                BINARY(8)                                           NULL -- OMITTED. binary type, is rowversion
@@ -7842,13 +7847,13 @@ CREATE
 ,fkc_reference                              NVARCHAR(4000) COLLATE ' + @collation_name + N'     NULL
 ,fkc_is_not_for_replication                 BIT                                                 NULL
 ,fkc_delete_referential_action              TINYINT                                             NULL
-,fkc_delete_referential_action_desc         SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,fkc_delete_referential_action_desc         NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,fkc_update_referential_action              TINYINT                                             NULL
-,fkc_update_referential_action_desc         SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,fkc_update_referential_action_desc         NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- derived values for Foreign Key Constraints - index(es) covering Foreign Key Constraint, non-filtered, in order of enabled, shortest
 --------------------------------------------------------------------------------------------------------------------------------------------
-,fkc_best_covering_idx_name                 SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,fkc_best_covering_idx_name                 NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,fkc_best_covering_idx_ID                   BIGINT                                              NULL
 ,fkc_best_covering_idx_type                 NVARCHAR(2)    COLLATE ' + @collation_name + N'     NULL
 ,fkc_covered_by_idx_IDS                     NVARCHAR(1000) COLLATE ' + @collation_name + N'     NULL -- list of all covering indexes
@@ -7917,7 +7922,7 @@ CREATE
 ,stats_is_incremental                       BIT                                                 NULL
 ,stats_has_persisted_sample                 BIT                                                 NULL
 ,stats_generation_method                    BIGINT                                              NULL
-,stats_generation_method_desc               SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,stats_generation_method_desc               NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- ShowStatistics.StatHeader
@@ -8201,7 +8206,7 @@ CREATE
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,partition_CNT                              BIGINT                                          NOT NULL DEFAULT(0)
 ,partition_column_ID                        BIGINT                                              NULL
-,partition_column_name                      SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,partition_column_name                      NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Index Partition Compression
@@ -8258,7 +8263,7 @@ CREATE
 ,Lead_Element_column_ID                     SMALLINT                                            NULL
 ,lead_element_uniqueness                    FLOAT                                               NULL
 ,Lead_Element_Max_Len                       SMALLINT                                            NULL
-,Lead_Element_Data_Type                     SYSNAME        COLLATE ' + @collation_name + N'     NULL
+,Lead_Element_Data_Type                     NVARCHAR(200)  COLLATE ' + @collation_name + N'     NULL
 ,Lead_Element_is_Identity                   BIT                                             NOT NULL DEFAULT(0)
 ,Lead_Element_is_Sequence                   BIT                                             NOT NULL DEFAULT(0)
 ,Lead_Element_is_newsequentialid            BIT                                             NOT NULL DEFAULT(0)
@@ -12381,7 +12386,7 @@ END;
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@sql            NVARCHAR(MAX)
        ,@ssms_ads       TINYINT       = 2 -- used below to output generated @sql code
 --*/
@@ -12394,8 +12399,8 @@ END CATCH
 SET @sql = N'
 CREATE
  TABLE [##SQLXL_Index_Compilation_Compute_Columns]
-      (typ  NVARCHAR(3) COLLATE ' + @collation_name + N' NULL
-      ,name SYSNAME     COLLATE ' + @collation_name + N' NULL
+      (typ  NVARCHAR(3)   COLLATE ' + @collation_name + N' NULL
+      ,name NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
       );'
 
 IF @ssms_ads > 1 -- SSMS/ADS only
@@ -13095,7 +13100,7 @@ END TRY
 BEGIN CATCH
 END CATCH
 
-DECLARE @column_name SYSNAME;
+DECLARE @column_name NVARCHAR(200);
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Insert All millisecond (_MS) average (_AVG) computed values into [##SQLXL_Index_Metrics]
@@ -13247,8 +13252,8 @@ SET NOCOUNT ON
 DECLARE @sql         NVARCHAR(MAX)
        ,@ssms_ads    TINYINT = 1
        ,@msg         NVARCHAR(1000)
-       ,@column_name SYSNAME
-       ,@exec_dttm   DATETIME      = GETDATE()
+       ,@column_name NVARCHAR(200)
+       ,@exec_dttm   DATETIME       = GETDATE()
 --*/
 
 DECLARE agg_crsr CURSOR LOCAL STATIC FOR
@@ -13369,7 +13374,7 @@ END;
 /*** LOCAL TESTING ***
 SET NOCOUNT ON
 DECLARE @sql         NVARCHAR(MAX)
-       ,@column_name SYSNAME
+       ,@column_name NVARCHAR(200)
        ,@ssms_ads    TINYINT = 1
 --*/
 DECLARE agg_crsr CURSOR LOCAL FAST_FORWARD FOR
@@ -13638,7 +13643,7 @@ END;
  *Task* [###} Create [##SQLXL_Index_Diagnostics], Metrics_Summary, Metric_Rollup -----------------------------------------------------------
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@sql            NVARCHAR(MAX) = N''
        ,@ssms_ads       TINYINT       = 2 -- used below to output generated @sql code
 --*/
@@ -13736,23 +13741,23 @@ CREATE
  TABLE [##SQLXL_Index_Metric_Rollup]
       (metric_rollup_nbr INT     IDENTITY(1,1)
       ,min_value_1       FLOAT                               NULL
-      ,Level_1           SYSNAME COLLATE ' + @collation_name + N' NULL
-      ,abbr_1            SYSNAME COLLATE ' + @collation_name + N' NULL
+      ,Level_1           NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
+      ,abbr_1            NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
       ,min_value_2       FLOAT                               NULL
-      ,Level_2           SYSNAME COLLATE ' + @collation_name + N' NULL
-      ,abbr_2            SYSNAME COLLATE ' + @collation_name + N' NULL
+      ,Level_2           NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
+      ,abbr_2            NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
       ,min_value_3       FLOAT                               NULL
-      ,Level_3           SYSNAME COLLATE ' + @collation_name + N' NULL
-      ,abbr_3            SYSNAME COLLATE ' + @collation_name + N' NULL
+      ,Level_3           NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
+      ,abbr_3            NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
       ,min_value_4       FLOAT                               NULL
-      ,Level_4           SYSNAME COLLATE ' + @collation_name + N' NULL
-      ,abbr_4            SYSNAME COLLATE ' + @collation_name + N' NULL
+      ,Level_4           NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
+      ,abbr_4            NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
       ,min_value_5       FLOAT                               NULL
-      ,Level_5           SYSNAME COLLATE ' + @collation_name + N' NULL
-      ,abbr_5            SYSNAME COLLATE ' + @collation_name + N' NULL
+      ,Level_5           NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
+      ,abbr_5            NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
       ,min_value_6       FLOAT                               NULL
-      ,Level_6           SYSNAME COLLATE ' + @collation_name + N' NULL
-      ,abbr_6            SYSNAME COLLATE ' + @collation_name + N' NULL
+      ,Level_6           NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
+      ,abbr_6            NVARCHAR(200) COLLATE ' + @collation_name + N' NULL
       );'
 
 IF @ssms_ads > 1 -- SSMS/ADS only
@@ -14800,7 +14805,7 @@ SELECT rec_type     = N'D'          -- database level composite record
 +IIF(   db.is_auto_create_stats_on             = 0
      OR db.is_auto_update_stats_on             = 0
      OR db.is_auto_update_stats_async_on       = 1
-     OR (    PARSENAME(CONVERT(SYSNAME,SERVERPROPERTY('ProductVersion')),4) >= 12 -- SQL 2014+
+     OR (    PARSENAME(CONVERT(NVARCHAR(200),SERVERPROPERTY('ProductVersion')),4) >= 12 -- SQL 2014+
          AND (   partitioned_tbl.CNT                   > 0
               OR db.is_auto_create_stats_incremental_on = 1
              )
@@ -20928,9 +20933,9 @@ IF @cover_foreign_keys > 0 BEGIN
 
    INSERT
      INTO [##SQLXL_Index_prescription]
-   /*** LOCAL TESTING ***
-   DECLARE @srt INT = 0;
-   --*/
+/*** LOCAL TESTING ***
+DECLARE @srt INT = 0;
+--*/
    SELECT i.database_id
          ,i.object_id
          ,i.index_id
@@ -24131,7 +24136,6 @@ IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
             + N' Added significant index metrics diagnostic records'
    RAISERROR(@msg,0,0) WITH NOWAIT;
-   RAISERROR(N'    Start Add diagnostic records to [##SQLXL_Index_Compilation]',0,0) WITH NOWAIT;
    SET @exec_dttm = GETDATE();
 END;
 
@@ -24189,6 +24193,13 @@ IF @rowcount > 0 BEGIN
 
    RAISERROR(N'########################################################################################',0,0) WITH NOWAIT;
 END; -- IF @rowcount > 0
+
+IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@exec_dttm,GETDATE()),0))
+            + N' Listed skipped databases if appropriate'
+   RAISERROR(@msg,0,0) WITH NOWAIT;
+   SET @exec_dttm = GETDATE();
+END;
 
 /******************************************************************************************************************************************\
  End of procedure SQLXL_INDEX
@@ -24949,7 +24960,7 @@ CREATE
 ,index_id         INT                                        NOT NULL
 ,type             NVARCHAR(2)    COLLATE ' + @collation_name + N' NOT NULL
 ,sub_type         SMALLINT                                   NOT NULL
-,metric           SYSNAME        COLLATE ' + @collation_name + N' NOT NULL
+,metric           NVARCHAR(200)  COLLATE ' + @collation_name + N' NOT NULL
 ,metric_AMT       FLOAT                                          NULL
 ,metric_FMT       NVARCHAR(7)    COLLATE ' + @collation_name + N'     NULL
 ,diagnostic_PCT   FLOAT                                          NULL
@@ -26665,7 +26676,7 @@ END CATCH
 GO
 
 ALTER PROCEDURE [##SQLXL_Instance]
-     (@collation_name SYSNAME = N'DATABASE_DEFAULT'
+     (@collation_name NVARCHAR(200) = N'DATABASE_DEFAULT'
 --   ,@ssms_ads       TINYINT = 0 <FUTURE> parameter
      )
   WITH RECOMPILE
@@ -26727,14 +26738,14 @@ END;
 DECLARE @sql            NVARCHAR(MAX)
        ,@msg            NVARCHAR(1000)
        ,@coll_dttm      DATETIME = GETDATE()
-       ,@collation_name SYSNAME        = N'DATABASE_DEFAULT';
+       ,@collation_name NVARCHAR(200)  = N'DATABASE_DEFAULT';
 DROP TABLE IF EXISTS [##SQLXL_Instance_info];
 --*/
 
 SET @sql = N'
-SELECT source            = CAST(N''SQLXL''           AS SYSNAME)                      COLLATE DATABASE_DEFAULT
+SELECT source            = CAST(N''SQLXL''           AS NVARCHAR(200))                      COLLATE DATABASE_DEFAULT
       ,configuration_id  = CAST(NULL AS INT)
-      ,name              = CAST(N''Collection_DTTM'' AS SYSNAME)                      COLLATE DATABASE_DEFAULT
+      ,name              = CAST(N''Collection_DTTM'' AS NVARCHAR(200))                      COLLATE DATABASE_DEFAULT
       ,configured_value  = CAST(NULL AS BIGINT)
       ,minimum_value     = CAST(NULL AS BIGINT)
       ,maximum_value     = CAST(NULL AS BIGINT)
@@ -26782,12 +26793,12 @@ END;
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 DECLARE @sql            NVARCHAR(MAX)
-       ,@collation_name SYSNAME       = N'DATABASE_DEFAULT';
+       ,@collation_name NVARCHAR(200) = N'DATABASE_DEFAULT';
 DROP TABLE IF EXISTS [##SQLXL_Instance_defaults];
 --*/
 SET @sql = N'
-SELECT source         = CAST(N''configurations'' AS SYSNAME) COLLATE DATABASE_DEFAULT
-      ,name           = CAST(v.name              AS SYSNAME) COLLATE DATABASE_DEFAULT
+SELECT source         = CAST(N''configurations'' AS NVARCHAR(200)) COLLATE DATABASE_DEFAULT
+      ,name           = CAST(v.name              AS NVARCHAR(200)) COLLATE DATABASE_DEFAULT
       ,default_value  = CAST(v.default_value     AS BIGINT)
       ,sql_version_lo = CAST(v.sql_version_lo    AS TINYINT)
       ,sql_version_hi = CAST(v.sql_version_hi    AS TINYINT)
@@ -27165,7 +27176,7 @@ END;
  *Task* Collect Instance @@Functions & System Function settings
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
-DECLARE @collation_name NVARCHAR(MAX) = (SELECT collation_name FROM [##SQLXL_Index_Startup])
+DECLARE @collation_name NVARCHAR(MAX) = N'DATABASE_DEFAULT'
        ,@db_name_quoted NVARCHAR(MAX) = N'[WideWorldImporters]'
        ,@exec_dttm      DATETIME      = GETDATE()
        ,@i              INT           = 1
@@ -27340,8 +27351,8 @@ SELECT qry.source
  APPLY (-- All [sys].[dm_os_sys_info] values
 ----------------------------------------------------------
 SELECT TOP (0) -- make sure each column has the correct data type
-       source    = CAST(NULL AS SYSNAME)
-      ,name      = CAST(NULL AS SYSNAME)
+       source    = CAST(NULL AS NVARCHAR(200))
+      ,name      = CAST(NULL AS NVARCHAR(200))
       ,run_value = CAST(NULL AS BIGINT)
 UNION ALL
 SELECT N'dm_os_sys_info',N'cpu_ticks'                     ,(SELECT cpu_ticks                      FROM [sys].[dm_os_sys_info]) UNION ALL
@@ -27394,14 +27405,14 @@ END;
 ;WITH newcol AS (-- columns added after SQL Server 2005
 SELECT -- SQL 2008 & 2008R2 ONLY --------------------------------
        -- SQL 2012+ ---------------------------------------------
-       sql_memory_model_desc       = CONVERT(SYSNAME       ,NULL)
+       sql_memory_model_desc       = CONVERT(NVARCHAR(200) ,NULL)
        -- SQL 2014+ ---------------------------------------------
        -- SQL 2016+ ---------------------------------------------
-      ,softnuma_configuration_desc = CONVERT(SYSNAME       ,NULL)
+      ,softnuma_configuration_desc = CONVERT(NVARCHAR(200) ,NULL)
        -- SQL 2017+ ---------------------------------------------
       ,process_physical_affinity   = CONVERT(NVARCHAR(3072),NULL)
       ,container_type              = CONVERT(BIGINT        ,NULL)
-      ,container_type_desc         = CONVERT(SYSNAME       ,NULL)
+      ,container_type_desc         = CONVERT(NVARCHAR(200) ,NULL)
 )
 INSERT
   INTO [##SQLXL_Instance_info] WITH (TABLOCKX)
@@ -27417,8 +27428,8 @@ SELECT qry.source
  APPLY (-- All [sys].[dm_os_sys_info] values
 ----------------------------------------------------------
 SELECT TOP (0) -- make sure each column has the correct data type
-       source     = CAST(NULL AS SYSNAME)
-      ,name       = CAST(NULL AS SYSNAME)
+       source     = CAST(NULL AS NVARCHAR(200))
+      ,name       = CAST(NULL AS NVARCHAR(200))
       ,text_value_in_use = CAST(NULL AS NVARCHAR(255))
 UNION ALL
 SELECT N'dm_os_sys_info',N'affinity_type_desc'            ,(SELECT affinity_type_desc             FROM [sys].[dm_os_sys_info]) UNION ALL
@@ -27469,8 +27480,8 @@ BEGIN
     CROSS
     APPLY (-- server numeric configuration information for "local" connected server from [sys].[servers]
    SELECT TOP (0)
-          source    = CAST(NULL AS SYSNAME)
-         ,name      = CAST(NULL AS SYSNAME)
+          source    = CAST(NULL AS NVARCHAR(200))
+         ,name      = CAST(NULL AS NVARCHAR(200))
          ,run_value = CAST(NULL AS BIGINT)
    UNION ALL
    SELECT N'servers',N'server_id'              ,(SELECT server_id               FROM [sys].[servers] WHERE server_id = 0) UNION ALL
