@@ -1,4 +1,4 @@
--- VERSION 25.01.24.0
+-- VERSION 25.01.25.0
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc.
 session is connected to since you can't create temporary (#) functions in SQL Server
@@ -5827,7 +5827,7 @@ SELECT database_name = QUOTENAME(DB_NAME())
               ,index_id          = CAST(NULL AS INT)
               ,ic.column_ID
               ,object_name       = QUOTENAME(obj.schema_name) + N''.'' + QUOTENAME(obj.name) COLLATE ' + @collation_name + N'
-              ,stats_target_name = CAST(QUOTENAME(i.name) AS NVARCHAR(200))                  COLLATE ' + @collation_name + N'
+              ,stats_target_name = CAST(QUOTENAME(c.name) AS NVARCHAR(200))                  COLLATE ' + @collation_name + N'
           FROM (-- All Columns that have had stats computed, including by Statistics Auto Create
                 -- find candidate unique columns for HEAPS, columns that can takes advantage of new/existing NCS if added
                 SELECT database_id
