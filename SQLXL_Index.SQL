@@ -1,4 +1,4 @@
--- VERSION 250415.0
+-- VERSION 250707.0
 SET STATISTICS IO,PROFILE,TIME,XML OFF; -- Displays information on statement resource usage
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to  since you can't create
