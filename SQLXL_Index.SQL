@@ -1,4 +1,4 @@
--- VERSION 250707.0
+-- VERSION 250717.0
 SET STATISTICS IO,PROFILE,TIME,XML OFF; -- Displays information on statement resource usage
 /******************************************************************************************************************************************\
 NOTE: All SQLXL helper functions are created in the database your SSMS, ADS, dBeaver etc. session is connected to  since you can't create
@@ -2352,6 +2352,7 @@ SELECT
       ,fkc.referenced_object_id
       ,fkc.key_index_id
       ,fkc_referenced_object_desc     = CONVERT(NVARCHAR(4000),NULL)       COLLATE Latin1_General_100_CI_AI -- referenced table & column(s)
+      --<BS> are these needed here, or can they be mereged into OBJECTS? not used anywhere but EDGE actions are not used anywhere
       ,delete_referential_action      = COALESCE(edg_con.delete_referential_action
                                                 ,fkc.delete_referential_action
                                                 )
@@ -5254,8 +5255,8 @@ SELECT qry.*
  APPLY (-- syntax used to include cte with new columns above
         -- add columns from [sys].[dm_db_xtp_index_stats]
         SELECT database_id         = DB_ID()
-              ,object_id           = t.object_id
-              ,table_name          = t.name                       COLLATE Latin1_General_100_CI_AI
+              ,object_id           = obj.object_id
+              ,table_name          = obj.name                     COLLATE Latin1_General_100_CI_AI
               ,i.index_id
               ,type                = CAST(i.type AS NVARCHAR(2))  COLLATE Latin1_General_100_CI_AI
               ,type_desc           = i.type_desc                  COLLATE Latin1_General_100_CI_AI
@@ -5301,11 +5302,11 @@ SELECT qry.*
                  WHERE DB_ID() = database_id
                    AND N''U''  = type                -- User Table
                    AND 1       = is_memory_optimized -- only returns tables that are memory optimized
-               ) AS t
+               ) AS obj
           LEFT OUTER
           JOIN [##SQLXL_Index_sys_indexes]    AS i
-            ON t.database_id = i.database_id
-           AND t.object_id   = i.object_id   -- only memory optimized tables selected above
+            ON obj.database_id = i.database_id
+           AND obj.object_id   = i.object_id   -- only memory optimized tables selected above
           LEFT OUTER
           JOIN [sys].[dm_db_xtp_object_stats] AS xos WITH (READUNCOMMITTED)
             ON i.object_id   = xos.object_id
@@ -10270,8 +10271,15 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
 /*** LOCAL TESTING ***
 SELECT COUNT_BIG(1)
 --*/
-  FROM (SELECT * FROM [##SQLXL_Index_compilation] WITH (TABLOCKX) WHERE rec_type = N'I') AS tgt     -- index level composite record
-
+  FROM (--
+        SELECT *
+          FROM [##SQLXL_Index_compilation] WITH (TABLOCKX)
+         WHERE rec_type    = N'I'   -- index level composite record
+           AND type   NOT IN (-- avoid "indexes" with IDs that could match up with physical index partitions
+                              N'F'  -- foreign key constraint
+                             ,N'M'  -- missing nonclustered rowstore index
+                             )
+       ) AS tgt
  INNER HASH
   JOIN [##SQLXL_Index_sys_objects] AS obj
     ON tgt.database_id = obj.database_id
@@ -10298,10 +10306,7 @@ SELECT COUNT_BIG(1)
     ON tgt.database_id = p.database_id
    AND tgt.object_id   = p.object_id
    AND tgt.index_id    = p.index_id
-   AND tgt.type   NOT IN (-- avoid "indexes" with IDs that could match up with physical index partitions
-                          N'F'  -- foreign key constraint
-                         ,N'M'  -- missing nonclustered rowstore index
-                         )
+
  OUTER
  APPLY (-- Assemble index uniqueness statistics
         SELECT (-- double select to accomodate .value('.',N'NVARCHAR(MAX)') below
@@ -11784,7 +11789,7 @@ SELECT *
                                 )
            AND CASE
               -------------------------------------------------------------------------------------------
-              -- foreign keys matching candidate covering rowtore indexes or duplicates
+              -- foreign keys matching candidate covering rowstore indexes or duplicates
               -------------------------------------------------------------------------------------------
                    WHEN idxl.type  = N'F'
                     AND idxr.type IN (N'1',N'2',N'F',N'M')
@@ -21489,13 +21494,18 @@ SELECT fk.database_id
       ,IIF(fk.active = 1,N'Retain',N'Review')
       ,@srt
       ,prescription = N'Covers ' + IIF(fk.active = 1,N'',N'NFC ') + N'FKC'
+/*** LOCAL TESTING ***
+DECLARE @srt INT = 0
+       ,@cover_foreign_keys TINYINT = 2;
+SELECT *
+--*/
   FROM (-- get Foreign Key Constraints to cover based on passed in parameter
 
 /*** LOCAL TESTING ***
 DECLARE @srt INT = 0
        ,@cover_foreign_keys TINYINT = 2;
 --*/
-        SELECT database_id,object_id
+        SELECT database_id,parent_object_id,object_id
               ,is_disabled
               ,is_not_for_replication
               ,is_not_trusted
@@ -21533,7 +21543,7 @@ DECLARE @srt INT = 0
            AND 0    < fkc_best_covering_idx_ID
        ) AS fx
     ON fk.database_id      = fx.database_id
-   AND fk.object_id        = fx.object_id
+   AND fk.parent_object_id = fx.object_id
    AND fk.object_id        = fx.index_id
   JOIN (-- rowstore indexes eligible to cover a foreign key constraint
         SELECT database_id,object_id,index_id,type,sub_type
@@ -21543,7 +21553,7 @@ DECLARE @srt INT = 0
                           )
        ) AS i
     ON fk.database_id              = i.database_id
-   AND fk.object_id                = i.object_id
+   AND fk.parent_object_id         = i.object_id
    AND fx.fkc_best_covering_idx_ID = i.index_id
  GROUP BY              -- needed because there can be redundant foreign keys
        fk.database_id
