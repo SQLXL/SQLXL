@@ -4381,8 +4381,8 @@ SELECT column_store_order_ordinal = CONVERT(INT,NULL)
 SELECT database_id                 = DB_ID()
       ,ic.object_id
       ,ic.index_id
-      ,type                        = CAST(i.type AS NVARCHAR(2)) COLLATE Latin1_General_100_CI_AI
-      ,i.sub_type
+      ,type                        = CAST(idx.type AS NVARCHAR(2)) COLLATE Latin1_General_100_CI_AI
+      ,idx.sub_type
       ,index_column_id
       ,column_id
       ,key_ordinal
@@ -4402,25 +4402,25 @@ SELECT database_id                 = DB_ID()
       ,idx_column_display_sequence = CAST(ROW_NUMBER()              -- Update for index types "0" - "7", TVF
                                           OVER (PARTITION BY ic.object_id
                                                             ,ic.index_id
-                                                            ,i.type
-                                                            ,i.sub_type
+                                                            ,idx.type
+                                                            ,idx.sub_type
                                                     ORDER BY CASE WHEN key_ordinal > 0
                                                                   THEN key_ordinal
                                                                   ELSE index_column_id
                                                              END
                                                ) AS INT)
       ,is_index_column_filtered    = CAST(0 AS BIT)                -- To flag index columns included in filter definitions
-      ,idx_stats_uniqueness_prefix = CAST(CASE i.type
-                                               WHEN 3  THEN N''XML'' -- XML index
-                                               WHEN 4  THEN N''SPT'' -- Spatial index
-                                               WHEN 5  THEN N''CCS'' -- clustered columnstore index
-                                               WHEN 6  THEN N''NCS'' -- nonclustered columnstore index
-                                               WHEN 7  THEN N''HSH'' -- hash index on memory optimized table
-                                               WHEN 9  THEN N''JSN'' -- JSON index
-                                               ELSE CASE WHEN ic.key_ordinal > 0     -- is an index key column
-                                                         THEN N''>''
-                                                         ELSE NULL
-                                                    END
+      ,idx_stats_uniqueness_prefix = CAST(CASE idx.type
+                                             WHEN 3  THEN N''XML'' -- XML index
+                                             WHEN 4  THEN N''SPT'' -- Spatial index
+                                             WHEN 5  THEN N''CCS'' -- clustered columnstore index
+                                             WHEN 6  THEN N''NCS'' -- nonclustered columnstore index
+                                             WHEN 7  THEN N''HSH'' -- hash index on memory optimized table
+                                             WHEN 9  THEN N''JSN'' -- JSON index
+                                             ELSE CASE WHEN ic.key_ordinal > 0     -- is an index key column
+                                                       THEN N''>''
+                                                       ELSE NULL
+                                                  END
                                           END AS NVARCHAR(10))
       ,column_descriptors          = CAST(NULL AS NVARCHAR(4000))
       ,column_display_suffix       = CAST(NULL AS NVARCHAR(4000))
@@ -4439,10 +4439,10 @@ SELECT database_id                 = DB_ID()
     ON DB_ID()      = obj.database_id
    AND ic.object_id = obj.object_id
   LEFT OUTER
-  JOIN [##SQLXL_Index_sys_indexes] AS i
-    ON DB_ID()      = i.database_id
-   AND ic.object_id = i.object_id
-   AND ic.index_id  = i.index_id
+  JOIN [##SQLXL_Index_sys_indexes] AS idx
+    ON DB_ID()      = idx.database_id
+   AND ic.object_id = idx.object_id
+   AND ic.index_id  = idx.index_id
 ) AS qry -- from CROSS APPLY
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);'
 
@@ -4935,7 +4935,7 @@ SELECT dsp.*
               ,index_id
           FROM [##SQLXL_Index_sys_indexes]
          WHERE DB_ID() = database_id
-       ) AS i
+       ) AS idx
  CROSS
  APPLY (-- syntax used to include cte with new columns above
         -- add [sys].[dm_db_incremental_stats_properties] for indexes
@@ -4952,7 +4952,7 @@ SELECT dsp.*
               ,persisted_sample_percent
               ----------------------------------------------------------
               ,updated_days_ago = DATEDIFF(DAY,last_updated,GETDATE())
-         FROM [sys].[dm_db_incremental_stats_properties] (i.object_id, i.index_id) -- returns empty rowset if object_id or stats_id is NULL
+         FROM [sys].[dm_db_incremental_stats_properties] (idx.object_id, idx.index_id) -- returns empty if object_id or stats_id is NULL
        ) AS dsp
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);'
 
@@ -5256,14 +5256,14 @@ SELECT qry.*
         -- add columns from [sys].[dm_db_xtp_index_stats]
         SELECT database_id         = DB_ID()
               ,object_id           = obj.object_id
-              ,table_name          = obj.name                     COLLATE Latin1_General_100_CI_AI
-              ,i.index_id
-              ,type                = CAST(i.type AS NVARCHAR(2))  COLLATE Latin1_General_100_CI_AI
-              ,type_desc           = i.type_desc                  COLLATE Latin1_General_100_CI_AI
-              ,index_name          = COALESCE(i.name              COLLATE Latin1_General_100_CI_AI
-                                             ,i.type_desc         COLLATE Latin1_General_100_CI_AI
-                                             )                    COLLATE Latin1_General_100_CI_AI
-              ,i.is_unique
+              ,table_name          = obj.name                       COLLATE Latin1_General_100_CI_AI
+              ,idx.index_id
+              ,type                = CAST(idx.type AS NVARCHAR(2))  COLLATE Latin1_General_100_CI_AI
+              ,type_desc           = idx.type_desc                  COLLATE Latin1_General_100_CI_AI
+              ,index_name          = COALESCE(idx.name              COLLATE Latin1_General_100_CI_AI
+                                             ,idx.type_desc         COLLATE Latin1_General_100_CI_AI
+                                             )                      COLLATE Latin1_General_100_CI_AI
+              ,idx.is_unique
               -- [sys].[dm_db_xtp_object_stats] ------------- Columns marked "Internal use only" are omitted
               ,xos.row_insert_attempts
               ,xos.row_update_attempts
@@ -5304,17 +5304,17 @@ SELECT qry.*
                    AND 1       = is_memory_optimized -- only returns tables that are memory optimized
                ) AS obj
           LEFT OUTER
-          JOIN [##SQLXL_Index_sys_indexes]    AS i
-            ON obj.database_id = i.database_id
-           AND obj.object_id   = i.object_id   -- only memory optimized tables selected above
+          JOIN [##SQLXL_Index_sys_indexes]    AS idx
+            ON obj.database_id = idx.database_id
+           AND obj.object_id   = idx.object_id   -- only memory optimized tables selected above
           LEFT OUTER
           JOIN [sys].[dm_db_xtp_object_stats] AS xos WITH (READUNCOMMITTED)
-            ON i.object_id   = xos.object_id
-           AND i.index_id    = 0
+            ON idx.object_id   = xos.object_id
+           AND idx.index_id    = 0
           LEFT OUTER
           JOIN [sys].[dm_db_xtp_index_stats]  AS xis WITH (READUNCOMMITTED)
-            ON i.object_id   = xis.object_id
-           AND i.index_id    = xis.index_id
+            ON idx.object_id   = xis.object_id
+           AND idx.index_id    = xis.index_id
           LEFT OUTER
           JOIN (-- Add up memory optimized index stats from [sys].[dm_db_xtp_nonclustered_index_stats]
                 SELECT object_id
@@ -5361,8 +5361,8 @@ SELECT qry.*
                        object_id
                       ,index_id
                ) AS nis
-            ON i.object_id = nis.object_id
-           AND i.index_id  = nis.index_id
+            ON idx.object_id = nis.object_id
+           AND idx.index_id  = nis.index_id
           LEFT OUTER
           JOIN (-- [sys].[dm_db_xtp_memory_consumers] aggregated to the object & index level
                 -- NOTE: [sys].[dm_db_xtp_table_memory_stats] sums up xtp_memory_consumer to the table level
@@ -5380,8 +5380,8 @@ SELECT qry.*
                             ELSE index_id
                        END
                ) AS mc
-            ON i.object_id = mc.object_id
-           AND i.index_id  = mc.index_id
+            ON idx.object_id = mc.object_id
+           AND idx.index_id  = mc.index_id
        ) AS qry -- from CROSS APPLY
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);'
 
@@ -5439,12 +5439,12 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
         SELECT database_id       = DB_ID()
               ,object_id         = obj.object_id
               ,obj_name          = obj.name                 COLLATE Latin1_General_100_CI_AI
-              ,index_id          = i.index_id
-              ,index_name        = COALESCE(i.name          COLLATE Latin1_General_100_CI_AI
-                                           ,i.type_desc     COLLATE Latin1_General_100_CI_AI
+              ,index_id          = idx.index_id
+              ,index_name        = COALESCE(idx.name          COLLATE Latin1_General_100_CI_AI
+                                           ,idx.type_desc     COLLATE Latin1_General_100_CI_AI
                                            )                COLLATE Latin1_General_100_CI_AI
-              ,type              = i.type
-              ,type_desc         = i.type_desc              COLLATE Latin1_General_100_CI_AI
+              ,type              = idx.type
+              ,type_desc         = idx.type_desc              COLLATE Latin1_General_100_CI_AI
               ,row_CNT           = SUM(obd.row_CNT)
               ,buffer_total_KB   = SUM(obd.buffer_total_KB)
               ,buffer_free_KB    = SUM(obd.buffer_free_KB )
@@ -5478,19 +5478,19 @@ SET @sql = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) <> 5 -- Azure SQL D
             ON obd.database_id                     = obj.database_id
            AND COALESCE(ph.object_id,pp.object_id) = obj.object_id
           LEFT OUTER
-          JOIN [##SQLXL_Index_sys_indexes]    AS i
-            ON obd.database_id                     = i.database_id
-           AND COALESCE(ph.object_id,pp.object_id) = i.object_id
-           AND COALESCE(ph.index_id ,pp.index_id ) = i.index_id
+          JOIN [##SQLXL_Index_sys_indexes]    AS idx
+            ON obd.database_id                     = idx.database_id
+           AND COALESCE(ph.object_id,pp.object_id) = idx.object_id
+           AND COALESCE(ph.index_id ,pp.index_id ) = idx.index_id
          GROUP BY
                obj.object_id
               ,obj.name
-              ,i.index_id
-              ,COALESCE(i.name                              COLLATE Latin1_General_100_CI_AI
-                       ,i.type_desc                         COLLATE Latin1_General_100_CI_AI
+              ,idx.index_id
+              ,COALESCE(idx.name                            COLLATE Latin1_General_100_CI_AI
+                       ,idx.type_desc                       COLLATE Latin1_General_100_CI_AI
                        )
-              ,i.type
-              ,i.type_desc
+              ,idx.type
+              ,idx.type_desc
        ) AS qry
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);'
 
@@ -5997,14 +5997,14 @@ SELECT database_name = QUOTENAME(DB_name())
       ,c.object_name
       ,c.stats_target_name
   FROM (-- All rowstore indexes
-        SELECT i.database_id
-              ,i.object_id
-              ,i.index_id
-              ,i.type
-              ,i.sub_type
+        SELECT idx.database_id
+              ,idx.object_id
+              ,idx.index_id
+              ,idx.type
+              ,idx.sub_type
               ,column_id         = CAST(NULL AS BIGINT)
               ,object_name       = QUOTENAME(obj.schema_name) + N''.'' + QUOTENAME(obj.name) COLLATE Latin1_General_100_CI_AI
-              ,stats_target_name = CAST(QUOTENAME(i.name) AS NVARCHAR(200))                  COLLATE Latin1_General_100_CI_AI
+              ,stats_target_name = CAST(QUOTENAME(idx.name) AS NVARCHAR(200))                COLLATE Latin1_General_100_CI_AI
           FROM (-- Get statistics for all index types, including fulltext
                 SELECT database_id,object_id,index_id,type,sub_type
                       ,name
@@ -6019,10 +6019,10 @@ SELECT database_name = QUOTENAME(DB_name())
                       ,name            = N''fulltext''
                   FROM [##SQLXL_Index_sys_fulltext_indexes]
                  WHERE DB_ID() = database_id
-               ) AS i
+               ) AS idx
           JOIN [##SQLXL_Index_sys_objects] AS obj             -- filter out system objects
-            ON i.database_id = obj.database_id
-           AND i.object_id   = obj.object_id
+            ON idx.database_id = obj.database_id
+           AND idx.object_id   = obj.object_id
          WHERE obj.type NOT IN (-- Statistics not available for types
                                 N''TT'' -- Table Type
                                ,N''TF'' -- SQL table-valued-function (TVF)
@@ -6769,15 +6769,15 @@ UPDATE tgt -- [##SQLXL_Index_sys_objects]
 /*** LOCAL TESTING ***
 SELECT tgt.database_id,tgt.object_id,tgt.type,tgt.sub_type,
 --*/
-       heap_index_CNT                     = COALESCE(ind_type.heap_index_CNT              ,0) -- rowstore heap
-      ,clustered_index_CNT                = COALESCE(ind_type.clustered_index_CNT         ,0) -- clustered rowstore index
-      ,nonclustered_index_CNT             = COALESCE(ind_type.nonclustered_index_CNT      ,0) -- nonclustered rowstore index
-      ,xml_index_CNT                      = COALESCE(ind_type.xml_index_CNT               ,0) -- XML index
-      ,spatial_index_CNT                  = COALESCE(ind_type.spatial_index_CNT           ,0) -- Spatial index
-      ,clustered_columnstore_CNT          = COALESCE(ind_type.clustered_columnstore_CNT   ,0) -- Clustered columnstore
-      ,nonclustered_columnstore_CNT       = COALESCE(ind_type.nonclustered_columnstore_CNT,0) -- nonclustered columnstore index
-      ,nonclustered_hash_CNT              = COALESCE(ind_type.nonclustered_hash_CNT       ,0) -- Hash on In-Memory Clustered Columnstore
-      ,json_index_CNT                     = COALESCE(ind_type.json_index_CNT              ,0) -- JSON index
+       heap_index_CNT                     = COALESCE(idx.heap_index_CNT              ,0) -- rowstore heap
+      ,clustered_index_CNT                = COALESCE(idx.clustered_index_CNT         ,0) -- clustered rowstore index
+      ,nonclustered_index_CNT             = COALESCE(idx.nonclustered_index_CNT      ,0) -- nonclustered rowstore index
+      ,xml_index_CNT                      = COALESCE(idx.xml_index_CNT               ,0) -- XML index
+      ,spatial_index_CNT                  = COALESCE(idx.spatial_index_CNT           ,0) -- Spatial index
+      ,clustered_columnstore_CNT          = COALESCE(idx.clustered_columnstore_CNT   ,0) -- Clustered columnstore
+      ,nonclustered_columnstore_CNT       = COALESCE(idx.nonclustered_columnstore_CNT,0) -- nonclustered columnstore index
+      ,nonclustered_hash_CNT              = COALESCE(idx.nonclustered_hash_CNT       ,0) -- Hash on In-Memory Clustered Columnstore
+      ,json_index_CNT                     = COALESCE(idx.json_index_CNT              ,0) -- JSON index
       ------------------------------------
       ,fulltext_index_CNT                 = COALESCE(ftx_type.fulltext_index_CNT          ,0) -- full-text index of a tabular object
       ,missing_index_CNT                  = COALESCE(mix_type.missing_index_CNT           ,0) -- missing
@@ -6806,9 +6806,9 @@ SELECT tgt.database_id,tgt.object_id,tgt.type,tgt.sub_type,
           FROM [##SQLXL_Index_sys_indexes]
          GROUP BY
                database_id,object_id
-       ) AS ind_type
-    ON ind_type.database_id = tgt.database_id
-   AND ind_type.object_id   = tgt.object_id
+       ) AS idx
+    ON idx.database_id = tgt.database_id
+   AND idx.object_id   = tgt.object_id
 
   LEFT OUTER
   JOIN (-- count of full text indexes by object
@@ -6991,9 +6991,9 @@ SELECT tgt.database_id,tgt.object_id,
       ) as ps_idx
     ON tgt.database_id = ps_idx.database_id
    AND tgt.object_id   = ps_idx.object_id
- WHERE tgt.type IN (N'IT'
-                   ,N'U'
-                   ,N'V'
+ WHERE tgt.type IN (N'IT'                                   -- internal table
+                   ,N'U'                                    -- user table
+                   ,N'V'                                    -- user view
                    )
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
@@ -7090,9 +7090,9 @@ END;
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 --*/
-UPDATE tgt -- [##SQLXL_Index_sys_indexes]
+UPDATE idx -- [##SQLXL_Index_sys_indexes]
    SET is_system_named = 2 -- likely system named
-  FROM [##SQLXL_Index_sys_indexes] AS tgt WITH (TABLOCKX)
+  FROM [##SQLXL_Index_sys_indexes] AS idx WITH (TABLOCKX)
   JOIN (-- identify candidate "system named" indexes
         SELECT database_id,object_id,index_id,type,sub_type
               ,idx.name
@@ -7142,11 +7142,11 @@ UPDATE tgt -- [##SQLXL_Index_sys_indexes]
             OR idx.name LIKE N'JSONIndex-%'                                                         -- <FUTURE> JSON
             OR idx.name LIKE N'_dta_index_%'                -- data tuning advisor naming convention
        ) AS src
-    ON tgt.database_id = src.database_id
-   AND tgt.object_id   = src.object_id
-   AND tgt.index_id    = src.index_id
-   AND tgt.type        = src.type
-   AND tgt.sub_type    = src.sub_type
+    ON idx.database_id = src.database_id
+   AND idx.object_id   = src.object_id
+   AND idx.index_id    = src.index_id
+   AND idx.type        = src.type
+   AND idx.sub_type    = src.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -7551,7 +7551,7 @@ INSERT
 -- Get candidate clustered index key columns required to be part of indexes to lookup source table values
 -- NOTE: can't assign key ordinal to added clustered keys in orderto use "EXCEPT" function
 ----------------------------------------------------------------------------------------------------------------------------
-SELECT six.database_id,six.object_id,six.index_id,six.type,six.sub_type
+SELECT idx.database_id,idx.object_id,idx.index_id,idx.type,idx.sub_type
       ,sic.column_id
       ,idx_stats_uniqueness_prefix = N'CX'                   -- indicates clustered index column added to lookup unique row in table
       -- columns that do not not allow NULL values -----
@@ -7563,12 +7563,12 @@ SELECT six.database_id,six.object_id,six.index_id,six.type,six.sub_type
       ,is_included_column          = 0
       ,is_descending_key           = 0
       ,idx_column_display_sequence = 9999
-  FROM [##SQLXL_Index_sys_indexes]       AS six
+  FROM [##SQLXL_Index_sys_indexes]       AS idx
   JOIN [##SQLXL_Index_sys_index_columns] AS sic
-    ON six.database_id = sic.database_id
-   AND six.object_id   = sic.object_id
+    ON idx.database_id = sic.database_id
+   AND idx.object_id   = sic.object_id
    AND N'1'            = sic.type
-   AND six.sub_type    = sic.sub_type
+   AND idx.sub_type    = sic.sub_type
    AND (   0           < sic.key_ordinal
         OR 0           < sic.partition_ordinal
        )
@@ -7577,11 +7577,11 @@ SELECT six.database_id,six.object_id,six.index_id,six.type,six.sub_type
    AND sic.object_id   = col.object_id
    AND sic.column_id   = col.column_id
  WHERE 1 = 1    -- simplifies adding additional clauses for testing
-   AND six.type IN (N'2'             -- nonclustered rowstore index
+   AND idx.type IN (N'2'             -- nonclustered rowstore index
                    ,N'6'             -- nonclustered columnstore index
                    ,N'M'             -- missing nonclustered rowstore index
                    )
-   AND COALESCE(six.is_graph_table,0) = 0
+   AND COALESCE(idx.is_graph_table,0) = 0
 ----------------------------------------------------------------------------------------------------------------------------
 EXCEPT -- Exclude all clustered index key candidates that already occur in the nonclustered (rowstore,columnstore) and missing indexes
        -- included columns are considered part of the lookup to clustered key since already exist in index
@@ -7611,7 +7611,7 @@ SELECT sic.database_id,sic.object_id,sic.index_id,sic.type,sic.sub_type
 ----------------------------------------------------------------------------------------------------------------------------
 UNION ALL -- Add [UNIQUEIFIER] if table is rowstore and a HEAP or non-Unique CLUSTERED
 ----------------------------------------------------------------------------------------------------------------------------
-SELECT six.database_id,six.object_id,six.index_id,six.type,six.sub_type
+SELECT idx.database_id,idx.object_id,idx.index_id,idx.type,idx.sub_type
       ,column_id                   = 0                      -- zero indicates no assigned column for UNIQUEIFIER or ROW LOCATOR
       ,idx_stats_uniqueness_prefix = N'RL'                   -- indicates additional column created to lookup unique row in table
       -- columns that do not not allow NULL values -----
@@ -7623,20 +7623,20 @@ SELECT six.database_id,six.object_id,six.index_id,six.type,six.sub_type
       ,is_included_column          = 0
       ,is_descending_key           = 0
       ,idx_column_display_sequence = 9999
-  FROM [##SQLXL_Index_sys_indexes] AS six
-  JOIN [##SQLXL_Index_sys_indexes] AS suq
-    ON six.database_id = suq.database_id
-   AND six.object_id   = suq.object_id
-   AND suq.type        = N'1'    -- clustered rowstore
-   AND 0               = suq.is_unique
-   AND 0               = suq.is_primary_key
-   AND 0               = suq.is_unique_constraint
- WHERE six.type           = N'2' -- nonclustered rowstore index
-   AND COALESCE(six.is_graph_table,0) = 0
+  FROM [##SQLXL_Index_sys_indexes] AS idx
+  JOIN [##SQLXL_Index_sys_indexes] AS idx_uq
+    ON idx.database_id = idx_uq.database_id
+   AND idx.object_id   = idx_uq.object_id
+   AND idx_uq.type     = N'1'    -- clustered rowstore
+   AND 0               = idx_uq.is_unique
+   AND 0               = idx_uq.is_primary_key
+   AND 0               = idx_uq.is_unique_constraint
+ WHERE idx.type           = N'2' -- nonclustered rowstore index
+   AND COALESCE(idx.is_graph_table,0) = 0
 ----------------------------------------------------------------------------------------------------------------------------
 UNION ALL -- Add [ROW LOCATOR] if table is clustered columnstore
 ----------------------------------------------------------------------------------------------------------------------------
-SELECT six.database_id,six.object_id,six.index_id,six.type,six.sub_type
+SELECT idx.database_id,idx.object_id,idx.index_id,idx.type,idx.sub_type
       ,column_id                   = 0                      -- zero indicates no assigned column for UNIQUEIFIER or ROW LOCATOR
       ,idx_stats_uniqueness_prefix = N'RL'                   -- indicates additional column created to lookup unique row in table
       -- columns that do not not allow NULL values -----
@@ -7648,16 +7648,16 @@ SELECT six.database_id,six.object_id,six.index_id,six.type,six.sub_type
       ,is_included_column          = 0
       ,is_descending_key           = 0
       ,idx_column_display_sequence = 9999
-  FROM [##SQLXL_Index_sys_indexes] AS six
-  JOIN [##SQLXL_Index_sys_indexes] AS suq
-    ON six.database_id = suq.database_id
-   AND six.object_id   = suq.object_id
-   AND suq.type = N'5'           -- clustered columnstore
-   AND 0        = suq.is_unique
-   AND 0        = suq.is_primary_key
-   AND 0        = suq.is_unique_constraint
- WHERE six.type           = N'2' -- nonclustered rowstore index
-   AND six.is_graph_table = 0
+  FROM [##SQLXL_Index_sys_indexes] AS idx
+  JOIN [##SQLXL_Index_sys_indexes] AS idx_uq
+    ON idx.database_id = idx_uq.database_id
+   AND idx.object_id   = idx_uq.object_id
+   AND idx_uq.type     = N'5'           -- clustered columnstore
+   AND 0               = idx_uq.is_unique
+   AND 0               = idx_uq.is_primary_key
+   AND 0               = idx_uq.is_unique_constraint
+ WHERE idx.type           = N'2' -- nonclustered rowstore index
+   AND idx.is_graph_table = 0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
@@ -7699,7 +7699,7 @@ END;
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 --*/
-UPDATE tgt -- [##SQLXL_Index_sys_indexes]
+UPDATE idx -- [##SQLXL_Index_sys_indexes]
    SET key_ordinal_CNT      = src.key_ordinal_CNT
       ,key_null_CNT         = src.key_null_CNT
       ,included_columns_CNT = src.included_columns_CNT
@@ -7711,11 +7711,11 @@ UPDATE tgt -- [##SQLXL_Index_sys_indexes]
                                  (-- create list of included columns using column ID
                                   SELECT N'.' + CAST(ixc.column_id AS NVARCHAR(20))
                                     FROM dbo.##SQLXL_Index_sys_index_columns AS ixc
-                                   WHERE tgt.database_id  = ixc.database_id
-                                     AND tgt.object_id    = ixc.object_id
-                                     AND tgt.index_id     = ixc.index_id
-                                     AND tgt.type         = ixc.type
-                                     AND tgt.sub_type     = ixc.sub_type
+                                   WHERE idx.database_id  = ixc.database_id
+                                     AND idx.object_id    = ixc.object_id
+                                     AND idx.index_id     = ixc.index_id
+                                     AND idx.type         = ixc.type
+                                     AND idx.sub_type     = ixc.sub_type
                                      ---------------------------------------------------------------
                                      AND 1                = ixc.is_included_column
                                    ORDER BY
@@ -7723,7 +7723,7 @@ UPDATE tgt -- [##SQLXL_Index_sys_indexes]
                                      FOR XML PATH(N''),TYPE                                         -- concatenate column id list
                                  ).value('.',N'NVARCHAR(MAX)')
                                  ) + N'.'
-  FROM [##SQLXL_Index_sys_indexes] AS tgt WITH (TABLOCKX)
+  FROM [##SQLXL_Index_sys_indexes] AS idx WITH (TABLOCKX)
   JOIN (-- count indexes by index properties
         SELECT ic.database_id
               ,ic.object_id
@@ -7748,11 +7748,11 @@ UPDATE tgt -- [##SQLXL_Index_sys_indexes]
               ,ic.type
               ,ic.sub_type
        ) AS src
-    ON tgt.database_id = src.database_id
-   AND tgt.object_id   = src.object_id
-   AND tgt.index_id    = src.index_id
-   AND tgt.type        = src.type
-   AND tgt.sub_type    = src.sub_type
+    ON idx.database_id = src.database_id
+   AND idx.object_id   = src.object_id
+   AND idx.index_id    = src.index_id
+   AND idx.type        = src.type
+   AND idx.sub_type    = src.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
 IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
@@ -9028,39 +9028,39 @@ INSERT
 SELECT rec_type                    = N'I'                                                              -- index level composite record
       ,database_id                 = obj.database_id
       ,object_id                   = IIF(obj.type = N'F',obj.parent_object_id,obj.object_id)           -- for System, History, Constraints
-      ,index_id                    = COALESCE(i.index_id,obj.object_id)
-      ,type                        = COALESCE(i.type,obj.type,N'0')              -- rowstore heap
-      ,sub_type                    = COALESCE(i.sub_type,0) -- spatial_index_type     ,xml_index_type
+      ,index_id                    = COALESCE(idx.index_id,obj.object_id)
+      ,type                        = COALESCE(idx.type,obj.type,N'0')              -- rowstore heap
+      ,sub_type                    = COALESCE(idx.sub_type,0) -- spatial_index_type     ,xml_index_type
       -----------------------------------------------------------------------------------------------------
       -- Index info consolidated
       -- NOTE: SQL_INLINE_TABLE_VALUED_FUNCTION have no index records
       -----------------------------------------------------------------------------------------------------
-      ,name                        = COALESCE(i.name,i.type_desc,obj.name)
-      ,type_desc                   = COALESCE(i.type_desc,obj.type_desc,N'HEAP') -- "HEAP"
-      ,sub_type_desc               = i.sub_type_desc        -- spatial_index_type_desc,xml_index_type_description
+      ,name                        = COALESCE(idx.name,idx.type_desc,obj.name)
+      ,type_desc                   = COALESCE(idx.type_desc,obj.type_desc,N'HEAP') -- "HEAP"
+      ,sub_type_desc               = idx.sub_type_desc        -- spatial_index_type_desc,xml_index_type_description
       ----------------------------------------------------------------------------------------------------
-      ,is_unique                   = COALESCE(i.is_unique,0)
-      ,i.data_space_id
-      ,ignore_dup_key              = COALESCE(i.ignore_dup_key,0)
-      ,is_primary_key              = COALESCE(i.is_primary_key,0)
-      ,is_unique_constraint        = COALESCE(i.is_unique_constraint,0)
-      ,fill_factor                 = IIF(i.fill_factor = 0,100,i.fill_factor)
-      ,is_padded                   = COALESCE(i.is_padded,0)
-      ,is_disabled                 = COALESCE(i.is_disabled,0)
-      ,is_hypothetical             = COALESCE(i.is_hypothetical,0)
-      ,allow_row_locks             = i.allow_row_locks
-      ,allow_page_locks            = i.allow_page_locks
-      ,has_filter                  = COALESCE(i.has_filter,0)
-      ,filter_definition           = i.filter_definition
+      ,is_unique                   = COALESCE(idx.is_unique,0)
+      ,idx.data_space_id
+      ,ignore_dup_key              = COALESCE(idx.ignore_dup_key,0)
+      ,is_primary_key              = COALESCE(idx.is_primary_key,0)
+      ,is_unique_constraint        = COALESCE(idx.is_unique_constraint,0)
+      ,fill_factor                 = IIF(idx.fill_factor = 0,100,idx.fill_factor)
+      ,is_padded                   = COALESCE(idx.is_padded,0)
+      ,is_disabled                 = COALESCE(idx.is_disabled,0)
+      ,is_hypothetical             = COALESCE(idx.is_hypothetical,0)
+      ,allow_row_locks             = idx.allow_row_locks
+      ,allow_page_locks            = idx.allow_page_locks
+      ,has_filter                  = COALESCE(idx.has_filter,0)
+      ,filter_definition           = idx.filter_definition
       ----------------------------------------------------------------------------------------------------
       ,partition_column_id         = idx_partition.partition_column_id
       ,partition_column_name       = idx_partition.partition_column_name
       ----------------------------------------------------------------------------------------------------
-      ,compression_delay_mm        = i.compression_delay
-      ,is_ignored_in_optimization  = COALESCE(i.is_ignored_in_optimization,0)
-      ,suppress_dup_key_messages   = COALESCE(i.suppress_dup_key_messages,0)
-      ,auto_created                = COALESCE(i.auto_created,0)
-      ,optimize_for_sequential_key = COALESCE(i.optimize_for_sequential_key,0)
+      ,compression_delay_mm        = idx.compression_delay
+      ,is_ignored_in_optimization  = COALESCE(idx.is_ignored_in_optimization,0)
+      ,suppress_dup_key_messages   = COALESCE(idx.suppress_dup_key_messages,0)
+      ,auto_created                = COALESCE(idx.auto_created,0)
+      ,optimize_for_sequential_key = COALESCE(idx.optimize_for_sequential_key,0)
       ----------------------------------------------------------------------------------------------------
       -- fulltext indexes
       ----------------------------------------------------------------------------------------------------
@@ -9068,20 +9068,20 @@ SELECT rec_type                    = N'I'                                       
       ----------------------------------------------------------------------------------------------------
       -- XML indexes
       ----------------------------------------------------------------------------------------------------
-      ,xml_index_type              = i.xml_index_type
-      ,xml_index_type_description  = i.xml_index_type_description
-      ,xml_using_xml_index_id      = i.xml_using_xml_index_id
-      ,xml_secondary_type          = i.xml_secondary_type
-      ,xml_secondary_type_desc     = i.xml_secondary_type_desc
-      ,xml_path_id                 = i.xml_path_id
+      ,xml_index_type              = idx.xml_index_type
+      ,xml_index_type_description  = idx.xml_index_type_description
+      ,xml_using_xml_index_id      = idx.xml_using_xml_index_id
+      ,xml_secondary_type          = idx.xml_secondary_type
+      ,xml_secondary_type_desc     = idx.xml_secondary_type_desc
+      ,xml_path_id                 = idx.xml_path_id
       ----------------------------------------------------------------------------------------------------
       -- Spatial indexes -- other tessellation columns can be found in [##SQLXL_Index_sys_spacial_indexes]
       ----------------------------------------------------------------------------------------------------
-      ,si_tessellation_scheme      = i.si_tessellation_scheme
+      ,si_tessellation_scheme      = idx.si_tessellation_scheme
       ----------------------------------------------------------------------------------------------------
       -- HASH indexes
       ----------------------------------------------------------------------------------------------------
-      ,hi_bucket_CNT                     = COALESCE(i.hi_bucket_CNT,0)
+      ,hi_bucket_CNT                     = COALESCE(idx.hi_bucket_CNT,0)
       ----------------------------------------------------------------------------------------------------
       -- [sys].[foreign_keys] in [##SQLXL_Index_sys_objects]
       ----------------------------------------------------------------------------------------------------
@@ -9095,7 +9095,7 @@ SELECT rec_type                    = N'I'                                       
       ,index_CNT                          = 1                      -- actual stored performance index objects
 
 /*** LOCAL TESTING ***
-SELECT obj.database_id,obj.object_id,op.name,obj.object_id,obj.name,obj.type,op.object_id,i.index_id,i.type
+SELECT obj.database_id,obj.object_id,op.name,obj.object_id,obj.name,obj.type,op.object_id,idx.index_id,idx.type
 --*/
   FROM (-- Candidate objects
         SELECT *
@@ -9112,10 +9112,10 @@ SELECT obj.database_id,obj.object_id,op.name,obj.object_id,obj.name,obj.type,op.
 -- match up objects to their indexes
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER -- outer join so HEAP (index type = 0) can be created for objects without indexes
-  JOIN [##SQLXL_Index_sys_indexes] AS i
-    ON obj.database_id = i.database_id
-   AND obj.object_id   = i.object_id
-   AND i.type NOT     IN (N'F'   -- foreign key constraints don't have "indexes"
+  JOIN [##SQLXL_Index_sys_indexes] AS idx
+    ON obj.database_id = idx.database_id
+   AND obj.object_id   = idx.object_id
+   AND idx.type NOT   IN (N'F'   -- foreign key constraints don't have "indexes"
                          ,N'M'   -- missing index, inserted below
                          ,N'T'   -- fulltext indexes, inserted below
                          )
@@ -9127,12 +9127,14 @@ SELECT obj.database_id,obj.object_id,op.name,obj.object_id,obj.name,obj.type,op.
   JOIN [##SQLXL_Index_sys_dm_os_buffer_descriptors_EXT] AS bd
     ON obj.database_id = bd.database_id
    AND obj.object_id   = bd.object_id
-   AND i.index_id      = bd.index_id
-   AND i.type     NOT IN (-- avoid "indexes" with IDs that could match up with physical indexes
-                          N'T'  -- full-text index of a tabular object
-                         ,N'F'  -- foreign key constraint
-                         ,N'M'  -- missing nonclustered rowstore index
+   AND idx.index_id    = bd.index_id
+   AND obj.type   NOT IN (-- avoid "indexes" with IDs that could match up with physical indexes
+                          N'F'  -- foreign key constraint
                          ,N'V'  -- View
+                         )
+   AND idx.type   NOT IN (-- avoid "indexes" with IDs that could match up with physical indexes
+                          N'T'  -- full-text index of a tabular object. no measure of full-text index currently held in memory
+                         ,N'M'  -- missing nonclustered rowstore index
                          )
 
 ------------------------------------------------------------------------------------------------------
@@ -9157,10 +9159,10 @@ SELECT obj.database_id,obj.object_id,op.name,obj.object_id,obj.name,obj.type,op.
            AND ic.column_id   = c.column_id
          WHERE ic.partition_ordinal > 0
        ) AS idx_partition
-    ON i.database_id = idx_partition.database_id
-   AND i.object_id   = idx_partition.object_id
-   AND i.index_id    = idx_partition.index_id
-   AND (   1         = idx_partition.rn
+    ON idx.database_id = idx_partition.database_id
+   AND idx.object_id   = idx_partition.object_id
+   AND idx.index_id    = idx_partition.index_id
+   AND (   1           = idx_partition.rn
         OR idx_partition.rn IS NULL
        )
 ------------------------------------------------------------------------------------------------------
@@ -9168,15 +9170,15 @@ SELECT obj.database_id,obj.object_id,op.name,obj.object_id,obj.name,obj.type,op.
 ------------------------------------------------------------------------------------------------------
   LEFT OUTER
   JOIN [##SQLXL_Index_sys_fulltext_indexes] AS ftx
-    ON i.database_id      = ftx.database_id
-   AND i.object_id        = ftx.object_id
-   AND i.index_id         = ftx.unique_index_id
-   AND i.type            IN (N'1' -- clustered rowstore index
-                            ,N'2' -- nonclustered rowstore index
-                            )
+    ON idx.database_id      = ftx.database_id
+   AND idx.object_id        = ftx.object_id
+   AND idx.index_id         = ftx.unique_index_id
+   AND idx.type            IN (N'1' -- clustered rowstore index
+                              ,N'2' -- nonclustered rowstore index
+                              )
 
 ------------------------------------------------------------------------------------------------------
- WHERE NOT (    i.index_id IS NULL
+ WHERE NOT (    idx.index_id IS NULL
             AND obj.type   IN (N'TF'   -- SQL table valued functions. no need for "HEAP" index row (design choice)
                               ,N'V'    -- views. no need for "HEAP" index row (design choice)
                               )
@@ -10271,15 +10273,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
 /*** LOCAL TESTING ***
 SELECT COUNT_BIG(1)
 --*/
-  FROM (--
-        SELECT *
-          FROM [##SQLXL_Index_compilation] WITH (TABLOCKX)
-         WHERE rec_type    = N'I'   -- index level composite record
-           AND type   NOT IN (-- avoid "indexes" with IDs that could match up with physical index partitions
-                              N'F'  -- foreign key constraint
-                             ,N'M'  -- missing nonclustered rowstore index
-                             )
-       ) AS tgt
+  FROM (SELECT * FROM [##SQLXL_Index_compilation] WITH (TABLOCKX) WHERE rec_type = N'I') AS tgt     -- index level composite record
  INNER HASH
   JOIN [##SQLXL_Index_sys_objects] AS obj
     ON tgt.database_id = obj.database_id
@@ -10558,7 +10552,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
         -- NOTE: Columnstores can't be used to cover foreign key constraint!
         SELECT STUFF((-- double select needed for XML .VALUE clause below
                       SELECT TOP (100) PERCENT
-                             N',' + QUOTENAME(i.object_id)
+                             N',' + QUOTENAME(i.index_id)                       -- index_id is used for the FKCs object_id
                         FROM [##SQLXL_Index_compilation] AS i
                        WHERE i.type          = N'F'                             -- foreign key constraint
                          AND tgt.database_id = i.database_id
@@ -10569,7 +10563,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
                          AND tgt.has_filter  = 0                                -- can't be filtered since won't cover the whole key
                          AND CHARINDEX(i.key_column_ids,tgt.key_column_ids) = 1 -- matching comma separated key ordered list of column_ids
                        ORDER BY
-                             i.object_id
+                             i.index_id
                          FOR XML PATH(N''), TYPE                                                    -- object_id
                      ).value('.',N'NVARCHAR(MAX)')
                     ,1,1,N'')
@@ -26273,9 +26267,9 @@ Excel Column Label Formats passed to VBA code
 --------------------------------------------------------------------------------------------------------------------------------------------
 ,[Index~RSZ Rsrvd size (%Tbl)~BSZ Buffer size (%Rsrv)~Tbl ROW Rows COL cols~LEN Wor Length~FCT Factor & Pad~Idx KEY Cnt & Len] =
       -- RSZ - reserved size on disk or InMemory --------------------------------------
-     + N'RSZ  '
+     + N'RSZ   '
      + CASE WHEN i.rec_type NOT IN (N'A',N'D',N'I')
-            THEN [dbo].[SQLXL_3SD](i.reserved_page_PG_CNT,N'P') -- (obj.obj_reserved_page,N'P') FOR <FUTURE>
+            THEN [dbo].[SQLXL_3SD](i.reserved_page_PG_CNT,N'P')            -- (obj.obj_reserved_page,N'P') FOR <FUTURE>
 
             WHEN i.idx_type_hdr IN (N'FKC'                                 -- foreign key constraint
                                    ,N'MIX'                                 -- missing index
@@ -26290,7 +26284,7 @@ Excel Column Label Formats passed to VBA code
                        ELSE N''
                   END
 
-            WHEN i.obj_type_hdr IN (N'VW')                                 -- view
+            WHEN i.type = N'V'                                             -- view
              AND obj.clustered_index_CNT = 0
             THEN N'(VW)' + CHAR(096) + N'Unindexed'
 
@@ -26310,20 +26304,23 @@ Excel Column Label Formats passed to VBA code
        END
       -- BSZ - Buffer cache usage & oercent of reserved space -------------------------
      + IIF(i.reserved_page_PG_CNT > 0 OR i.reserved_page_PG_CNT > 0
-          , CHAR(096) + N'BSZ  '
+          , CHAR(096) + N'BSZ   '
           + [dbo].[SQLXL_3SD](COALESCE(i.buffer_total_KB_CNT,0),N'KB')
           + N' ('
           + [dbo].[SQLXL_3SD](COALESCE(1.0 * i.buffer_total_KB_CNT / (i.reserved_page_PG_CNT * 8.0),0),N'%')
           + N')'
           ,N'')
       -- ROW - count of rows ----------------------------------------------------------
-     + CASE WHEN i.rec_type NOT IN (N'A',N'D',N'I')
-            THEN [dbo].[SQLXL_3SD](obj.obj_row_count,N'I')
+     + CASE WHEN i.rec_type IN (N'A'                      -- instance/all level
+                               ,N'D'                      -- database level
+                               ,N'I'                      -- index level
+                               )
+            THEN CHAR(096) + N'ROW ' + [dbo].[SQLXL_3SD](obj.obj_row_count,N'I')
 
-            WHEN i.obj_type_hdr IN (N'TVF')                                -- SQL table valued function
+            WHEN i.obj_type_hdr IN (N'TVF')                   -- SQL table valued function
             THEN N''
 
-            WHEN i.type = N'VW'                               -- view
+            WHEN i.type = N'V'                                -- view
              AND obj.clustered_index_CNT = 0
             THEN N''
 
@@ -29254,13 +29251,11 @@ SQLCMD Parameters used:
 -d = SQL database to connect to (if not the user default) - "WideWorldImporters"
 -U = User ID if not windows authentication
 -P = User password if not windows authentication
---*/
 
---<BS>
---EXEC [##SQLXL_Index] @database_name = N'SQLXL_Index_Demo' -- runs for a SINGLE database
---EXEC [##SQLXL_Index] @database_name = N'WideWorldImporters' -- runs for a SINGLE database
+EXEC [##SQLXL_Index] @database_name = N'SQLXL_Index_Demo' -- runs for a SINGLE database
+EXEC [##SQLXL_Index] @database_name = N'WideWorldImporters' -- runs for a SINGLE database
 
-/******************************************************************************************************************************************\
+*******************************************************************************************************************************************\
 ############################################################################################################################################
  END SQLXL_INDEX Testing
 ############################################################################################################################################
