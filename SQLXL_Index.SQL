@@ -49,10 +49,11 @@ Development Notes:
 \******************************************************************************************************************************************/
 
 /******************************************************************************************************************************************\
-SQL Server ProductMajorVersion & Default Compatibility leveld (as of September 2024)
+SQL Server ProductMajorVersion & Default Compatibility levels (as of September 2024)
 --------------------------------------------------------------------------------------------------------------------------------------------
 Azure SQL DB   - 16   - 160
 Azure SQL MI   - 16   - 150
+        2025   - 17
         2022   - 16   - 160
         2019   - 15   - 150
         2017   - 14   - 140
@@ -358,11 +359,10 @@ DECLARE -- Used for database cursor below --------------------------------------
                                            )
                                    );
 
-
 /******************************************************************************************************************************************\
  Announce the execution of the procedure
 \******************************************************************************************************************************************/
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'Starting SQLXL_Index data collection',0,0) WITH NOWAIT;
    RAISERROR(N'',0,0) WITH NOWAIT;
    RAISERROR(N'MM:SS:hhh SQLXL Index Job Step',0,0) WITH NOWAIT;
@@ -380,7 +380,7 @@ SET @step_exec_dttm = GETDATE();
 UPDATE [##SQLXL_Index_startup] WITH (TABLOCKX)
    SET collection_DTTM = @collection_DTTM;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update procedure execution start date & time'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -392,7 +392,7 @@ END;
 \******************************************************************************************************************************************/
 EXEC [##SQLXL_Instance]
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = N'    Start [sys].[dm_hadr_database_replica_states], [availability_replicas], [dm_hadr_availability_replica_states]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @step_exec_dttm = GETDATE();
@@ -494,7 +494,7 @@ SELECT TOP (0)
   INTO [##SQLXL_Index_sys_dm_hadr_database_replica]
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' [##SQLXL_Index_sys_dm_hadr_database_replica]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -617,7 +617,7 @@ SELECT qry.*
        ) AS qry -- from CROSS APPLY
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' [sys].[dm_hadr_database_replica_states]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -919,7 +919,7 @@ IF @rowcount = 0 BEGIN -- no database found to collect
    RETURN 0
 END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' [sys].[databases],[change_tracking_databases] - '
             + CAST(@rowcount AS NVARCHAR(11))
@@ -998,7 +998,7 @@ SELECT database_id               = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS 
  WHERE mid.statement NOT LIKE N'%##SQLXL%'                  -- omit temporary SQLXL objects
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Instance [sys].[dm_db_missing_index_details] - includes index groups, group_stats'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1038,7 +1038,7 @@ SELECT -------------------------------------------------------------------------
  APPLY [sys].[dm_db_missing_index_columns] (mid.index_handle) mic
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' [sys].[dm_db_missing_index_columns]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1162,7 +1162,7 @@ BEGIN
 
 END; -- IF object_id(N'[sys].[dm_db_missing_index_group_stats_query]') IS NOT NULL
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' [sys].[dm_db_missing_index_group_stats] - Most read query & query_text - Azure,SQL 2019'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1223,7 +1223,7 @@ SELECT database_id       = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) = 5
 ) AS qry
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' [sys].[dm_db_index_usage_stats]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1388,7 +1388,7 @@ SELECT qry.*
        ) AS qry -- from CROSS APPLY
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' [sys].[dm_db_index_operational_stats]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1438,7 +1438,7 @@ SELECT database_id = IIF(CAST(SERVERPROPERTY(N'EngineEdition') AS INT) = 5 -- Az
                            ,d.database_id)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' [sys].[dm_os_buffer_descriptors]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1449,7 +1449,7 @@ END;
  End of capturing Instance-level information status notification
 \******************************************************************************************************************************************/
 IF @ssms_ads > 0
-BEGIN -- display status to SSMS/ADS Messages tab
+BEGIN -- display status to SSMS Messages tab
    SET @sql = N'SELECT N''Completed collecting Instance-level information'''
             + N' AS [Elapsed Time '
             + [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@collection_DTTM,GETDATE()),0))
@@ -1497,7 +1497,7 @@ OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
 OPEN db_crsr;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Opened Database cursor'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1516,7 +1516,7 @@ FETCH NEXT
 
 IF @@FETCH_STATUS <> 0 BREAK;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' -- Database: ' + @db_name_quoted
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1552,7 +1552,7 @@ IF @i = 1 BEGIN -- first time through database loop, create new objects
      INTO [##SQLXL_Index_sys_database_scoped_configurations]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_database_scoped_configurations]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1599,7 +1599,7 @@ SELECT '[##SQLXL_Index_sys_database_scoped_configurations]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[database_scoped_configurations] - SQL 2016+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1634,7 +1634,7 @@ IF @i = 1 BEGIN  -- first time through database loop, create new objects
          ,reason_desc        = CAST(NULL AS NVARCHAR(60))      COLLATE Latin1_General_100_CI_AI
      INTO [##SQLXL_Index_sys_database_automatic_tuning_options];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_database_automatic_tuning_options]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1672,7 +1672,7 @@ SELECT '[##SQLXL_Index_sys_database_automatic_tuning_options]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[database_automatic_tuning_options] - SQL 2017+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1724,7 +1724,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
          ,capture_policy_stale_threshold_hours       = CAST(NULL AS BIGINT)
      INTO [##SQLXL_Index_sys_database_query_store_options];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_database_query_store_options]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1793,7 +1793,7 @@ SELECT '[##SQLXL_Index_sys_database_query_store_options]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[database_query_store_options] - SQL 2016+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1837,7 +1837,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      INTO [##SQLXL_Index_cdc_change_tables]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_cdc_change_tables]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1884,7 +1884,7 @@ SELECT '[##SQLXL_Index_cdc_change_tables]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[cdc].[change_tables] (if CDC enabled)'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1932,7 +1932,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      INTO [##SQLXL_Index_sys_edge_constraints]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_edge_constraints]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -1980,7 +1980,7 @@ SELECT '[##SQLXL_Index_sys_edge_constraints]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[edge_constraints] - SQL 2019+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2016,7 +2016,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      INTO [##SQLXL_Index_sys_periods]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_periods]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2052,7 +2052,7 @@ SELECT '[##SQLXL_Index_sys_periods]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[edge_constraints] - SQL 2019+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2563,7 +2563,7 @@ SELECT '[##SQLXL_Index_sys_objects]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[objects] including all other object-level management views'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2580,7 +2580,7 @@ IF @i = 1 BEGIN  -- first time through database loop. having index may speed up 
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... ' + @db_name_quoted + N' Index [ixuc_SQLXL_Index_sys_objects__object_id]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2615,7 +2615,7 @@ OPTION (MAXDOP 1,RECOMPILE,MAX_GRANT_PERCENT = 0,FORCE ORDER);'
 
    EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... ' + @db_name_quoted + N' Update is_memory_optimized (2014+)'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2689,7 +2689,7 @@ SELECT '[##SQLXL_Index_sys_dm_db_partition_stats]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[dm_db_partition_stats]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2767,7 +2767,7 @@ SELECT '[##SQLXL_Index_sql_definitions]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[modules]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2844,7 +2844,7 @@ SELECT TOP (0)
       ,partition_function_modify_date     = CAST(NULL AS DATETIME)
   INTO [##SQLXL_Index_sys_data_spaces];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_data_spaces]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -2951,7 +2951,7 @@ SELECT '[##SQLXL_Index_sys_data_spaces]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[data_spaces],[filegroups],[database_files],[partition_schemes]'
                                              + N',[partition_functions]'
@@ -3028,7 +3028,7 @@ BEGIN
 
    EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... ' + @db_name_quoted + N'.[sys].[destination_data_spaces]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3089,7 +3089,7 @@ SELECT TOP (0)
       ,is_ambiguous              = CAST(NULL AS BIT)
   INTO [##SQLXL_Index_sys_sql_expression_dependencies];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_sql_expression_dependencies]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3143,7 +3143,7 @@ SELECT '[##SQLXL_Index_sys_sql_expression_dependencies]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[sql_expression_dependencies]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3625,14 +3625,13 @@ SELECT '[##SQLXL_Index_sys_columns]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[columns],[identity_columns],[computed_columns],[sequences]'
                                              + N',[sql_expression_dependencies]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @step_exec_dttm = GETDATE();
 END;
-
 
 /******************************************************************************************************************************************\
  *Task* Collect [sys].[edge_constraint_clauses] SQL 2019+
@@ -3660,7 +3659,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      INTO [##SQLXL_Index_sys_edge_constraint_clauses]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_edge_constraint_clauses]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3695,7 +3694,7 @@ SELECT '[##SQLXL_Index_sys_edge_constraint_clauses]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[edge_constraint_clauses] - SQL 2019+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3744,7 +3743,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      INTO [##SQLXL_Index_sys_spatial_indexes]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_spatial_indexes]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3798,7 +3797,7 @@ SELECT '[##SQLXL_Index_sys_spatial_indexes]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[spatial_indexes]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3836,7 +3835,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      INTO [##SQLXL_Index_sys_xml_indexes]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_xml_indexes]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3875,7 +3874,7 @@ SELECT '[##SQLXL_Index_sys_xml_indexes]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[xml_indexes]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3911,7 +3910,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      INTO [##SQLXL_Index_sys_hash_indexes]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_hash_indexes]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -3946,7 +3945,7 @@ SELECT '[##SQLXL_Index_sys_hash_indexes]'
 
 EXECUTE (@sql); IF @@ERROR > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[hash_indexes]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4115,7 +4114,7 @@ SELECT '[##SQLXL_Index_sys_indexes]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[indexes],[spatial_indexes],[spatial_index_tessellations],[xml_indexes]'
                                              + N',[hash_indexes] (2014+)'
@@ -4195,7 +4194,7 @@ SELECT '[##SQLXL_Index_sys_fulltext_indexes]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[fulltext_indexes]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4230,7 +4229,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
          ,is_importing             = CAST(NULL AS BIT)
      INTO [##SQLXL_Index_sys_fulltext_catalogs];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_fulltext_catalogs]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4267,7 +4266,7 @@ SELECT '[##SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[fulltext_catalogs]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4329,7 +4328,7 @@ SELECT '[##SQLXL_Index_sys_foreign_key_columns]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[foreign_key_columns]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4455,7 +4454,7 @@ SELECT '[##SQLXL_Index_sys_index_columns]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[index_columns]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4537,7 +4536,7 @@ SELECT '[##SQLXL_Index_sys_index_columns] - insert Missing & fulltext index colu
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N' Added [fulltext_index_columns] to [##SQLXL_Index_sys_index_columns]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4600,7 +4599,7 @@ SELECT '[##SQLXL_Index_sys_extended_properties]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[extended_properties]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4706,7 +4705,7 @@ SELECT '[##SQLXL_Index_sys_stats]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[stats]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4769,7 +4768,7 @@ SELECT '[##SQLXL_Index_sys_stats_columns]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[stats_columns]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4858,7 +4857,7 @@ SELECT '[##SQLXL_Index_sys_dm_db_stats_properties]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[dm_db_stats_properties] - used for modification_counter if SQL 2012+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4906,7 +4905,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      FROM [##SQLXL_Index_sys_dm_db_stats_properties]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_dm_db_incremental_stats_properties]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -4933,7 +4932,7 @@ SELECT dsp.*
   JOIN (-- list of all indexes for database
         SELECT object_id
               ,index_id
-          FROM [##SQLXL_Index_sys_indexes]
+          FROM [##SQLXL_Index_sys_indexes] AS idx
          WHERE DB_ID() = database_id
        ) AS idx
  CROSS
@@ -4965,7 +4964,7 @@ SELECT '[##SQLXL_Index_sys_dm_db_incremental_stats_properties] '
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[dm_db_incremental_stats_properties]'
              + N' - partition modification_counter - SQL 2012SP2+,2016SP1+,2017+'
@@ -5057,7 +5056,7 @@ SELECT '[##SQLXL_Index_sys_partitions]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[partitions]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5101,7 +5100,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
          ,optimize_for_sequential_key = CONVERT(BIT          ,NULL)
      INTO [##SQLXL_Index_sys_internal_partitions];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_internal_partitions]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5154,7 +5153,7 @@ SELECT '[##SQLXL_Index_sys_internal_partitions]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[internal_partitions] - 2016+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5228,7 +5227,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
      INTO [##SQLXL_Index_sys_dm_db_xtp_index_stats]
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_dm_db_xtp_index_stats]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5394,7 +5393,7 @@ SELECT '[##SQLXL_Index_sys_dm_db_xtp_index_stats]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[dm_db_xtp_index_stats],object_stats,nonclustered_index_stats,memory_consumers'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5503,7 +5502,7 @@ SELECT '[##SQLXL_Index_sys_dm_os_buffer_descriptors_EXT]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N' [sys].[dm_os_buffer_descriptors_EXT] (database aggregates)'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5552,7 +5551,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
          ,closed_time                         = CAST(NULL AS DATETIME)
      INTO [##SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5602,7 +5601,7 @@ SELECT '[##SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[dm_db_column_store_row_group_physical_stats] - 2016+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5646,7 +5645,7 @@ SELECT TOP (0)
       ,input_groupby_row_CNT   = CAST(NULL AS BIGINT)
   INTO [##SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created table [##SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5722,7 +5721,7 @@ SELECT '[##SQLXL_Index_sys_dm_db_column_store_row_group_operational_stats]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[dm_db_column_store_row_group_operational_stats] - 2016+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5761,7 +5760,7 @@ IF @i = 1 BEGIN  -- first time through database loop, drop & recreate objects
          ,sql_text             = CAST(NULL AS NVARCHAR(4000)) COLLATE Latin1_General_100_CI_AI
      INTO [##SQLXL_Index_sys_index_resumable_operations];
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... Created  [##SQLXL_Index_sys_index_resumable_operations]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -5807,7 +5806,7 @@ SELECT '[##SQLXL_Index_sys_index_resumable_operations]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N'.[sys].[index_resumable_operations] - SQL 2017+'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -6008,8 +6007,8 @@ SELECT database_name = QUOTENAME(DB_name())
           FROM (-- Get statistics for all index types, including fulltext
                 SELECT database_id,object_id,index_id,type,sub_type
                       ,name
-                  FROM [##SQLXL_Index_sys_indexes] -- used in stats cursor
-                 WHERE DB_ID() = database_id       -- code executes inside a "USE <database name>" context
+                  FROM [##SQLXL_Index_sys_indexes] AS idx -- used in stats cursor
+                 WHERE DB_ID() = database_id              -- code executes inside a "USE <database name>" context
                    AND name   IS NOT NULL
                 UNION -- get Full text indexes
                 SELECT database_id,object_id
@@ -6327,7 +6326,7 @@ DEALLOCATE stats_crsr;' -- end of SQL Statement
    /***************************************************************************************************************************************\
     End of Database status notification
    \***************************************************************************************************************************************/
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N'    ... ' + @db_name_quoted + N' DBCC SHOW_STATISTICS - densityVector,StatHeader,Histogram'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -6351,7 +6350,7 @@ END;   -- WHILE @i > 0 Database Cursor Loop
 CLOSE db_crsr;
 DEALLOCATE db_crsr;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Close and deallocate Database cursor'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -6383,7 +6382,7 @@ Insert/Update All [##SQLXL ...] collected objects
 ############################################################################################################################################
 \#########################################################################################################################################*/
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'',0,0) WITH NOWAIT;
    RAISERROR(N'--------- Consolidate & update collected temporary tables ----------------------------------',0,0) WITH NOWAIT;
    SET @step_exec_dttm = GETDATE();
@@ -6659,7 +6658,7 @@ SELECT tgt.database_id,tgt.name,tgt.parent_object_id                            
   JOIN (-- assign table objects to their data space <future> in-memory tables persist in Memory Optimized Data filegroup
         SELECT database_id,object_id
               ,data_space_id
-          FROM [##SQLXL_Index_sys_indexes]
+          FROM [##SQLXL_Index_sys_indexes] AS idx
          WHERE type IN (N'0' -- rowstore heap
                        ,N'1' -- clustered rowstore
                        ,N'5' -- clustered columnstore
@@ -6779,16 +6778,16 @@ SELECT tgt.database_id,tgt.object_id,tgt.type,tgt.sub_type,
       ,nonclustered_hash_CNT              = COALESCE(idx.nonclustered_hash_CNT       ,0) -- Hash on In-Memory Clustered Columnstore
       ,json_index_CNT                     = COALESCE(idx.json_index_CNT              ,0) -- JSON index
       ------------------------------------
-      ,fulltext_index_CNT                 = COALESCE(ftx_type.fulltext_index_CNT          ,0) -- full-text index of a tabular object
-      ,missing_index_CNT                  = COALESCE(mix_type.missing_index_CNT           ,0) -- missing
-      ,foreign_key_CNT                    = COALESCE(fkc_type.foreign_key_CNT             ,0) -- foreign key constraint
+      ,fulltext_index_CNT                 = COALESCE(ftx_type.fulltext_index_CNT     ,0) -- full-text index of a tabular object
+      ,missing_index_CNT                  = COALESCE(mix_type.missing_index_CNT      ,0) -- missing
+      ,foreign_key_CNT                    = COALESCE(fkc_type.foreign_key_CNT        ,0) -- foreign key constraint
       ------------------------------------
-      ,column_CNT                         = COALESCE(tc.column_CNT,fkc.column_CNT         ,0) -- columns count from [sys].[columns]
-      ,column_null_CNT                    = COALESCE(tc.column_null_CNT                   ,0) -- NULL column count from [sys].[columns]
+      ,column_CNT                         = COALESCE(tc.column_CNT,fkc.column_CNT    ,0) -- columns count from [sys].[columns]
+      ,column_null_CNT                    = COALESCE(tc.column_null_CNT              ,0) -- NULL column count from [sys].[columns]
       ------------------------------------
-      ,clr_trigger_CNT                    = COALESCE(tr.clr_trigger_CNT                   ,0) -- Assembly (CLR) DML trigger
-      ,sql_trigger_CNT                    = COALESCE(tr.sql_trigger_CNT                   ,0) -- SQL DML trigger
-      ,is_instead_of_trigger_CNT          = COALESCE(tr.is_instead_of_trigger_CNT         ,0) -- Instead of trigger
+      ,clr_trigger_CNT                    = COALESCE(tr.clr_trigger_CNT              ,0) -- Assembly (CLR) DML trigger
+      ,sql_trigger_CNT                    = COALESCE(tr.sql_trigger_CNT              ,0) -- SQL DML trigger
+      ,is_instead_of_trigger_CNT          = COALESCE(tr.is_instead_of_trigger_CNT    ,0) -- Instead of trigger
   FROM [##SQLXL_Index_sys_objects] AS tgt WITH (TABLOCKX)
 
   LEFT OUTER
@@ -6803,7 +6802,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.type,tgt.sub_type,
               ,nonclustered_columnstore_CNT = SUM(IIF(type = N'6',1,0)) -- nonclustered columnstore index
               ,nonclustered_hash_CNT        = SUM(IIF(type = N'7',1,0)) -- Hash index on In-Memory Clustered Columnstore
               ,json_index_CNT               = SUM(IIF(type = N'9',1,0)) -- JSON index
-          FROM [##SQLXL_Index_sys_indexes]
+          FROM [##SQLXL_Index_sys_indexes] AS idx
          GROUP BY
                database_id,object_id
        ) AS idx
@@ -6998,7 +6997,7 @@ SELECT tgt.database_id,tgt.object_id,
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_sys_objects] partition counts and amounts'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -7015,7 +7014,7 @@ END;
 \******************************************************************************************************************************************/
 /*** LOCAL TESTING ***
 --*/
-;WITH cte_nm AS (
+;WITH cte_nm AS (-- get object names & reverse order to use below
 SELECT obj.database_id
       ,obj.object_id
       ,obj.type
@@ -7078,7 +7077,7 @@ UPDATE tgt -- [##SQLXL_Index_sys_objects]
    AND tgt.object_id   = src.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_sys_objects] system-named objects'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -7102,7 +7101,7 @@ UPDATE idx -- [##SQLXL_Index_sys_indexes]
                 SELECT database_id,object_id,index_id,type,sub_type
                       ,name
                       ,rev_name = REVERSE(name)
-                  FROM [##SQLXL_Index_sys_indexes]
+                  FROM [##SQLXL_Index_sys_indexes] AS idx
                  WHERE type       NOT IN (N'0') -- omit rowstore heaps
                    AND is_system_named = 0
                ) AS idx
@@ -7149,7 +7148,7 @@ UPDATE idx -- [##SQLXL_Index_sys_indexes]
    AND idx.sub_type    = src.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_sys_indexes] system-named indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -7445,7 +7444,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.column_id,
    AND tgt.column_id   = iles.column_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_sys_columns] Incorporate additional column-level elements including statistics'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -7687,7 +7686,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.column_id,ed.*
                                  )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Flag index columns that are filtered using [sys].[sql_expression_dependencies]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -7755,7 +7754,7 @@ UPDATE idx -- [##SQLXL_Index_sys_indexes]
    AND idx.sub_type    = src.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_sys_indexes] with count of columns by property'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -7795,7 +7794,7 @@ SELECT tgt.database_id,tgt.object_id.tgt.index_id,tgt.type,tgt.sub_type
    AND tgt.object_id   = usg.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_sys_dm_db_missing_index_details] Missing Index Advantage with percent of table reads factor'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -7848,7 +7847,7 @@ SELECT src.database_id
                        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_sys_index_columns] idx_column_display_sequence'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -7910,7 +7909,7 @@ SELECT src.database_id
    AND tgt.column_id   = src.column_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update Missing index key sequence based on column uniqueness'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -8026,7 +8025,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_sys_index_columns] statistic uniqueness & display properties'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -8115,7 +8114,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,tgt.idx_
                        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update index key synergy columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -8286,7 +8285,7 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N'    ... ' + @db_name_quoted + N' Index [ixuc_SQLXL_Index_sys_index_columns]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -8946,7 +8945,7 @@ CREATE TABLE [##SQLXL_Index_compilation]
 ,constraints                                NVARCHAR(4000) COLLATE Latin1_General_100_CI_AI     NULL
 ) WITH (DATA_COMPRESSION = PAGE);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created table [##SQLXL_Index_compilation]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9185,7 +9184,7 @@ SELECT obj.database_id,obj.object_id,op.name,obj.object_id,obj.name,obj.type,op.
            )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert heaps, indexes, foreign key constraints, SQL table valued functions, views to compilation table'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9241,7 +9240,7 @@ SELECT rec_type                       = N'I'                                    
    AND i.object_id           = obj.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert Full Text indexes to compilation table'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9299,7 +9298,7 @@ SELECT COUNT_BIG(1)
     -- NOTE: includes [sys].[dm_db_missing_index_details],[sys].[dm_db_missing_index_groups],[sys].[dm_db_missing_index_group_stats]
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert Missing indexes to compilation table'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9359,24 +9358,24 @@ SELECT rec_type = CASE WHEN obj.cdc_is_history_table = 1     THEN N'H' -- change
 
   LEFT OUTER
   JOIN (-- Get count of rows, compressed and archived partitions - OBJECT LEVEL ONLY
-        SELECT p.database_id
-              ,p.object_id
-              ,rows                = SUM(p.rows)
-          FROM [##SQLXL_Index_sys_partitions] AS p
-          JOIN [##SQLXL_Index_sys_indexes]    AS i
-            ON p.database_id = i.database_id
-           AND p.object_id   = i.object_id
-           AND p.index_id    = i.index_id
-         WHERE i.type IN (N'0' -- rowstore heap
-                         ,N'1' -- clustered rowstore index
-                         ,N'5' -- Clustered columnstore
-                         )
+        SELECT part.database_id
+              ,part.object_id
+              ,rows             = SUM(part.rows)
+          FROM [##SQLXL_Index_sys_partitions] AS part
+          JOIN [##SQLXL_Index_sys_indexes]    AS idx
+            ON part.database_id = idx.database_id
+           AND part.object_id   = idx.object_id
+           AND part.index_id    = idx.index_id
+         WHERE idx.type IN (N'0' -- rowstore heap
+                           ,N'1' -- clustered rowstore index
+                           ,N'5' -- Clustered columnstore
+                           )
          GROUP BY
-               p.database_id
-              ,p.object_id
+               part.database_id
+              ,part.object_id
        ) AS part
-    ON obj.database_id        = part.database_id
-   AND obj.object_id          = part.object_id
+    ON obj.database_id = part.database_id
+   AND obj.object_id   = part.object_id
 
   LEFT OUTER
   JOIN (-- count of statistics for each table & indexed view
@@ -9393,7 +9392,7 @@ SELECT rec_type = CASE WHEN obj.cdc_is_history_table = 1     THEN N'H' -- change
    AND obj.object_id   = stats.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert Object records - Base "P" (Table, View, Table Valued Function), HISTORY TABLE "H", and INTERNAL TABLE "S" records'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9423,7 +9422,7 @@ SELECT rec_type           = N'D'                            -- database level ag
  WHERE database_id > 0                                      -- ignore "instance" database record
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert DATABASE records to compilation table'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9451,7 +9450,7 @@ SELECT rec_type           = N'A'        -- instance level aggregate record
       ,type_desc          = N'Instance'
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert INSTANCE record to compilation table'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9471,7 +9470,7 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Clustered Index Compilation Table [##SQLXL_Index_compilation]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9513,7 +9512,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name
                        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Concatenated list of index key column IDs in corrected sequence order'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9678,7 +9677,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
    AND obj.object_id   = tgt.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update [##SQLXL_Index_compilation] Abbreviations for object & index types'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9779,7 +9778,7 @@ SELECT rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type
                )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update column_descriptors for Objects'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9885,7 +9884,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update index size & count attributes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -9900,28 +9899,28 @@ UPDATE tgt -- [##SQLXL_Index_compilation]
 /*** LOCAL TESTING ***
 SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
 --*/
-       row_CNT = ps.row_CNT
+       row_CNT = COALESCE(ps.row_CNT,0)
   FROM (SELECT * FROM [##SQLXL_Index_compilation] WITH (TABLOCKX) WHERE type = N'F') AS tgt -- foreign key constraint
 
   JOIN (-- physical table representation to get row counts below
         SELECT database_id,object_id,index_id
-          FROM [##SQLXL_Index_sys_indexes]
+          FROM [##SQLXL_Index_sys_indexes] AS idx
          WHERE type IN (N'0'   -- rowstore Heap
                        ,N'1'   -- clustered rowstore index
                        ,N'5'   -- clustered columnstore
                        )
-       ) AS tbl
-    ON tgt.database_id = tbl.database_id
-   AND tgt.object_id   = tbl.object_id
+       ) AS idx
+    ON tgt.database_id = idx.database_id
+   AND tgt.object_id   = idx.object_id
 
   JOIN [##SQLXL_Index_sys_dm_db_partition_stats] AS ps
     ON tgt.database_id = ps.database_id
    AND tgt.object_id   = ps.object_id
-   AND tbl.index_id    = ps.index_id
+   AND idx.index_id    = ps.index_id
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update foreign key constraint table row counts'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -10035,7 +10034,7 @@ SELECT *
    AND tgt.index_id    = dip.stats_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update index statistics'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -10058,7 +10057,9 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
                                   SELECT TOP (1)
                                          COALESCE(icol.stat_uniqueness,icol.col_uniqueness)
                                     FROM [##SQLXL_Index_sys_index_columns] AS icol
-                                   WHERE tgt.type   NOT IN (N'0',N'3',N'4',N'5',N'6',N'9')
+                                   WHERE tgt.type       IN (N'1'
+                                                           ,N'2'
+                                                           )
                                      AND tgt.database_id = icol.database_id
                                      AND tgt.object_id   = icol.object_id
                                      AND tgt.index_id    = icol.index_id
@@ -10093,8 +10094,10 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
                                     THEN  CHAR(096)
                                         + CASE WHEN obj.is_memory_optimized = 1
                                                THEN N'<XTP HEAP>'
-                                               WHEN obj.type = N'U'         -- User Table
-                                               THEN COALESCE( N'<HEAP> Candidate Clustered Unique ordered column:'
+                                               WHEN obj.type    = N'U'          -- User Table
+                                                AND obj.is_node = 0             -- graph tables
+                                                AND obj.is_edge = 0             -- graph tables
+                                               THEN COALESCE( N'Candidate Clustered Unique ordered column:'
                                                             + CHAR(096)
                                                             + (-- If unique ordered column found show it here
                                                                SELECT xic.column_descriptors
@@ -10103,7 +10106,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
                                                                   AND tgt.object_id                     = xic.object_id
                                                                   AND tgt.tbl_cx_uniq_ordered_column_id = xic.column_id
                                                               )
-                                                            ,N'<HEAP> Candidate clustering column:'
+                                                            ,N'Candidate clustering column:'
                                                             + CHAR(096)
                                                             + (-- If no Unique Ordered column found, look for next best candidate
                                                                SELECT TOP (1)
@@ -10116,7 +10119,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
                                                                 ORDER BY
                                                                       xic.uniqueness * COALESCE(xic.average_length,xic.max_length)
                                                               )
-                                                            ,N'<HEAP> No candidate clustering column')
+                                                            ,N'No candidate clustering column')
                                               WHEN obj.type = N'V' -- View
                                               THEN N'<Unindexed View>'
                                               ELSE N'<Unordered table-valued function>'
@@ -10341,7 +10344,7 @@ SELECT COUNT_BIG(1)
        ) AS un(uniq)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update index column statistics and attributes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -10440,7 +10443,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,c.UNQ,c.column_id,ncx
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update table columns with attributes Unique, Ordered,IDs'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -10460,7 +10463,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
        ---------------------------------------------------------------------------------------------
        -- All indexes covering this foreign key constraint
        ---------------------------------------------------------------------------------------------
-       fkc_covered_by_idx_IDS     = all_covering_indexes.index_id  -- list of all indexes covering this Foreign Key Constraint
+       fkc_covered_by_idx_IDS     = STUFF(all_covering_indexes.index_id,1,1,N'') -- list of all indexes covering this Foreign Key Constraint
        ---------------------------------------------------------------------------------------------
        -- "Best" index covering this foreign key constraint
        ---------------------------------------------------------------------------------------------
@@ -10515,36 +10518,33 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
        (-- Find all other non-filtered indexes covering all Foreign Key Constraint column(s)
         -- Ordered: clustered over Nonclustered, most readest, most narrowest, fewest key columns, and narrowest included columns
         -- NOTE: Columnstores can't be used to cover foreign key constraint!
-        SELECT -- double select needed for XML .VALUE clause below
-               STUFF(
-                     (--
-                      SELECT TOP (100) PERCENT
-                             N',' + QUOTENAME(i.index_id)
-                        FROM [##SQLXL_Index_compilation] AS i
-                       WHERE i.type          IN (N'1'              -- clustered rowstore index
-                                                ,N'2'              -- nonclustered rowstore index
-                                                )                  -- NOTE: Columnstores can't be used to cover foreign key constraint!
-                         AND i.has_filter    = 0                   -- can't be filtered since won't cover the whole key
-                         AND tgt.database_id = i.database_id
-                         AND tgt.object_id   = i.object_id
-                         AND tgt.type        = N'F'                -- foreign key constraint
-                         AND CHARINDEX(tgt.key_column_ids,i.key_column_ids) = 1 -- matching comma separated key ordered list of column_ids
-                      ORDER BY
-                            i.type                                  -- use clustered if found
-                           ,i.is_primary_key                   DESC -- Primary Key
-                           ,i.is_unique_constraint             DESC -- is a CONSTRAINT
-                           ,i.is_unique                        DESC -- is UNIQUE
-                           ,i.ius_user_read_CNT                DESC -- most read
-                           ,i.is_key_total_datatype_length_MAX      -- does this have a MAX WIDTH column
-                           ,i.stathdr_average_key_length            -- smallest length measured by statistics
-                           ,i.key_total_datatype_length_bytes       -- narrowest key
-                           ,i.key_ordinal_CNT                       -- fewest key elements
-                           ,i.is_inc_total_datatype_length_MAX      -- does this have a MAX WIDTH column
-                           ,i.inc_total_datatype_length_bytes       -- shortest included columns
-                           ,i.index_id                              -- tie breaker
-                         FOR XML PATH(N''), TYPE                                                    -- index_id
-                     ).value('.',N'NVARCHAR(MAX)')
-                    ,1,1,N'')
+        SELECT (-- double select needed for XML .VALUE clause below
+                SELECT TOP (100) PERCENT
+                       N',' + QUOTENAME(i.index_id)
+                  FROM [##SQLXL_Index_compilation] AS i
+                 WHERE i.type          IN (N'1'              -- clustered rowstore index
+                                          ,N'2'              -- nonclustered rowstore index
+                                          )                  -- NOTE: Columnstores can't be used to cover foreign key constraint!
+                   AND i.has_filter    = 0                   -- can't be filtered since won't cover the whole key
+                   AND tgt.database_id = i.database_id
+                   AND tgt.object_id   = i.object_id
+                   AND tgt.type        = N'F'                -- foreign key constraint
+                   AND CHARINDEX(tgt.key_column_ids,i.key_column_ids) = 1 -- matching comma separated key ordered list of column_ids
+                ORDER BY
+                      i.type                                  -- use clustered if found
+                     ,i.is_primary_key                   DESC -- Primary Key
+                     ,i.is_unique_constraint             DESC -- is a CONSTRAINT
+                     ,i.is_unique                        DESC -- is UNIQUE
+                     ,i.ius_user_read_CNT                DESC -- most read
+                     ,i.is_key_total_datatype_length_MAX      -- does this have a MAX WIDTH column
+                     ,i.stathdr_average_key_length            -- smallest length measured by statistics
+                     ,i.key_total_datatype_length_bytes       -- narrowest key
+                     ,i.key_ordinal_CNT                       -- fewest key elements
+                     ,i.is_inc_total_datatype_length_MAX      -- does this have a MAX WIDTH column
+                     ,i.inc_total_datatype_length_bytes       -- shortest included columns
+                     ,i.index_id                              -- tie breaker
+                   FOR XML PATH(N''), TYPE                                                    -- index_id
+               ).value('.',N'NVARCHAR(MAX)')
        ) all_covering_indexes(index_id)
 
  OUTER APPLY
@@ -10575,14 +10575,13 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.name,
     OR covers_fkc.index_id           IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Parent "Referred" Foreign Key Constraints "covered" by indexes and vice-versa'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    RAISERROR(N'    Start Update Foreign Key Constraints "covered" by indexes & vice versa',0,0) WITH NOWAIT;
    SET @step_exec_dttm = GETDATE();
 END;
-
 
 /******************************************************************************************************************************************\
  *Task* Update [##SQLXL_Index_compilation] index lead element
@@ -10635,7 +10634,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
    AND tgt.type        = src.type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update index lead key element'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11071,7 +11070,7 @@ SELECT COUNT_BIG(1)
                          )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update metrics - Usage, Operational, missing index, row GROUP operational'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11093,7 +11092,7 @@ UPDATE tgt -- [##SQLXL_Index_compilation]
   FROM [##SQLXL_Index_compilation] AS tgt WITH (TABLOCKX)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update indexes with WRITEs and Zero READs, partition counts'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11139,7 +11138,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
                          )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update Parent partition information, using HEAP or CLUSTERED values'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11219,7 +11218,7 @@ SELECT tgt.rec_type,tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_
    AND src.low_sel IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update indexes without activity and low key additional selectivity'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11292,7 +11291,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.name,tgt.index_id,tgt.type,tgt.sub_type
                    )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Check & default (constraint or stand-alone) Definitions'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11371,7 +11370,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.name,tgt.index_id,tgt.type,tgt.sub_type
    AND tgt.type             = chk.type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Check Index & default (constraint or stand-alone) Definitions'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11425,7 +11424,7 @@ UPDATE tgt -- [##SQLXL_Index_compilation]
    AND tgt.object_id   = chk.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Check if Table has Computed Columns using SQL procedures, functions, or methods'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11473,7 +11472,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
                    )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Consolidated Key Constraints'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11533,7 +11532,7 @@ SELECT ic.*,
        ) AS c(txt)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Incorporate Column Constraints'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11592,7 +11591,7 @@ UPDATE tgt -- [##SQLXL_Index_compilation]
    AND chk.parent_object_id = tgt.object_id                       -- for System, History, Constraints
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Incorporate Parent table Edge Constraints'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11708,7 +11707,7 @@ SELECT seql.database_id,seql.object_id
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER,HASH JOIN); -- HASH JOIN added for performance
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Sequence synergies - duplicate keys'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11813,7 +11812,7 @@ SELECT *
  WHERE synergy.rn = 1 -- get the matched row with the most number of matching keys
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER,HASH JOIN); -- HASH JOIN added for performance
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Sequence synergies - same keys, same sequence'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11907,7 +11906,7 @@ SELECT *
  WHERE overlap.rn = 1
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER,HASH JOIN); -- HASH JOIN added for performance
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Overlap synergies - same keys, different sequence'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -11962,7 +11961,6 @@ SELECT con.database_id,con.object_id
            AND idxr.type            = sicr.type
            AND idxr.sub_type        = sicr.sub_type
            AND 0                    < sicr.key_ordinal
-
 
          WHERE 1 = 1   -- simplifies adding additional clauses for testing
            AND idxl.type NOT IN (N'0'  -- rowstore heap
@@ -12030,7 +12028,7 @@ SELECT con.database_id,con.object_id
    AND con.key_ordinal     = col.key_ordinal
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER,HASH JOIN); -- HASH JOIN added for performance
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Contained synergies - smaller indexes with key columns in larger indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12081,7 +12079,7 @@ SELECT con.database_id,con.object_id
  WHERE col.key_overlap_column_list IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER,HASH JOIN); -- HASH JOIN added for performance
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Containing synergies - larger indexes with columns from smaller index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12167,7 +12165,7 @@ SELECT con.database_id,con.object_id
    AND con.key_ordinal     = col.key_ordinal
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER,HASH JOIN); -- HASH JOIN added for performance
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Included synergies - all key columns found in a larger index with included columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12225,7 +12223,7 @@ SELECT con.database_id,con.object_id
    AND idx_column_display_sequence_MAX = col.idx_column_display_sequence
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER,HASH JOIN);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Including synergies - larger indexes with included columns containing all the keys from smaller indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12290,7 +12288,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND tgt.sub_type     = src.l_sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update SQLXL_Index_compilation with SYNERGIES'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12324,7 +12322,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.mix_Advantage_AMT
    AND tgt.object_id   = usg.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update Missing Index Advantage with percent of table reads factor'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12374,7 +12372,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,src.*,
        ) AS src
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Find best missing index to cover a foreign key'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12476,7 +12474,7 @@ SELECT database_id,object_id,index_id = l_index_id,type = l_type,sub_type = l_su
          ,synergy_prefix
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Create [##SQLXL_Index_synergies_count_by_type]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12599,7 +12597,7 @@ SELECT fkc_mix.database_id,fkc_mix.object_id,fkc_mix.index_id,fkc_mix.type,fkc_m
    AND tgt.fkc_best_covering_idx_ID IS NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Add Missing index values to Uncovered Foreign Key Constraints'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12650,7 +12648,7 @@ SELECT stat_idx.database_id
       ,is_incremental              = SUM(IIF(stat.is_incremental       = 1,1,0))
       ,has_persisted_sample        = SUM(IIF(stat.has_persisted_sample = 1,1,0))
 --*/
-  FROM (       -- all statistics that are filtered
+  FROM (-- all statistics that are filtered
         SELECT database_id,object_id
               ,stats_id
           FROM [##SQLXL_Index_sys_stats]
@@ -12658,7 +12656,7 @@ SELECT stat_idx.database_id
         EXCEPT -- indexes that already have a filter
         SELECT database_id,object_id
               ,index_id
-          FROM [##SQLXL_Index_sys_indexes]
+          FROM [##SQLXL_Index_sys_indexes] AS idx
          WHERE has_filter = 1
        ) AS stat_idx
   JOIN [##SQLXL_Index_sys_stats] AS stat
@@ -12695,7 +12693,7 @@ SELECT stat_idx.database_id
       ,col.name
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - create [#key_column_filtered_statistics]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12722,7 +12720,7 @@ CREATE TABLE [##SQLXL_Index_compilation_compute_columns]
       ,name NVARCHAR(200) COLLATE Latin1_General_100_CI_AI NULL
       );
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created table [##SQLXL_Index_compilation_compute_columns]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -12948,7 +12946,7 @@ OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 ,(N'MAX',N'partition_function_modify_date') -- in [##SQLXL_Index_data_spaces]
 */
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Inserted [##SQLXL_Index_compilation_compute_columns]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13092,7 +13090,7 @@ SELECT '[##SQLXL_Index_sys_edge_constraints]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Rollup metric totals to instance, database, parent, history, & internal/system levels'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13191,7 +13189,7 @@ SELECT '[##SQLXL_Index_sys_edge_constraints]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Rollup missing index totals to instance, database, parent, history, & internal/system levels'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13298,7 +13296,7 @@ SELECT '[##SQLXL_Index_sys_edge_constraints]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Add to specialty index metrics with values from internal/system tables - xml, spatial, fulltext, JSON'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13371,7 +13369,7 @@ SELECT '[##SQLXL_Index_sys_edge_constraints]'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Parent MAX Values - Latest DTTM, last read/write days ago, row count'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13407,7 +13405,7 @@ UPDATE tgt -- [##SQLXL_Index_compilation]
   AND tgt.index_id    = src.object_id -- only 1 fulltext index per table
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update row_CNT for fulltext indexes using fulltext_INDEXED_DOCID'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13444,7 +13442,7 @@ OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);'
 
 EXECUTE (@sql); IF @@Error > 0 BEGIN SELECT @sql;RAISERROR('### BLAMMO ! ###',0,0) WITH NOWAIT; END;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Calculated all millisecond Averages'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13527,7 +13525,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND N'P'                 = p.rec_type                                  -- parent level aggregate record
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Calculate percents and ratios - Index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13556,7 +13554,6 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
 END CATCH
-
 
 --------------------------------------------------------------------------------------------------------------------------------------------
 -- Insert All millisecond (_MS) average (_AVG) computed values to [##SQLXL_Index_Metrics]
@@ -13642,14 +13639,13 @@ SELECT rec_type
  WHERE cs_row_group_lock_wait_MS_AVG > 0.0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Add all millisecond Averages to [##SQLXL_Index_Metrics]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    RAISERROR(N'    Start Compute index SUM metrics as percent of Parent or Instance',0,0) WITH NOWAIT;
    SET @step_exec_dttm = GETDATE();
 END;
-
 
 /******************************************************************************************************************************************\
  *Task* Compute Cursor through all Parent & index Metrics - AMT (FLOAT) & CNT (%INT)
@@ -13801,7 +13797,7 @@ END; -- WHILE 1 = 1
 CLOSE agg_crsr;
 DEALLOCATE agg_crsr;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Compute index metrics as percent of Parent or Instance'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13887,7 +13883,7 @@ END;  -- WHILE 1 = 1
 CLOSE agg_crsr;
 DEALLOCATE agg_crsr;
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Add Ratio and Percent metrics to [##SQLXL_Index_Metrics]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13909,7 +13905,7 @@ END TRY
 BEGIN CATCH
 END CATCH
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Indexed table [##SQLXL_Index_Metrics]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -13986,7 +13982,7 @@ SELECT c.*,
    AND tgt.metric           = c.metric
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update column rankings - PARENT within TOTAL & INDEX within PARENT'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14060,7 +14056,7 @@ SELECT c.*,
    AND tgt.metric           = c.metric
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Update column rankings - INDEX within PARENT'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14094,7 +14090,7 @@ CREATE TABLE [##SQLXL_Index_Diagnostics]
       ,diagnostic    NVARCHAR(4000) COLLATE Latin1_General_100_CI_AI      NULL
       );
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created table [##SQLXL_Index_Diagnostics]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14134,7 +14130,7 @@ CREATE TABLE [##SQLXL_Index_Metric_Rollup]
       ,abbr_6            NVARCHAR(200) COLLATE Latin1_General_100_CI_AI NULL
       );
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created table [##SQLXL_Index_Metric_Rollup]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14389,7 +14385,7 @@ Priority Metrics
 ----------------------------------------------------------------------------------------------
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert consolidated metrics to diagnostic table'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14455,7 +14451,7 @@ SELECT f.rec_type
       ,r.metric_rollup_nbr
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert [#SQLXL_Index_ranked_metrics] ranked metrics for each index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14585,7 +14581,7 @@ SELECT r.level_1
    AND r.level_6          = f6.metric
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Insert metric rollups to [##SQLXL_Index_metrics_summary]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14603,7 +14599,7 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created Index on [##SQLXL_Index_metrics_summary]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14639,7 +14635,7 @@ ORDER BY 1
 /***************************************************************************************************************************************\
  End of Data consolidation status notification
 \***************************************************************************************************************************************/
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @sql = N'SELECT N''Completed data consolidation'''
             + N' AS [Elapsed Time '
             + [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@collection_DTTM,GETDATE()),0))
@@ -14652,7 +14648,7 @@ END;
  Format & Priorities of Diagnostics entries: (rec_type,database_id,object_id,index_id,type,diagnostic)
 \*########################################################################################################################################*/
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'',0,0) WITH NOWAIT;
    RAISERROR(N'--------- Start SQLXL Index Investigate ------------------------------------------',0,0) WITH NOWAIT;
    SET @step_exec_dttm = GETDATE();
@@ -14679,7 +14675,7 @@ SELECT TOP 0
   FROM [##SQLXL_Index_compilation]
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created table [##SQLXL_Index_prescription]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14694,7 +14690,7 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created table [##SQLXL_Index_prescription] and added clustered index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14739,7 +14735,7 @@ SELECT N'(BI72) Trace Flag 834 (large-page allocations for the buffer pool) in u
               )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Instance Diagnostics - TF834 enabled & Columnstore indexes used'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14817,7 +14813,7 @@ SELECT *
        ) IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Instance Diagnostics - Enable LARGE PAGES if not Columnstore'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14847,7 +14843,7 @@ SELECT rec_type     = N'A'  -- instance level aggregate record
        ) AS obj
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Instance Diagnostics - Missing Indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14873,7 +14869,7 @@ SELECT diagnostic   = COALESCE( N'Missing indexes in instance: '
        ) AS obj
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Instance Diagnostics - Missing Indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14924,7 +14920,7 @@ SELECT i.*
  WHERE IIF(idx_CNT > 0,100.0 * unused_idx_CNT / idx_CNT,0.0) > 5.0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Database Diagnostics - More Than 5 Percent Databases Indexes Are Unused (BI21)'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -14969,7 +14965,7 @@ SELECT rec_type     = N'D'          -- database level aggregate record
  WHERE (100.0 * i.included_index_CNT / i.index_CNT) < 3.0 -- /zero handled by HAVING clause above
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Database Diagnostics - < 10% of table & view nonclustered rowstore indexes with Included Columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -15013,7 +15009,7 @@ SELECT rec_type     = N'D'          -- database level aggregate record
        ) AS i
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Database Diagnostics - less than 5% of views have indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -15058,7 +15054,7 @@ SELECT rec_type     = N'D'          -- database level aggregate record
        ) AS i
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Database Diagnostics - less than 5% of indexes with Filters'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -15096,7 +15092,6 @@ SELECT rec_type     = N'D'           -- database level aggregate record
 
 -- Diagnostic - Database - non-default - Recovery model is not FULL
 +IIF(db.recovery_model > 1,CHAR(096) + N'Recovery model ' + QUOTENAME(db.recovery_model_desc),N'')
-
 
 -- Diagnostic - Database - non-default - [page_verify_option] not CHECKSUM
 +IIF(db.[page_verify_option] <> 2,CHAR(096) + N'Page verify option: ' + db.page_verify_option_desc,N'')
@@ -15552,7 +15547,7 @@ SELECT db.name,db.replica_id,db.replica_id,qso.database_id
    AND 1              = hdrs.is_local
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Database Diagnostics - includes query store, partition count, hadr, automatic tuning)'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -15619,7 +15614,7 @@ VALUES -- default values for database scoped configurations
 ,(N'XTP_QUERY_EXECUTION_STATISTICS',N'0',N'OFF')
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Database Diagnostics - created database scoped configuration default values'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -15704,7 +15699,7 @@ SELECT rec_type     = N'D'           -- database level aggregate record
        ) sc(diagnostic)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Database Diagnostics - database scoped configuration non-default values'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -15715,6 +15710,12 @@ END;
 ############################################################################################################################################
 *** PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT PARENT ***
  *Task* Diagnostics - Parent & Index Types
+
+-- Diagnostic - Table - GRAPH NODE
++IIF(obj.is_node                         = 1,CHAR(096) + QUOTENAME(N'GRAPH NODE'),N'')
+-- Diagnostic - Table - GRAPH EDGE
++IIF(obj.is_edge                         = 1,CHAR(096) + QUOTENAME(N'GRAPH EDGE'),N'')
+
 ############################################################################################################################################
 \******************************************************************************************************************************************/
 --------------------------------------------------------------------------------------------------------------------------------------------
@@ -15735,27 +15736,19 @@ SELECT *
               ,diagnostic = STUFF(-- remove unneeded leading CHAR(096)
 
 -- Diagnostic - Table - Is empty
-
------------------------------------------------------------------------------------------------------------------------
--- Storage
------------------------------------------------------------------------------------------------------------------------
--- Diagnostic - Parent - (BI73) - Memory Optimized (XTP) & Durability description
--- Diagnostic - Index - (BI73) - Memory Optimized (XTP) & Durability description
-                                 + IIF(obj.is_memory_optimized = 1
-                                      , CHAR(096) + N'(BI73) [MEMORY OPTIMIZED]' + N' Durability ' + QUOTENAME(obj.durability_desc)
--- Diagnostic - (BI73) - Parent - Memory Optimized (XTP) NOT PERSISTED (SCHEMA_ONLY)
--- Diagnostic - (BI73) - Index - Memory Optimized (XTP) NOT PERSISTED (SCHEMA_ONLY)
-                                      + IIF(obj.durability = 1,N' *data NOT PERSISTED*',N'')
-                                      + IIF(i.tbl_is_empty = 1,N' [EMPTY]',N'')
+                                 + CHAR(096)
+                                 + IIF(i.tbl_is_empty = 1 AND obj.type IN (N'IT' -- internal table
+                                                                          ,N'U'  -- user table
+                                                                          )
+                                      ,N'[EMPTY] '
                                       ,N'')
--- Diagnostic - Table - EXTERNAL TABLE
-                                 + IIF(obj.is_external= 1,CHAR(096) + N'[EXTERNAL TABLE]',N'')
--- Diagnostic - Table - FILETABLE
-                                 + IIF(obj.is_filetable = 1,CHAR(096) + N'[FILETABLE]',N'')
+-- Diagnostic - Parent - Change Tracking Enabled
+                                 + IIF(obj.ctt_is_track_columns_updated_on = 1,N'[CHANGE TRACKING ENABLED] ',N'')
 
 -----------------------------------------------------------------------------------------------------------------------
--- Internal, SQL Table Valued Function, View
+-- Non-Rowstore table
 -----------------------------------------------------------------------------------------------------------------------
+-- Diagnostic - Parent - is foreign key constraint
 -- Diagnostic - Parent - is Internal (System) Table & internal type description
 -- Diagnostic - Parent - is SQL Table Valued Function
 -- Diagnostic - Parent - is View
@@ -15763,32 +15756,44 @@ SELECT *
                                                    ,N'TF'   -- SQL table-valued-function SQL 2012+
                                                    ,N'V'    -- View
                                                    )
-                                      , CHAR(096) + QUOTENAME(obj.type_desc)
-                                      + COALESCE(N' ' + QUOTENAME(obj.sub_type_desc),N'')
-                                      + COALESCE(QUOTENAME( IIF(obj.is_dropped_ledger_view = 1,N'DROPPED_',N'')
-                                                          + IIF(obj.ledger_view_type > 0,obj.ledger_view_type_desc,NULL)
-                                                          ),N'')
-                                      + IIF(i.tbl_is_empty = 1,N' [EMPTY]',N'')
+                                      ,QUOTENAME(obj.type_desc) + COALESCE(N' ' + QUOTENAME(obj.sub_type_desc),N'') + N' '
+
+-- Diagnostic - Parent - is ledger_view_type
+-- Diagnostic - Parent - is_dropped_ledger_view
+                                      + IIF(obj.is_dropped_ledger_view = 1,N'[DROPPED] ',N'')
+                                      + IIF(obj.ledger_view_type > 0,QUOTENAME(obj.ledger_view_type_desc) + N' ',N'')
                                       ,N'')
 
+-- Diagnostic - (BI61) - Table - is Clustered Columnstore
+                                 + IIF(obj.clustered_columnstore_CNT > 0,N'(BI61) [CLUSTERED COLUMNSTORE TABLE] ',N'')
+
+-- Diagnostic - Parent - (BI73) - Memory Optimized (XTP) & Durability description
+-- Diagnostic - Index - (BI73) - Memory Optimized (XTP) & Durability description
+                                 + IIF(obj.is_memory_optimized = 1
+                                      ,N'(BI73) [MEMORY OPTIMIZED]' + N' Durability ' + QUOTENAME(obj.durability_desc)
+-- Diagnostic - (BI73) - Parent - Memory Optimized (XTP) NOT PERSISTED (SCHEMA_ONLY)
+                                      + IIF(obj.durability = 1,N' [DATA NOT PERSISTED] ',N'')
+                                      ,N'')
+
+-- Diagnostic - Table - EXTERNAL TABLE
+                                 + IIF(obj.is_external= 1,N'[EXTERNAL TABLE] ',N'')
+-- Diagnostic - Table - FILETABLE
+                                 + IIF(obj.is_filetable = 1,N'[FILETABLE] ',N'')
 -----------------------------------------------------------------------------------------------------------------------
 -- History - CDC
 -----------------------------------------------------------------------------------------------------------------------
--- Diagnostic - (BI110) - Parent - History - Change Data Capture ENABLED
--- Diagnostic - (BI110) - Parent - History - Change Data Capture ENABLED, Net changes enabled/disabled
+-- Diagnostic - (BI110) - Parent - History - Change Data Capture
+-- Diagnostic - (BI110) - Parent - History - Net Change Data Capture changes enabled/disabled
                                  + IIF(obj.is_tracked_by_cdc = 1
-                                      , CHAR(096) + N'(BI110) [CHANGE DATA CAPTURE ENABLED]'
-                                      + N' Net Changes '
-                                      + IIF(obj.cdc_supports_net_changes = 1,N'[ENABLED]',N'[DISABLED]')
-                                      + IIF(i.tbl_is_empty = 1,N' [EMPTY]',N'')
+                                      , CHAR(096) + N'(BI110) [CHANGE DATA CAPTURE] '
+                                      + N'[Net Changes ' + IIF(obj.cdc_supports_net_changes = 1,N'ENABLED] ',N'DISABLED] ')
                                       ,N'')
 
 -- Diagnostic - (BI110) - Parent - History - Change Data Capture History Table
--- Diagnostic - (BI110) - Parent - History - Change Data Capture History Table, Net changes enabled/disabled
+-- Diagnostic - (BI110) - Parent - History - Net Change Data Capture changes enabled/disabled - History Table
                                  + IIF(obj.cdc_is_history_table = 1
-                                      , CHAR(096) + N'(BI110) [CHANGE DATA CAPTURE HISTORY TABLE]'
-                                      + IIF(obj.cdc_supports_net_changes = 1,N'[ENABLED]',N'[DISABLED]')
-                                      + IIF(i.tbl_is_empty = 1,N' [EMPTY]',N'')
+                                      , CHAR(096) + N'(BI110) [CHANGE DATA CAPTURE HISTORY TABLE] '
+                                      + N'[Net Changes ' + IIF(obj.cdc_supports_net_changes = 1,N'ENABLED] ',N'DISABLED] ')
                                       ,N'')
 
 -----------------------------------------------------------------------------------------------------------------------
@@ -15799,8 +15804,7 @@ SELECT *
                                  + IIF(obj.temporal_type > 0  -- HISTORY & SYSTEM_VERSIONED_TEMPORAL_TABLE
                                       , CHAR(096)
                                       + N'(BI110) [SYSTEM_VERSIONED] '
-                                      + QUOTENAME(REPLACE(obj.temporal_type_desc,N'SYSTEM_VERSIONED_',N''))
-                                      + IIF(i.tbl_is_empty = 1,N' [EMPTY]',N'')
+                                      + QUOTENAME(REPLACE(obj.temporal_type_desc,N'SYSTEM_VERSIONED_',N'')) + N' '
 -- Diagnostic - Parent - History - System Versioned Temporal Table, retention
                                       + IIF(obj.temporal_type = 2
                                            , N' Retention '
@@ -15833,15 +15837,12 @@ SELECT *
 -- Diagnostic - (BI110) - Parent - History - Append Only Ledger Table
                                  + IIF(obj.ledger_type > 0
                                       , CHAR(096)
-                                      + N' (BI110) '
+                                      + N'(BI110) '
                                       + QUOTENAME( IIF(obj.is_dropped_ledger_table = 1,N'DROPPED ',N'')
                                                  + IIF(obj.ledger_type = 1,N'LEDGER_',N'')
                                                  + obj.ledger_type_desc
-                                                 )
-                                      + IIF(i.tbl_is_empty = 1,N' [EMPTY]',N'')
-                                      + CHAR(096)
-                                      + N'> Ledger View '
-                                      + IIF(lv.is_dropped_ledger_view = 1,N'*DROPPED* ',N'')
+                                                 ) + N' '
+
 -- Diagnostic - (BI110) - Parent - History - Updatable Ledger View name, SQL2022+ & Azure SQL Database
                                       + COALESCE(QUOTENAME(lv.name),N'')
                                         + IIF(obj.ledger_type = 1
@@ -15851,22 +15852,6 @@ SELECT *
                                                        )
                                              ,N'')
                                       ,N'')
-
------------------------------------------------------------------------------------------------------------------------
--- History - Change tracking enabled
------------------------------------------------------------------------------------------------------------------------
--- Diagnostic - Parent - Change Tracking Enabled
-                                 + IIF(obj.ctt_is_track_columns_updated_on = 1,CHAR(096) + N'[CHANGE TRACKING ENABLED]',N'')
-
------------------------------------------------------------------------------------------------------------------------
--- Parent Storage
------------------------------------------------------------------------------------------------------------------------
--- Diagnostic - (BI61) - Table - is Clustered Columnstore
-                                 +IIF(i.type = N'U'                                -- user table aggregate record
-                                     ,IIF(obj.clustered_columnstore_CNT > 0
-                                         ,CHAR(096) + N'(BI61) [COLUMNSTORE TABLE]'
-                                         ,N'')
-                                     ,N'')
 
 -----------------------------------------------------------------------------------------------------------------------
 -- Index types, subtypes, unique attributes
@@ -15959,7 +15944,7 @@ SELECT COUNT_BIG(1)
  WHERE i.diagnostic > N''
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Add principal parent and index types'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16064,7 +16049,7 @@ SELECT *
        con_obj.type                             -- check constraints first
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Parent Diagnostics - Constraint attributes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16210,7 +16195,7 @@ SELECT ncs_chk.ncs_ok
  WHERE diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - Many IDX on object - BI20, FKC Cascading - BI71'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16312,7 +16297,7 @@ SELECT rec_type     = N'P'                                  -- parent level aggr
     OR sc.is_newid           = 1
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - Identities/Sequences/GUIDs'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16412,7 +16397,7 @@ SELECT *
  WHERE c.diagnostic > N''
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - Many columns and/or wide'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16532,7 +16517,7 @@ SELECT rec_type     = p.rec_type
  WHERE p.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - Performance related'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16577,7 +16562,7 @@ SELECT c.*
    AND 0             = t.is_tracked_by_cdc
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - Replicated columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16609,7 +16594,7 @@ SELECT rec_type     = N'P'  -- parent level aggregate record
    AND col.collation_name <> db.collation_name
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - String column with non-database collation'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16667,7 +16652,7 @@ SELECT rec_type     = N'P'  -- parent level aggregate record
  WHERE c.is_computed  = 1
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - Computed columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16734,8 +16719,6 @@ SELECT i.rec_type
                          )
     ,N'')
 ---------------------------------------------------------------------------------------------------
--- Diagnostic - Table - Is empty
-+IIF(i.tbl_is_empty = 1,CHAR(096) + QUOTENAME(N'EMPTY'),N'')
 -- Diagnostic - Table - Locked for BULK LOAD
 +IIF(obj.lock_on_bulk_load > 0,CHAR(096) + QUOTENAME(N'Locked for BULK LOAD'),N'') -- Locked for BULK LOAD
 ---------------------------------------------------------------------------------------------------
@@ -16760,7 +16743,7 @@ SELECT i.rec_type
  WHERE f.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - Non-default properties'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16799,7 +16782,7 @@ SELECT rec_type     = N'P'                                  -- parent level aggr
  WHERE diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - ANSI values & Unchecked assempbly'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16874,7 +16857,7 @@ SELECT rec_type     = N'P'                        -- parent level aggregate reco
  WHERE p.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Object Diagnostics - Information from [##SQLXL_Index_sql_definitions]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16916,7 +16899,7 @@ SELECT rec_type     = N'P'                     -- parent level aggregate record
        ) AS p
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - tables with deprecated data types'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16963,7 +16946,7 @@ SELECT rec_type     = N'P'             -- parent level aggregate record
                             )     -- Clustered columnstores cannot have PK constraints
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - tables without primary keys'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -16988,17 +16971,17 @@ SELECT rec_type     = N'P'                        -- parent level aggregate reco
       ,diagnostic   = N'Table has ' + CAST(SUM(IIF(s.has_filter = 1,1,0)) AS NVARCHAR(20)) + N' non-index filtered statistics'
   FROM [##SQLXL_Index_sys_stats]   AS s
   LEFT OUTER
-  JOIN [##SQLXL_Index_sys_indexes] AS i
-    ON s.database_id                  = i.database_id
-   AND s.object_id                    = i.object_id
-   AND s.stats_id                     = i.index_id
- WHERE i.index_id IS NULL
+  JOIN [##SQLXL_Index_sys_indexes] AS idx
+    ON s.database_id = idx.database_id
+   AND s.object_id   = idx.object_id
+   AND s.stats_id    = idx.index_id
+ WHERE idx.index_id IS NULL
  GROUP BY
        s.database_id,s.object_id
 HAVING SUM(IIF(s.has_filter = 1,1,0)) > 0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - filtered statistics'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17031,7 +17014,7 @@ SELECT rec_type     = p.rec_type
  WHERE obj.cdc_is_history_table = 1
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - History File group'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17066,7 +17049,7 @@ SELECT rec_type     = N'P'                        -- parent level aggregate reco
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Table Diagnostics - DML Triggers'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17140,7 +17123,7 @@ SELECT rec_type     =  N'P'                        -- parent level aggregate rec
    AND par_obj.parent_object_id = obj.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Diagnostic - Objects - Count of System named - Constraints, Defaults, Primaary Keys, Sequences'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17173,7 +17156,7 @@ SELECT rec_type     = CASE WHEN cdc_is_history_table = 1     THEN N'H' -- histor
  WHERE is_system_named > 0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Diagnostic - Objects - System named - History tables, External, Filetable'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17241,7 +17224,7 @@ SELECT rec_type
  WHERE ISNULL(met.prev_wait_pct_sum,0.0) < 0.80 -- running total less than 80% of total wait time
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Total Lock Time with Long/Short Average Waits (BI11,12)'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17327,7 +17310,7 @@ SELECT i.rec_type,i.database_id,i.object_id,i.index_id,i.type,i.sub_type
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Diagnostics - Operations low read/write ratio (BI22,29,48)'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17357,14 +17340,15 @@ SELECT rec_type     = i.rec_type
 + IIF(p.ios_forwarded_fetch_CNT > 0
      , CHAR(096) + N'(BI43) Heap with forwarded fetches: '
      + [dbo].[SQLXL_3SD](p.ios_forwarded_fetch_CNT,N'I')
-     + IIF(p.row_CNT > 0,N' (' + [dbo].[SQLXL_3SD](COALESCE(1.0 * p.ios_forwarded_fetch_CNT / p.row_CNT,0),N'N') + N'x)',N' (No rows)'),N'')
+     + IIF(p.row_CNT > 0,N' (' + [dbo].[SQLXL_3SD](COALESCE(1.0 * p.ios_forwarded_fetch_CNT / p.row_CNT,0),N'N') + N'x)',N' (No rows)')
+     ,N'')
 ------------------------------------------------------------
 -- Diagnostic - (BI47) - Index - Heap - table has PRIMARY KEY
-+ IIF(ip.is_primary_key > 0,CHAR(096) + N'(BI47) Heap with Primary Key: ' + CAST(ip.is_primary_key AS NVARCHAR(20)),N'')
++ IIF(idx_ip.is_primary_key > 0,CHAR(096) + N'(BI47) Heap with Primary Key: ' + CAST(idx_ip.is_primary_key AS NVARCHAR(20)),N'')
 -- Diagnostic - (BI47) - Index - Heap - tasble has UNIQUE CONSTRAINT
-+ IIF(ip.is_unique_constraint > 0,CHAR(096) + N'(BI47) Heap with Unique Constraint: ' + CAST(ip.is_primary_key AS NVARCHAR(20)),N'')
++ IIF(idx_ip.is_unique_constraint > 0,CHAR(096) + N'(BI47) Heap with Unique Constraint: ' + CAST(idx_ip.is_primary_key AS NVARCHAR(20)),N'')
 -- Diagnostic - (BI47) - Index - Heap - table has unique index
-+ IIF(ip.is_unique > 0,CHAR(096) + N'(BI47) Heap with Unique index: ' + CAST(ip.is_primary_key AS NVARCHAR(20)),N'')
++ IIF(idx_ip.is_unique > 0,CHAR(096) + N'(BI47) Heap with Unique index: ' + CAST(idx_ip.is_primary_key AS NVARCHAR(20)),N'')
 ------------------------------------------------------------
 -- Diagnostic - (BI47) - Index - Heap - table has write/delete activity
 + CHAR(096)
@@ -17382,18 +17366,16 @@ SELECT rec_type     = i.rec_type
 -- Diagnostic - (BI45) - Index - Medium Heap - with operations
 -- Diagnostic - (BI46) - Index - Small Heap - with operations
 + CHAR(096)
-+ IIF(   i.ops_total_read_CNT > 0 OR i.ops_total_write_CNT  > 0
-      OR i.ius_user_read_CNT  > 0 OR i.ius_user_updates_CNT > 0
-     ,CASE WHEN LOG10(p.row_CNT) > 6 THEN N'(BI44) Large'
-           WHEN LOG10(p.row_CNT) > 4 THEN N'(BI45) Medium'
-           WHEN p.row_CNT        > 0 THEN N'(BI46) Small'
-           ELSE N'Empty'
-      END + N' active heap -'
-     ,CASE WHEN LOG10(p.row_CNT) > 6 THEN N'Large'
-           WHEN LOG10(p.row_CNT) > 4 THEN N'Medium'
-           WHEN p.row_CNT        > 0 THEN N'Small'
-           ELSE N'Empty'
-      END + N' inactive heap - ')
++ CASE WHEN p.row_cnt > 0
+       THEN CASE WHEN LOG10(p.row_CNT) > 6 THEN N'(BI44) Large'
+                 WHEN LOG10(p.row_CNT) > 4 THEN N'(BI45) Medium'
+                 ELSE                           N'(BI46) Small'
+            END
+       ELSE N'Empty'
+  END
++ IIF((i.ops_total_read_CNT + i.ops_total_write_CNT + i.ius_user_read_CNT + i.ius_user_updates_CNT) > 0
+     ,N' active heap -'
+     ,N' inactive heap - ')
 ------------------------------------------------------------
 -- Diagnostic - Index - Heap - Number of data rows or empty
 + N' Rows: ' + [dbo].[SQLXL_3SD](COALESCE(p.row_CNT            ,0),N'I')    -- number of table rows else empty
@@ -17415,23 +17397,22 @@ SELECT rec_type     = i.rec_type
      + N' OPS ' + [dbo].[SQLXL_3SD](COALESCE(i.ops_read_to_write_RAT,0),N'N') + N'x '
      ,N'')
 ------------------------------------------------------------
-                           ,1,1,N'')                        -- end of STUFF function
---------------------------------------------------------------------------------------------------------------------------------------------
+                           ,1,1,N'')                                        -- end of STUFF function
+------------------------------------------------------------
 /*** LOCAL TESTING ***
 SELECT i.rec_type
       ,obj.database_id
       ,obj.object_id
       ,i.index_id
       ,i.type
-      ,ip.*
+      ,idx_ip.*
 --*/
   FROM (-- rowstore heap Tables
         SELECT *
           FROM [##SQLXL_Index_sys_objects]
          WHERE N'U' = type                      -- user table
            AND 0    < heap_index_CNT            -- is a HEAP table
-           AND 0    = is_memory_optimized       -- not memory optimized
-           AND 0    = clustered_columnstore_CNT -- not a clustered columnstore
+           AND 0    = is_memory_optimized       -- not memory optimized, since base object registers as a heap
        ) AS obj
 
   JOIN [##SQLXL_Index_compilation] AS p
@@ -17454,21 +17435,21 @@ SELECT i.rec_type
               ,is_primary_key       = MAX(IIF(is_primary_key       = 1,index_id,0))
               ,is_unique_constraint = MAX(IIF(is_unique_constraint = 1,index_id,0))
               ,is_unique            = MAX(IIF(is_unique            = 1,index_id,0))
-          FROM [##SQLXL_Index_sys_indexes]
+          FROM [##SQLXL_Index_sys_indexes] AS idx
          GROUP BY
                database_id,object_id
         HAVING 0 < MAX(IIF(is_primary_key       = 1,index_id,0))
             OR 0 < MAX(IIF(is_unique_constraint = 1,index_id,0))
             OR 0 < MAX(IIF(is_unique            = 1,index_id,0))
-       ) AS ip
-    ON i.database_id      = ip.database_id
-   AND i.object_id        = ip.object_id
+       ) AS idx_ip
+    ON i.database_id      = idx_ip.database_id
+   AND i.object_id        = idx_ip.object_id
 
 ) AS i
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Heap properties'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17514,7 +17495,7 @@ SELECT i.rec_type,i.database_id,i.object_id,i.index_id,i.type,i.sub_type
  WHERE ISNULL(i.prev_pct_sum,0.0) < 80.0 -- running total less than 80% of total
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Blitz Index - High Value Missing Index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17558,13 +17539,13 @@ SELECT rec_type     = N'I' -- index level composite record
                     + N' Steps '  + CAST(COALESCE(c.histogram_steps,1) AS NVARCHAR(20))
                     + N' Sniffs ' + [dbo].[SQLXL_3SD](COALESCE(c.param_sniff,1),N'N') + N'x'
                     + IIF(ic.is_index_column_filtered = 0,N' - add filter?',N'')
-  FROM [##SQLXL_Index_sys_indexes]       AS i
+  FROM [##SQLXL_Index_sys_indexes]       AS idx
   JOIN [##SQLXL_Index_sys_index_columns] AS ic
-    ON i.database_id = ic.database_id
-   AND i.object_id   = ic.object_id
-   AND i.index_id    = ic.index_id
-   AND i.type        = ic.type
-   AND i.sub_type    = ic.sub_type
+    ON idx.database_id = ic.database_id
+   AND idx.object_id   = ic.object_id
+   AND idx.index_id    = ic.index_id
+   AND idx.type        = ic.type
+   AND idx.sub_type    = ic.sub_type
   JOIN [##SQLXL_Index_sys_columns]       AS c
     ON ic.database_id = c.database_id
    AND ic.object_id   = c.object_id
@@ -17592,20 +17573,20 @@ SELECT rec_type     = N'I' -- index level composite record
    AND ic.object_id   = cx.object_id
    AND ic.column_id   = cx.column_id
   JOIN [##SQLXL_Index_compilation] AS comp
-    ON i.database_id = comp.database_id
-   AND i.object_id   = comp.object_id
-   AND i.index_id    = comp.index_id
-   AND i.type        = comp.type
-   AND i.sub_type    = comp.sub_type
- WHERE i.type                 = N'2' -- Nonclustered rowstore index
-   AND i.is_primary_key       = 0
-   AND i.is_unique_constraint = 0
-   AND ic.is_included_column  = 0
-   AND ic.partition_ordinal   = 0
-   AND c.is_identity          = 0
-   AND c.is_sequence          = 0
-   AND c.is_newsequentialid   = 0
-   AND c.is_newid             = 0
+    ON idx.database_id = comp.database_id
+   AND idx.object_id   = comp.object_id
+   AND idx.index_id    = comp.index_id
+   AND idx.type        = comp.type
+   AND idx.sub_type    = comp.sub_type
+ WHERE idx.type                 = N'2' -- Nonclustered rowstore index
+   AND idx.is_primary_key       = 0
+   AND idx.is_unique_constraint = 0
+   AND ic.is_included_column    = 0
+   AND ic.partition_ordinal     = 0
+   AND c.is_identity            = 0
+   AND c.is_sequence            = 0
+   AND c.is_newsequentialid     = 0
+   AND c.is_newid               = 0
    -------------------------------------------------
    AND (   (    c.histogram_steps BETWEEN 2 AND 19          -- only looking for filter opportunities
             AND c.param_sniff            >= 25.0              -- greater than 25 times rowcounts between high and low
@@ -17618,7 +17599,7 @@ SELECT rec_type     = N'I' -- index level composite record
       )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Blitz Index - filtered index & candidate filtered keys'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17662,7 +17643,7 @@ SELECT rec_type     = N'I'                                    -- index level com
        ) AS i
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Filtered Statistics on other columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17765,7 +17746,7 @@ SELECT *
        con_obj.type                             -- check constraints first
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Column Constraint attributes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -17877,7 +17858,7 @@ SELECT fkc_idx.database_id,fkc_idx.object_id,fkc_idx.index_id,fkc_idx.type,fc.st
        ) AS fc
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Foreign Key Diagnostics - uncovered, candidate MIX'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18040,7 +18021,7 @@ SELECT rec_type
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Blitz Index - Index Properties'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18066,7 +18047,7 @@ SELECT *
   FROM [##SQLXL_Index_synergies_count_by_type]
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - index synergy previous display row'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18122,7 +18103,7 @@ SELECT rec_type = N'I'
        ) AS idx
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - count of synergies across indexes, foreign keys, missing indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18137,10 +18118,10 @@ END;
 INSERT
   INTO [##SQLXL_Index_Diagnostics] WITH (TABLOCKX)
 SELECT rec_type     = N'I'                                    -- index level composite record
-      ,database_id  = i.database_id
-      ,object_id    = i.object_id
-      ,index_id     = i.index_id
-      ,type         = i.type
+      ,database_id  = idx.database_id
+      ,object_id    = idx.object_id
+      ,index_id     = idx.index_id
+      ,type         = idx.type
       ,sub_type     = 0
       ,prescription = NULL
       ,diagnostic   = STUFF(
@@ -18213,13 +18194,13 @@ SELECT rec_type     = N'I'                                    -- index level com
               ,ed.referencing_id
               ,ed.referencing_minor_id
        ) ed
-  JOIN [##SQLXL_Index_sys_indexes] AS i
-    ON ed.database_id           = i.database_id
-   AND ed.object_id             = i.object_id
-   AND ed.index_id              = i.index_id
+  JOIN [##SQLXL_Index_sys_indexes] AS idx
+    ON ed.database_id = idx.database_id
+   AND ed.object_id   = idx.object_id
+   AND ed.index_id    = idx.index_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Filtered indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18385,7 +18366,7 @@ SELECT i.rec_type,i.database_id,i.object_id,i.index_id,i.type,i.sub_type
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - (BI80) Hi scans'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18470,7 +18451,7 @@ SELECT COUNT_BIG(1)
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Last used, lock ratio'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18495,11 +18476,11 @@ SELECT rec_type    = N'I'
       ,database_id,object_id,index_id,type,sub_type
       ,prescription = NULL
       ,diagnostic   = IIF(is_system_named = 2,N'Likely ',N'') + N'System named Index'
-  FROM [##SQLXL_Index_sys_indexes]
+  FROM [##SQLXL_Index_sys_indexes] AS idx
  WHERE is_system_named > 0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Diagnostic - Index - System named'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18552,7 +18533,7 @@ SELECT rec_type     = i.rec_type
  WHERE diag.diagnostic > N''
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Special types'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18570,17 +18551,17 @@ END;
 INSERT
   INTO [##SQLXL_Index_Diagnostics] WITH (TABLOCKX)
 SELECT rec_type     = N'I'               -- index level composite record
-      ,database_id  = i.database_id
-      ,object_id    = i.object_id
-      ,index_id     = i.index_id
-      ,type         = i.type
+      ,database_id  = idx.database_id
+      ,object_id    = idx.object_id
+      ,index_id     = idx.index_id
+      ,type         = idx.type
       ,sub_type     = 0
       ,prescription = NULL
-      ,diagnostic   = IIF(i.compression_delay > 0
-                         ,N'> Columnstore compression delay ' + CAST(i.compression_delay AS NVARCHAR(20)) + N' minutes' + CHAR(096)
+      ,diagnostic   = IIF(idx.compression_delay > 0
+                         ,N'> Columnstore compression delay ' + CAST(idx.compression_delay AS NVARCHAR(20)) + N' minutes' + CHAR(096)
                          ,N'')
                     + STUFF(s.diagnostic,1,1,N'') -- end of STUFF function
-  FROM [##SQLXL_Index_sys_indexes] AS i
+  FROM [##SQLXL_Index_sys_indexes] AS idx
  OUTER
  APPLY (--
         SELECT -- double select to accomodate the "XML TYPE" clause below
@@ -18601,9 +18582,9 @@ SELECT rec_type     = N'I'               -- index level composite record
                         ,N'') + N'?'
                    ,N'')
           FROM [##SQLXL_Index_sys_dm_db_column_store_row_group_physical_stats] AS s
-         WHERE i.database_id = s.database_id
-           AND i.object_id   = s.object_id
-           AND i.index_id    = s.index_id
+         WHERE idx.database_id = s.database_id
+           AND idx.object_id   = s.object_id
+           AND idx.index_id    = s.index_id
          GROUP BY
                database_id,object_id,index_id
               ,state_desc
@@ -18644,12 +18625,12 @@ SELECT rec_type     = N'I'               -- index level composite record
           FOR XML PATH(N''), TYPE                                                                   -- column store states
        ).value('.',N'NVARCHAR(MAX)')
        ) AS s(diagnostic)
- WHERE i.type IN (N'5' -- clustered columnstore
-                 ,N'6' -- nonclustered columnstore index
-                 )
+ WHERE idx.type IN (N'5' -- clustered columnstore
+                   ,N'6' -- nonclustered columnstore index
+                   )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Columnstore reorg'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18764,7 +18745,7 @@ SELECT rec_type     = i.rec_type
  WHERE i.type     = N'T'  -- full-text index of a tabular object
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - fulltext'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18853,7 +18834,7 @@ SELECT rec_type     = i.rec_type
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Properties'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18884,7 +18865,7 @@ SELECT rec_type     = N'I'
    AND 0               = kc.is_enforced
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Constraints NOT ENFORCED'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -18948,7 +18929,7 @@ SELECT rec_type     = i.rec_type
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Fill Factor, Splits, Merges'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19028,7 +19009,7 @@ SELECT con_obj.database_id,con_obj.object_id,con_obj.parent_column_id,ic.object_
  WHERE con_obj.parent_column_id > 0                         -- column constraints only
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Constraints'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19066,7 +19047,7 @@ SELECT rec_type     = N'I'                                     -- index level co
     OR c.uses_sql_mthd    = 1
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - Computed columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19089,7 +19070,7 @@ SELECT rec_type
  WHERE low_selectivity_additional_keys IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - key density vector'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19339,7 +19320,7 @@ SELECT rec_type     = i.rec_type
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - statistics - properties'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19394,7 +19375,7 @@ SELECT rec_type     = N'I'                                  -- index level compo
        ic.idx_column_display_sequence -- order results by column location in the index or foreign key constraint
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - no statistics found for Keys & Missing Index columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19459,15 +19440,14 @@ SELECT rec_type     = i.rec_type
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - additional properties 2'
    RAISERROR(@msg,0,0) WITH NOWAIT;
    SET @step_exec_dttm = GETDATE();
 END;
 
-
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - index synergy count by type'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19503,7 +19483,7 @@ SELECT rec_type     = N'I'                                    -- index level com
    AND sshs.param_sniff        > 25
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - parameter sniffing'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19605,7 +19585,7 @@ SELECT rec_type     = N'I'                                    -- index level com
    AND sc.name NOT LIKE N'%_IDENTIFIER'
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - UNIQUEIDENTIFIER not stored as UNIQUEIDENTIFIER'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19689,7 +19669,7 @@ SELECT rec_type     = N'I'                                    -- index level com
    AND xc.column_id   = u.column_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - better lead index key'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19761,7 +19741,7 @@ SELECT rec_type     = N'I'                                    -- index level com
    AND ic.object_id    = p.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - big indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19776,33 +19756,33 @@ END;
 INSERT
   INTO [##SQLXL_Index_Diagnostics] WITH (TABLOCKX)
 SELECT rec_type     = N'I'                                 -- index level composite record
-      ,database_id  = i.database_id
-      ,object_id    = i.object_id
-      ,index_id     = i.index_id
-      ,type         = i.type
-      ,sub_type     = i.sub_type
+      ,database_id  = idx.database_id
+      ,object_id    = idx.object_id
+      ,index_id     = idx.index_id
+      ,type         = idx.type
+      ,sub_type     = idx.sub_type
       ,prescription = NULL
-      ,diagnostic   = N'[RESUMABLE OPERATION - ' + r.state_desc + N']'
+      ,diagnostic   = N'[RESUMABLE OPERATION - ' + iro.state_desc + N']'
                     + CHAR(096) + N'> Started: '
-                                + CAST(DATEDIFF(DAY,r.start_time,GETDATE()) AS NVARCHAR(20))
+                                + CAST(DATEDIFF(DAY,iro.start_time,GETDATE()) AS NVARCHAR(20))
                                 + N' days ago)'
                     + CHAR(096) + N'> Paused:'
-                                + CONVERT(NVARCHAR(11),r.last_pause_time,11)
+                                + CONVERT(NVARCHAR(11),iro.last_pause_time,11)
                                 + N'@'
-                                + CONVERT(NVARCHAR(8),r.last_pause_time,114)
+                                + CONVERT(NVARCHAR(8),iro.last_pause_time,114)
                                 + N' Complete: '
-                                + CAST(r.percent_complete_MAX AS NVARCHAR(2)) + N'%'
-  FROM [##SQLXL_Index_sys_index_resumable_operations] AS r
-  JOIN [##SQLXL_Index_sys_indexes]                    AS i
-    ON r.database_id               = i.database_id
-   AND r.object_id                 = i.object_id
-   AND r.index_id                  = i.index_id
-   AND i.type NOT IN (N'F' -- Foreign Key constraint
-                     ,N'M' -- Missing nonclustered rowstore Index
-                     )
+                                + CAST(iro.percent_complete_MAX AS NVARCHAR(2)) + N'%'
+  FROM [##SQLXL_Index_sys_index_resumable_operations] AS iro
+  JOIN [##SQLXL_Index_sys_indexes]                    AS idx
+    ON iro.database_id = idx.database_id
+   AND iro.object_id   = idx.object_id
+   AND iro.index_id    = idx.index_id
+   AND idx.type NOT IN (N'F' -- Foreign Key constraint
+                       ,N'M' -- Missing nonclustered rowstore Index
+                       )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - resumable operations'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -19930,7 +19910,7 @@ SELECT rec_type     = i.rec_type
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - lead key properties'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20041,7 +20021,7 @@ SELECT rec_type     = N'I'
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - nullable keys'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20115,7 +20095,7 @@ SELECT rec_type     = i.rec_type
  WHERE i.diagnostic > N''
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Index Diagnostics - nonclustered rowstore'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20165,7 +20145,7 @@ SELECT rec_type     = N'I'                                -- index level composi
  WHERE obj.type             = N'F'                           -- foreign key constraint
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Foreign Key Diagnostics - self referencing'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20206,7 +20186,7 @@ SELECT rec_type     = N'I'                                  -- index level compo
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Foreign Key Diagnostics - properties'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20248,7 +20228,7 @@ SELECT rec_type = N'I'
    AND idxL.synergy_prefix  = idxR.synergy_prefix
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Foreign Key Diagnostics - key synergies'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20352,7 +20332,7 @@ SELECT rec_type     = N'I'
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Foreign Key Diagnostics - index references and action counts'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20380,7 +20360,7 @@ SELECT rec_type     = fk.rec_type
    AND fk.fkc_covered_by_idx_IDS IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Foreign Key Diagnostics - covering indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20460,7 +20440,7 @@ SELECT rec_type     = i.rec_type
  WHERE diagnostic > N''
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Missing Index Diagnostics - candidate covers'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20496,7 +20476,7 @@ SELECT rec_type     = i.rec_type
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Missing Index Diagnostics - tables has columnstore'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20559,7 +20539,7 @@ SELECT rec_type     = p.rec_type
  WHERE i.diagnostic IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Missing Indexes diagnostics - table candidate for nonclustered columnstore'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20685,7 +20665,7 @@ SELECT rec_type     = c.rec_type
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Possible temporary object based on name'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20728,7 +20708,7 @@ SELECT i.rec_type
     AND i.buffer_total_KB_CNT > (8.0 * i.reserved_page_PG_CNT * 0.20) -- 8.0 to convert PAGE to KB
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Added Buffer Cache metric diagnostic records to Parent'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20788,7 +20768,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,i.sub_type
    AND obj.parent_object_id = par_obj.object_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Added significant index metrics diagnostic records'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20809,7 +20789,7 @@ CREATE UNIQUE CLUSTERED
       )
   WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created index on [##SQLXL_Index_Diagnostics]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -20951,7 +20931,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type
        ) AS best_synergy_fkc
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Foreign Key Constraints - Retain, Review, Remove'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21014,7 +20994,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
               )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Remove - Nonclustered rowstore with key sequence matching Clustered index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21053,7 +21033,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND type         <> N'M'    -- missing nonclustered rowstore indexes
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - System Internal & History tables'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21103,7 +21083,7 @@ SELECT i.database_id
       )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - underlying persisted data tables - CX, CCS, XTP HP'          -- keep in synch with idx_type_hdr, obj_type_dtl
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21144,7 +21124,7 @@ SELECT database_id,object_id,index_id,type,sub_type
                 )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - specialty indexes - XML, SPT, NCS, FTX'                                   -- Keep in syncg with idx_type_hdr
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21194,7 +21174,7 @@ SELECT i.database_id
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Required by others: Foreign Key Constraint reference'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21228,7 +21208,7 @@ SELECT i.database_id
    AND i.name        = obj.cdc_index_name
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Required by others: Change Data Capture (CDC) Table - Primary Key or unique'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21263,7 +21243,7 @@ SELECT i.database_id
    AND 1 = i.is_primary_key
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Required by others: Temporal (SVN) Table - Primary Key'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21300,7 +21280,7 @@ SELECT i.database_id
    AND 1     = i.is_primary_key
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Required by others: Ledger Table (2022+) - Primary Key'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21364,7 +21344,7 @@ SELECT i.database_id
     OR s.idx_type_hdr IS NOT NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Required by others: XML Index, Spatial (SPT) Index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21401,7 +21381,7 @@ SELECT ftx.database_id
                    )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Required by others: Full Text (FTX) Index - Primary Key or Unique'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21424,8 +21404,8 @@ DECLARE @srt INT = 0;
 SELECT obj.database_id
       ,object_id    = obj.parent_object_id                                                          -- for System, History, Constraints
       ,index_id     = obj.key_unique_index_id
-      ,i.type
-      ,i.sub_type
+      ,idx.type
+      ,idx.sub_type
       ,action_desc  = N'Retain'
       ,sort         = @srt
       ,prescription = N'Used by ' + CASE obj.type WHEN N'PK' THEN N'PKC'
@@ -21433,18 +21413,18 @@ SELECT obj.database_id
                                                   ELSE obj.type
                                     END
   FROM [##SQLXL_Index_sys_objects] AS obj
-  JOIN [##SQLXL_Index_sys_indexes] AS i
-    ON obj.database_id         = i.database_id
-   AND obj.object_id           = i.object_id
-   AND obj.key_unique_index_id = i.index_id
-   AND i.type IN (N'1'  -- clustered rowstore index
-                 ,N'2'  -- nonclustered rowstore index
-                 )
+  JOIN [##SQLXL_Index_sys_indexes] AS idx
+    ON obj.database_id         = idx.database_id
+   AND obj.object_id           = idx.object_id
+   AND obj.key_unique_index_id = idx.index_id
+   AND idx.type IN (N'1'  -- clustered rowstore index
+                   ,N'2'  -- nonclustered rowstore index
+                   )
  WHERE obj.key_unique_index_id > 0
-   AND obj.type <> N'F' -- foreign key constraint
+   AND obj.type               <> N'F' -- foreign key constraint
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Required by others: Constraints - Primary Key, Unique Key'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21558,7 +21538,7 @@ DECLARE @srt INT = 0
       ,fk.active
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Best existing covering index for FKC'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21605,7 +21585,7 @@ SELECT i.database_id
    AND i.ius_user_updates_CNT = 0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - Nonclustered rowstore indexes with NO WRITES & Poor/Low/No usage'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21655,7 +21635,7 @@ SELECT ref.database_id
    AND tgt.prescription IS NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Apply Retain labels to indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21670,7 +21650,7 @@ DELETE
  WHERE action_desc = N'Retain'        -- already updated appropriate values
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Clear out interim results table - Retain'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21733,28 +21713,28 @@ SELECT obj.database_id
  APPLY (--
         SELECT TOP (1)
                ic.index_id
-              ,ix.is_primary_key
-              ,ix.is_unique_constraint
+              ,idx.is_primary_key
+              ,idx.is_unique_constraint
           FROM [##SQLXL_Index_sys_index_columns] AS ic
-          JOIN [##SQLXL_Index_sys_indexes]       AS ix
-            ON ic.database_id                  = ix.database_id
-           AND ic.object_id                    = ix.object_id
-           AND ic.index_id                     = ix.index_id
-           AND ic.type                         = ix.type
+          JOIN [##SQLXL_Index_sys_indexes]       AS idx
+            ON ic.database_id                  = idx.database_id
+           AND ic.object_id                    = idx.object_id
+           AND ic.index_id                     = idx.index_id
+           AND ic.type                         = idx.type
          WHERE i.database_id                   = ic.database_id
            AND i.object_id                     = ic.object_id
            AND i.tbl_cx_uniq_ordered_column_id = ic.column_id
            AND ic.type                         = N'2'       -- nonclustered rowstore index
            AND 1                               = ic.idx_column_display_sequence
          ORDER BY
-               ix.is_primary_key       DESC
-              ,ix.is_unique_constraint DESC
-              ,ix.index_id
+               idx.is_primary_key       DESC
+              ,idx.is_unique_constraint DESC
+              ,idx.index_id
        ) AS uniq_idx
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Request - clustered index on heaps with UNIQUE ORDERED columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21800,7 +21780,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type,
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Remove - replace nonclustered on former heaps'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21829,7 +21809,7 @@ DECLARE @srt INT = 0;
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 END; -- IF @cover_foreign_keys > 0
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Request - best missing index to cover foreign key constraint'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21889,7 +21869,7 @@ SELECT i.database_id
    AND a.type                 IS NULL                   -- not already flagged above
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Request - Promote nonclustered to clustered on HEAP rowstore table'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -21925,7 +21905,7 @@ SELECT i.database_id
    AND N'I'            = i.rec_type            -- index level composite record
    AND N'0'            = i.type                -- rowstore heap
    AND 0               = i.sub_type
-   AND i.key_column_info LIKE N'<HEAP> Candidate cluster%'
+   AND i.key_column_info LIKE N'Candidate cluster%'
 
   JOIN [##SQLXL_Index_compilation] AS p        -- parent level aggregate record
     ON obj.database_id = p.database_id
@@ -21949,7 +21929,7 @@ SELECT i.database_id
    AND a.type                     IS NULL      -- not already flagged above
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Request - Unique-est column on HEAP'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22007,7 +21987,7 @@ SELECT i.database_id
    AND a.type                     IS NULL -- not already flagged above
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Request - Heap benefitting from CX'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22054,7 +22034,7 @@ SELECT i.database_id
    AND a.type    IS NULL  -- not already flagged above
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Request -SQL  Table Valued Function without unique clustering index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22103,7 +22083,7 @@ SELECT i.database_id
    AND tgt.sub_type         = ref.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Apply Request labels to indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22118,7 +22098,7 @@ DELETE
  WHERE action_desc = N'Request' -- already updated appropriate values
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Clear out interim results table - Request'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22146,7 +22126,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND tgt.prescription IS NULL -- not already flagged above
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - unused heap'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22197,7 +22177,7 @@ SELECT ic.database_id
       ,ic.type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' #index_Key_DataType_Not_Eligible_for_NCS'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22269,7 +22249,7 @@ SELECT i.database_id,i.object_id,i.index_id,i.type
                                                             -- NOTE: Nonclustered Columnstores cannot cover a Foreign Key!
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Create temp table #Candidate_indexes_for_NCS'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22299,7 +22279,7 @@ SELECT database_id,object_id
  WHERE COALESCE(ncx,0) + COALESCE(mix,0) > 3
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Create #Candidate_for_NCS'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22351,7 +22331,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
   AND ncs.object_id IS NULL  -- no existing Nonclustered columnstore on table
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' REPLACE - NEW Nonclustered Columnstore index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22417,7 +22397,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND COALESCE(tgt.prescription,N'') NOT LIKE N'Request%'  -- not flagged above as Missing index to create to cover a foreign key constraint
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Nonclustered Columnstores - Request, Replace, Reject'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22452,7 +22432,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type
  WHERE (100.0 * tgt.mix_advantage_weighted_AMT / ins.mix_advantage_weighted_AMT) > 2.0              -- seems like a good enough number
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Request - High Value Missing indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22474,7 +22454,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND tgt.prescription IS NULL  -- haven't been flagged up to this point
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Reject - Low value Missing indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22586,7 +22566,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND tgt.prescription IS NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - keep "best" synergy key SEQUENCE index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22635,7 +22615,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
               )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Remove - nonclustered index with sequence synergy keys'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22669,7 +22649,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND COALESCE(tgt.ops_read_to_parent_PCT,0.0) < 2.0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Remove - low read/write ratio & low reads'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22702,7 +22682,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND COALESCE(tgt.ops_read_to_parent_PCT,0) < 0.5
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Remove - low % of reads '
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22717,7 +22697,7 @@ DELETE -- [##SQLXL_Index_prescription]
  WHERE action_desc = N'Remove' -- already updated appropriate values
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Clear out interim results table - Remove'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22741,7 +22721,7 @@ SELECT database_id,object_id,index_id,type,
    AND prescription IS NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Retain - not flagged above'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22780,7 +22760,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND tbl_cx_uniq_ordered_column_id <> lead_element_column_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - CX not using existing unique ordered column'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22821,7 +22801,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription         LIKE N'Retain%' -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - unneeded key columns - lead key UNIQUE'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22865,7 +22845,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription LIKE N'Retain%' -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - enable Opt for Seq Key'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22916,7 +22896,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription LIKE N'Retain%' -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - lead key unique datatype not unique'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -22961,7 +22941,7 @@ SELECT i.database_id
    AND i.prescription NOT LIKE N'Remove%'   -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - match index to table partition'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23000,7 +22980,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription   LIKE N'Retain%'   -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - low splits low fill factor'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23038,7 +23018,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription LIKE N'Retain%' -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - hi splits hi fill factor'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23087,7 +23067,7 @@ SELECT i.database_id
    AND prescription LIKE N'Retain%'      -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - Page/Row locks OFF'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23121,7 +23101,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription LIKE N'Retain%'                -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - unneeded key columns pt 2'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23175,7 +23155,7 @@ SELECT i.database_id
       ,i.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - match index column collation to database collation'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23213,7 +23193,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription   LIKE N'Retain%'           -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - index with BIG included columns'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23244,7 +23224,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND CHARINDEX(N'<IDXKEY>',included_column_info) > 0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - add Replaced nonclustered KEY columns to existing nonclustered columnstore'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23289,7 +23269,7 @@ SELECT p.database_id
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - Non-Partitioned Table and LOCK_ESCALATION is DISABLED'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23333,7 +23313,7 @@ SELECT p.database_id
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - Partitioned Table and LOCK_ESCALATION is TABLE or DISABLE'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23372,7 +23352,7 @@ SELECT i.database_id
    AND i.is_unique = 0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refactor - SQL Table-Valued Functions with Clustered index that is not UNIQUE'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23486,7 +23466,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
  WHERE tgt.prescription  LIKE N'Retain%'           -- only want to Refresh indexes marked to Retain
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Apply refactor label to indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23501,7 +23481,7 @@ DELETE -- [##SQLXL_Index_prescription]
  WHERE action_desc = N'Refactor' -- already updated appropriate values
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Clean up interim results table - Refactor'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23561,7 +23541,7 @@ SELECT i.database_id
       ,i.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - index to Remove has Non-Persisted Computed Column'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23636,7 +23616,7 @@ SELECT i.database_id
    AND i.index_id         = kc.key_unique_index_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - index with non-default properties - ignore, hypo, disabled, dupl keys, comp delay, auto created'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23657,22 +23637,22 @@ INSERT
 /*** LOCAL TESTING ***
 DECLARE @srt INT = 0;
 --*/
-SELECT i.database_id
-      ,i.object_id
-      ,i.index_id
-      ,i.type
-      ,i.sub_type
-       ,action_desc = N'Review'
+SELECT idx.database_id
+      ,idx.object_id
+      ,idx.index_id
+      ,idx.type
+      ,idx.sub_type
+      ,action_desc = N'Review'
       ,sort         = @srt
       ,prescription = N'Resumable operation'
-  FROM [##SQLXL_Index_sys_index_resumable_operations] AS r
-  JOIN [##SQLXL_Index_sys_indexes]                    AS i
-    ON r.database_id = i.database_id
-   AND r.object_id   = i.object_id
-   AND r.index_id    = i.index_id
+  FROM [##SQLXL_Index_sys_index_resumable_operations] AS iro
+  JOIN [##SQLXL_Index_sys_indexes]                    AS idx
+    ON iro.database_id = idx.database_id
+   AND iro.object_id   = idx.object_id
+   AND iro.index_id    = idx.index_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - index with resumable operations'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23738,7 +23718,7 @@ SELECT i.database_id
    AND i.sub_type    = fkc_no_stats.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - uncovered FKC'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23772,7 +23752,7 @@ SELECT database_id,object_id,index_id,type,sub_type
                            )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - CX that are not UNIQUE'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23814,7 +23794,7 @@ SELECT obj.database_id
                   )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - Views that do not have a CX'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23891,7 +23871,7 @@ SELECT i.database_id
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - Low or NO activity, or empty'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23948,7 +23928,7 @@ SELECT database_id,object_id
               )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - MIX that can roll up to existing/new NCS'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -23990,7 +23970,7 @@ SELECT database_id,object_id,index_id,type,sub_type
        )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - Lead Key element is a big STRING'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24046,7 +24026,7 @@ SELECT i.database_id
    AND c.cnt               > 0
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - index to be replaced by NCS has included big STRING'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24079,7 +24059,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND has_filter = 1
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - index to be replaced by NCS is filtered'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24111,7 +24091,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription LIKE N'Retain%'           -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - index with Page Compression Failures > 40 Percent'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24163,7 +24143,7 @@ SELECT f.database_id
       ,f.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - Potential Temporary Parents & indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24201,7 +24181,7 @@ SELECT database_id
       ,object_id           -- for index_id
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - Computed columns not persisted'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24245,7 +24225,7 @@ SELECT f.database_id
    AND f.sub_type    = i.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - Potential Filtered Index'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24318,7 +24298,7 @@ SELECT i.database_id
    AND i.sub_type         = s.l_sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - Synergies found on Retain, Reject indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24349,7 +24329,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription LIKE N'Retain%'           -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - indexes Auto Created'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24385,7 +24365,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND stats_no_recompute = 1
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Review - STATISTICS NORECOMPUTE enabled, low writes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24435,7 +24415,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND tgt.sub_type    = ref.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Apply Review label to indexes'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24450,7 +24430,7 @@ DELETE
  WHERE action_desc = N'Review'   -- already updated appropriate values
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Clean up interim results table - Review'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24520,7 +24500,7 @@ SELECT i.database_id
    AND 0              = i.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refresh - Columnstores with > 1024 Deleted rows or > 2048 Open rows'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24552,7 +24532,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND buffer_total_KB_CNT > (1.1 * reserved_page_PG_CNT * 8.0)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refresh - index takes up more buffer than reserved size'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24595,7 +24575,7 @@ SELECT i.database_id
    AND 100.0 * buffer_free_KB_CNT / buffer_total_KB_CNT > 20.0 -- /zero handled by WHERE clause element above
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refresh - index Buffer Free > 20 percent'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24634,7 +24614,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND stathdr_statistics_age_days > 30
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refresh - statistics over 30 days old'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24677,7 +24657,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription LIKE N'Retain%'     -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refresh - statistics <= 30 days old and stats row count +/- 1pct different than index row count'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24712,7 +24692,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND prescription LIKE N'Retain%'     -- NOTE: no leading "%"
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refresh - statistics <= 30 days old and stats modification_counter > 0.5pct index row count'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24755,7 +24735,7 @@ SELECT database_id,object_id,index_id,type,sub_type
    AND CHARINDEX(N'Refresh',prescription) = 0    -- don't need if already called out for Refresh
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Refresh - Statistics not computed on CX, NCX, XML, SPT'                            -- Keep in synch with idx_type_hdr
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24806,7 +24786,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND tgt.sub_type         = ref.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Apply Refresh label to indexes '
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24821,7 +24801,7 @@ DELETE
  WHERE action_desc = N'Refresh' -- already updated appropriate values
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Clear out interim results table - Refresh'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24842,7 +24822,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND tgt.prescription IS NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Flag indexes without a prescription'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -24858,7 +24838,7 @@ DELETE
     OR LTRIM(diagnostic) = N''
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Clear out empty interim diagnostic records'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -25057,7 +25037,7 @@ SELECT tgt.database_id,tgt.object_id,tgt.index_id,tgt.type,tgt.sub_type,
    AND tgt.sub_type  = b.sub_type
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Compute Parent Prescription Priority - Index Percent of Totals'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -25078,7 +25058,7 @@ UPDATE [##SQLXL_Index_compilation] WITH (TABLOCKX)
  WHERE type = N'A'  -- instance level aggregate record
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Aggregate Database & Instance Prescription Priority'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -25140,7 +25120,7 @@ IF @rowcount > 0 BEGIN
    RAISERROR(N'########################################################################################',0,0) WITH NOWAIT;
 END; -- IF @rowcount > 0
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' List skipped databases if found'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -25150,14 +25130,14 @@ END;
 /******************************************************************************************************************************************\
  End of procedure SQLXL_INDEX
 \******************************************************************************************************************************************/
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@collection_DTTM,GETDATE()),0))
             + N' End of procedure [##SQLXL_Index]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
-   RAISERROR(N''                                                                                       ,0,0) WITH NOWAIT;
-   RAISERROR(N'***************************************************************************************',0,0) WITH NOWAIT;
-   RAISERROR(N'* Leave this session open to retain SQLXL_Index objects created as #temporary objects *',0,0) WITH NOWAIT;
-   RAISERROR(N'***************************************************************************************',0,0) WITH NOWAIT;
+   RAISERROR(N''                                                                                  ,0,0) WITH NOWAIT;
+   RAISERROR(N'**********************************************************************************',0,0) WITH NOWAIT;
+   RAISERROR(N'* Leave session open to retain SQLXL_Index objects created as #temporary objects *',0,0) WITH NOWAIT;
+   RAISERROR(N'**********************************************************************************',0,0) WITH NOWAIT;
 
 /*** LOCAL TESTING ***
 DECLARE @sql NVARCHAR(MAX);
@@ -25248,6 +25228,7 @@ ALTER FUNCTION [dbo].[SQLXL_Strip_Strings]
 RETURNS NVARCHAR(MAX)
 WITH RETURNS NULL ON NULL INPUT
 AS BEGIN
+
    IF @replace IS NULL SET @replace = N''
    SET @Match = N'%['+ @Match+']%'
 
@@ -25275,6 +25256,7 @@ ALTER FUNCTION [dbo].[SQLXL_Keep_Strings]
 RETURNS NVARCHAR(MAX)
 WITH RETURNS NULL ON NULL INPUT
 AS BEGIN
+
    IF @replace IS NULL SET @replace = N''
    SET @Match =  N'%[^'+ @Match+']%'
 
@@ -25799,7 +25781,7 @@ GO
 ALTER FUNCTION [dbo].[SQLXL_DTTM_HMSM]
      (@dt DATETIME
      )
-/* Returns elapsed date & time value as "#.## Day" -or- "#.## Hour" -or- "MM:SS:mmm" */
+/* Returns elapsed date & time value as "#.## yy" -or- "#.## dd" -or- "#.## hh" -or- "MM:SS.mmm" */
 RETURNS NVARCHAR(20)
 AS BEGIN
    IF @dt IS NULL RETURN N''
@@ -25810,15 +25792,15 @@ AS BEGIN
    CASE WHEN @df  =  -1          THEN N'NO LIMIT '
         WHEN @df  =   0          THEN N'00:00.000'
 
-        WHEN @df >= 365.25       THEN LEFT(CAST(CONVERT(MONEY,@df / 365.25,1) AS NVARCHAR(21)) + N'yy      ',9) -- padding for same length
+        WHEN @df >= 365.25       THEN LEFT(CAST(CONVERT(MONEY,@df / 365.25,1) AS NVARCHAR(21)) + N' yy      ',10) -- padding for same length
 
-        WHEN @df >= 100.00       THEN LEFT(CAST(ROUND(@df,0)                  AS NVARCHAR(21)) + N'dd      ',9) -- padding for same length
-        WHEN @df >=  10.00       THEN LEFT(CAST(ROUND(@df,1)                  AS NVARCHAR(21)) + N'dd      ',9) -- padding for same length
-        WHEN @df >=   1.0        THEN LEFT(CAST(CONVERT(MONEY,@df         ,1) AS NVARCHAR(21)) + N'dd      ',9) -- padding for same length
+        WHEN @df >= 100.00       THEN LEFT(CAST(ROUND(@df,0)                  AS NVARCHAR(21)) + N' dd      ',10) -- padding for same length
+        WHEN @df >=  10.00       THEN LEFT(CAST(ROUND(@df,1)                  AS NVARCHAR(21)) + N' dd      ',10) -- padding for same length
+        WHEN @df >=   1.0        THEN LEFT(CAST(CONVERT(MONEY,@df         ,1) AS NVARCHAR(21)) + N' dd      ',10) -- padding for same length
 
-        WHEN @df >=   1.0/(24.0) THEN LEFT(CAST(CONVERT(MONEY,@df * 24.0  ,1) AS NVARCHAR(21)) + N'hh      ',9) -- padding for same length
+        WHEN @df >=   1.0/(24.0) THEN LEFT(CAST(CONVERT(MONEY,@df * 24.0  ,1) AS NVARCHAR(21)) + N' hh      ',10) -- padding for same length
 
-        ELSE RIGHT(CONVERT(NVARCHAR(12),@dt,114),9)
+        ELSE RIGHT(CONVERT(NVARCHAR(32),@dt,25),9) -- ODBC canonical format
 
    END COLLATE Latin1_General_100_CI_AI)
 
@@ -25929,7 +25911,7 @@ CREATE TABLE [##SQLXL_Index_Metrics]
 ,previous_sum_PCT FLOAT                                               NULL
 );
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
 RAISERROR(N'Created table [##SQLXL_Index_Metrics]',0,0) WITH NOWAIT;
 END;
 
@@ -26356,7 +26338,7 @@ Excel Column Label Formats passed to VBA code
        END
       -- KEY - count of key index columns ---------------------------------------------
      + CASE WHEN i.rec_type = N'I' -- index level composite record
-            THEN  CHAR(096) + N'KEY  ' -- extra space added to make 2nd column in cell align
+            THEN  CHAR(096) + N'KEY   ' -- extra space added to make 2nd column in cell align
                 + CASE i.type
                        WHEN N'0' THEN N'(' + i.idx_type_hdr + N')' -- rowstore heap
                        WHEN N'5' THEN N'(' + i.idx_type_hdr + N')' -- Clustered columnstore
@@ -26383,7 +26365,6 @@ Excel Column Label Formats passed to VBA code
                            )
              AND i.obj_type_hdr NOT IN (N'TVF')                       -- SQL table valued function
             THEN CHAR(096) + N'INC   ' + N'<all>'                     -- Clustered Rowstore, Clustered columnstore
-
 
             WHEN i.type IN (N'2'                                      -- nonclustered rowstore index
                            ,N'M'                                      -- missing nonclustered rowstore index
@@ -26556,11 +26537,11 @@ Excel Column Label Formats passed to VBA code
             ,(SELECT  -- required for XML TYPE VALUE used below
              (--
               SELECT  CHAR(096)
-                    + IIF(wait_time > N'',wait_time + N' ',N'')
-                    + [Wait Type . . . . . . . . . . . . . . . . . . . . .]
+                    + IIF(resource_wait_time > N'',resource_wait_time + N' ',N'')
+                    + N'[Wait Type . . . . . . . . . . . . . . . . . . . . .]'
                     + N' '
-                    + IIF(wait_time > N''
-                         ,'(' + wait_count + N')'
+                    + IIF(resource_wait_time > N''
+                         ,'(' + waiting_tasks_count_fmt + N')'
                          ,N'')
                 FROM [SQLXL_Active_Waits] ()
                ORDER BY
@@ -27654,7 +27635,7 @@ DECLARE @sql       NVARCHAR(MAX)
                                       )
                               );
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    RAISERROR(N'    Start [##SQLXL_Instance] data collection & diagnostics',0,0) WITH NOWAIT;
    SET @step_exec_dttm = GETDATE();
 END;
@@ -27690,7 +27671,7 @@ BEGIN TRY
    SET @coll_dttm = GETDATE();
 END TRY
 BEGIN CATCH
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N' Previous [##SQLXL_Instance_info] table found - truncating'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27708,7 +27689,7 @@ BEGIN CATCH
 
 END CATCH
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created table [##SQLXL_Instance_info] / queried for Collection_DTTM'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27772,7 +27753,7 @@ END TRY
 BEGIN CATCH
 END CATCH
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Created table [##SQLXL_Instance_defaults]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27782,7 +27763,7 @@ END;
 --<FUTURE>
 -- IF @msg IS NOT NULL AND DATEDIFF(HOUR,CONVERT(DATETIME,@msg,120),GETDATE()) < 1.0
 -- BEGIN
---    IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+--    IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
 --       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,GETDATE(),GETDATE()),0))
 --                + N' Exit - Instance info less than 1 hour old'
 --       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27817,7 +27798,7 @@ BEGIN CATCH
    TRUNCATE TABLE [##SQLXL_Instance_diagnostics];
 END CATCH
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Created/truncated [##SQLXL_Instance_diagnostics]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27835,7 +27816,7 @@ SELECT source     = N'SQLXL'
       ,text_value_in_use = CONVERT(NVARCHAR(30),GETDATE(),120)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Insert SQLXL & Collection_DTTM to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27872,7 +27853,7 @@ INSERT
       )
   EXEC ('DBCC TRACESTATUS(-1) WITH NO_INFOMSGS');
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Executed "DBCC TRACESTATUS(-1) WITH NO_INFOMSGS" to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27885,7 +27866,7 @@ UPDATE [##SQLXL_Instance_info] WITH (TABLOCKX)
  WHERE source IS NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' updated [##SQLXL_Instance_info] with source for DBCC TRACESTATUS records'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27939,7 +27920,7 @@ INSERT
       )
   EXEC [sys].[sp_configure];
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Checked for / executed [sys].[sp_configure] to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27954,7 +27935,7 @@ UPDATE [##SQLXL_Instance_info] WITH (TABLOCKX)
  WHERE source IS NULL
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' updated [##SQLXL_Instance_info] with source for [sys].[sp_configure] records'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -27977,7 +27958,7 @@ UPDATE tgt -- [##SQLXL_Instance_info]
  WHERE tgt.source = N'configurations'
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Applied defaults to [##SQLXL_Instance_info] for configuration info'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28006,7 +27987,7 @@ SELECT source            = N'configurations'
    AND si.name   = N'default full-text language'
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get Instance FULL-TEXT default language to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28054,7 +28035,7 @@ SELECT N'SERVERPROPERTY',N'SqlSortOrdername'                  ,SERVERPROPERTY(N'
 ) e (source,name,text_value_in_use)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get SERVERPROPERTY string values to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28104,7 +28085,7 @@ SELECT N'SERVERPROPERTY',N'SuspendedDatabaseCount'            ,SERVERPROPERTY('S
 ) e (source,name,run_value)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get SERVERPROPERTY integer values to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28132,7 +28113,7 @@ SELECT N'@@Function' ,N'@@SERVERname'                   ,CONVERT(NVARCHAR(255),@
 SELECT N'@@Function' ,N'@@VERSION'                      ,CONVERT(NVARCHAR(255),@@Version      )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get @@function string values to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28156,7 +28137,7 @@ SELECT N'@@Function' ,N'@@SPID'                         ,CONVERT(BIGINT,@@Spid  
 SELECT N'@@Function' ,N'@@TEXTSIZE'                     ,CONVERT(BIGINT,@@TextSize            )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get @@function integer values to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28172,7 +28153,7 @@ INSERT
 SELECT N'System'        ,N'HOST_name'                      ,CONVERT(NVARCHAR(4000),HOST_name()           )
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get HOST_name() to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28210,7 +28191,7 @@ BEGIN
 
 END; -- IF CAST(SERVERPROPERTY(N'EngineEdition') AS INT) NOT IN (5,6,9,11)
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get configurations for on-prem editions & SQL Managed Instance to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28224,20 +28205,19 @@ OR CAST(SERVERPROPERTY(N'EngineEdition') AS INT)
       ,8 -- Azure SQL Managed Instance
       )
 BEGIN
-   INSERT
-     INTO [##SQLXL_Instance_info] WITH (TABLOCKX)
-         (source
-         ,name
-         ,text_value_in_use
-         )
-   SELECT N'System'
-         ,N'CURRENT_TIMEZONE'
-         ,CONVERT(NVARCHAR(4000),CURRENT_TIMEZONE())
-   OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
-
+   EXEC (N'INSERT
+           INTO [##SQLXL_Instance_info] WITH (TABLOCKX)
+               (source
+               ,name
+               ,text_value_in_use
+               )
+         SELECT N''System''
+               ,N''CURRENT_TIMEZONE''
+               ,CONVERT(NVARCHAR(4000),CURRENT_TIMEZONE())
+         OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER)');
 END; -- IF CONVERT(INT,SERVERPROPERTY('ProductMajorVersion')) >= 16
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get CURRENT_TIMEZONE() for on-prem editions & SQL Managed Instance to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28332,7 +28312,7 @@ SELECT N'dm_os_sys_info',N'pdw_node_id'                   ,(SELECT pdw_node_id  
 ) AS qry (source,name,run_value)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get [sys].[dm_os_sys_info] integer values to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28386,7 +28366,7 @@ SELECT N'dm_os_sys_info',N'sqlserver_start_time'   ,REPLACE((SELECT CONVERT(NVAR
 ) AS qry (source,name,text_value_in_use)
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
              + N' Get [sys].[dm_os_sys_info] string values to [##SQLXL_Instance_info]'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28446,7 +28426,7 @@ BEGIN
    ) AS qry (source,name,run_value)
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N' Get [sys].[servers] integer values to [##SQLXL_Instance_info]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28476,7 +28456,7 @@ BEGIN
    ) AS qry (source,name,text_value_in_use)
    OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N' Get [sys].[servers] string values to [##SQLXL_Instance_info]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28486,14 +28466,13 @@ BEGIN
 END -- IF object_id(N'[sys].[servers]') IS NOT NULL
 ELSE
 BEGIN
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N' Did not find [sys].[servers] in this instance'
       RAISERROR(@msg,0,0) WITH NOWAIT;
       SET @step_exec_dttm = GETDATE();
    END;
 END;
-
 
 /******************************************************************************************************************************************\
 -- Index table [##SQLXL_Instance_info]
@@ -28507,7 +28486,7 @@ BEGIN TRY
          )
      WITH (DATA_COMPRESSION = PAGE,MAXDOP = 1);
 
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N' Create clustered index on [##SQLXL_Instance_info]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28516,7 +28495,7 @@ BEGIN TRY
 
 END TRY
 BEGIN CATCH
-   IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+   IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
       SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
                 + N' Clustered index already found on [##SQLXL_Instance_info]'
       RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28662,7 +28641,7 @@ SELECT  name + N' '
 
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
             + N' Server Diagnostics'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28952,7 +28931,7 @@ SELECT N'Instance in SINGLE USER mode'
    AND run_value = 1
 OPTION (RECOMPILE,MAXDOP 1,MAX_GRANT_PERCENT = 0,FORCE ORDER);
 
-IF @ssms_ads > 0 BEGIN -- display status to SSMS/ADS Messages tab
+IF @ssms_ads > 0 BEGIN -- display status to SSMS Messages tab
    SET @msg = [dbo].[SQLXL_DTTM_HMSM](DATEADD(ms,DATEDIFF(ms,@step_exec_dttm,GETDATE()),0))
          + N' Instance Diagnostics & procedure [##SQLXL_Instance] END'
    RAISERROR(@msg,0,0) WITH NOWAIT;
@@ -28990,235 +28969,237 @@ GO
 
 ALTER FUNCTION [SQLXL_Active_Waits] ()
 RETURNS TABLE
-AS RETURN (--
-SELECT wait_type  COLLATE Latin1_General_100_CI_AI
-                  AS [Wait Type . . . . . . . . . . . . . . . . . . . . .] -- extra space added to make SSMS display broader column width
-      ,wait_time  = IIF(waiting_tasks_count > N''
-                       ,RIGHT(N'      ' + dbo.SQLXL_DTTM_HMSM(resource_wait_time),9)
-                       ,N'')                                                         COLLATE Latin1_General_100_CI_AI
-      ,wait_count = dbo.SQLXL_3SD(waiting_tasks_count,N'I')
-      ,wait_avg   = dbo.SQLXL_DTTM_HMSM(resource_wait_avg)                           COLLATE Latin1_General_100_CI_AI
-      ,rn         = ROW_NUMBER() OVER (ORDER BY CASE LEFT(s.wait_type,3)
-                                                     WHEN N'[#]' THEN 1
-                                                     WHEN N'[!]' THEN 2
-                                                     WHEN N'[&]' THEN 4
-                                                     ELSE 3
-                                                END
-                                               ,COALESCE(resource_wait_time,GETDATE()) DESC
-                                                )
-  FROM (SELECT wait_type = COALESCE(N'[' + w.special_type + N'] ',N'') + s.wait_type
-              ,resource_wait_time = [dbo].[SQLXL_INT_DTTM]((s.wait_time_ms - s.signal_wait_time_ms),N'ms')
-              ,resource_wait_avg  = [dbo].[SQLXL_INT_DTTM](1.0 * (s.wait_time_ms - s.signal_wait_time_ms) / s.waiting_tasks_count,N'ms')
-              ,waiting_tasks_count
-          FROM sys.dm_os_wait_stats AS s WITH (READUNCOMMITTED)
-       /*##################################################################################################################################\
-       List of SPECIAL (ignorable, worrying, poison) wait types - Copied from:
-       Paul Randall https://www.sqlskills.com/blogs/paul/wait-statistics-or-please-tell-me-where-it-hurts/
-       Paul Randall https://www.sqlskills.com/blogs/paul/worrying-wait-type/
-       Pinal Dave   https://blog.sqlauthority.com/2017/08/29/sql-server-wait-stats-collection-scripts-2016-later-versions/
-       Brent Ozar   https://www.brentozar.com/blitz/poison-wait-detected/
-       Pedro Lopes  https://github.com/microsoft/tigertoolbox/blob/master/Waits-and-Latches/view_Waits.sql
-       \##################################################################################################################################*/
-          LEFT OUTER
-          JOIN (VALUES
-       -- POISON waits from Brent Ozar @ https://www.brentozar.com/blitz/poison-wait-detected/
-               (N'#',N'CMEMTHREAD')                          -- https://www.sqlskills.com/help/waits/CMEMTHREAD
-              ,(N'#',N'IO_QUEUE_LIMIT')                      -- https://www.sqlskills.com/help/waits/IO_QUEUE_LIMIT
-              ,(N'#',N'IO_RETRY')                            -- https://www.sqlskills.com/help/waits/IO_RETRY
-              ,(N'#',N'LOG_RATE_GOVERNOR')                   -- https://www.sqlskills.com/help/waits/LOG_RATE_GOVERNOR
-              ,(N'#',N'POOL_LOG_RATE_GOVERNOR')              -- https://www.sqlskills.com/help/waits/POOL_LOG_RATE_GOVERNOR
-              ,(N'#',N'PREEMPTIVE_DEBUG')                    -- https://www.sqlskills.com/help/waits/PREEMPTIVE_DEBUG
-              ,(N'#',N'RESMGR_THROTTLED')                    -- https://www.sqlskills.com/help/waits/RESMGR_THROTTLED
-              ,(N'#',N'RESOURCE_SEMAPHORE')                  -- https://www.sqlskills.com/help/waits/RESOURCE_SEMAPHORE
-              ,(N'#',N'RESOURCE_SEMAPHORE_QUERY_COMPILE')    -- https://www.sqlskills.com/help/waits/RESOURCE_SEMAPHORE_QUERY_COMPILE
-              ,(N'#',N'THREADPOOL')                          -- https://www.sqlskills.com/help/waits/THREADPOOL
-               -- Azure SQL DB, waiting for the secondary replicas to catch up
-              ,(N'#',N'SE_REPL_BACKGROUND')                  -- https://www.sqlskills.com/help/waits/SE_REPL_BACKGROUND
-              ,(N'#',N'SE_REPL_BACKGROUND_FORWARDER')        -- https://www.sqlskills.com/help/waits/SE_REPL_BACKGROUND_FORWARDER
-              ,(N'#',N'SE_REPL_BACKGROUND_KILL')             -- https://www.sqlskills.com/help/waits/SE_REPL_BACKGROUND_KILL
-              ,(N'#',N'SE_REPL_CATCHUP_THROTTLE')            -- https://www.sqlskills.com/help/waits/SE_REPL_CATCHUP_THROTTLE
-              ,(N'#',N'SE_REPL_COMMIT_ACK')                  -- https://www.sqlskills.com/help/waits/SE_REPL_COMMIT_ACK
-              ,(N'#',N'SE_REPL_COMMIT_TURN')                 -- https://www.sqlskills.com/help/waits/SE_REPL_COMMIT_TURN
-              ,(N'#',N'SE_REPL_CSN_ALLOC_TURN')              -- https://www.sqlskills.com/help/waits/SE_REPL_CSN_ALLOC_TURN
-              ,(N'#',N'SE_REPL_CSN_VECTOR')                  -- https://www.sqlskills.com/help/waits/SE_REPL_CSN_VECTOR
-              ,(N'#',N'SE_REPL_DEFERRED_COMMIT_TURN')        -- https://www.sqlskills.com/help/waits/SE_REPL_DEFERRED_COMMIT_TURN
-              ,(N'#',N'SE_REPL_DELETE_COMPLETE')             -- https://www.sqlskills.com/help/waits/SE_REPL_DELETE_COMPLETE
-              ,(N'#',N'SE_REPL_DISPATCH_ITEM_COMPLETION')    -- https://www.sqlskills.com/help/waits/SE_REPL_DISPATCH_ITEM_COMPLETION
-              ,(N'#',N'SE_REPL_ITEM_COMPLETION')             -- https://www.sqlskills.com/help/waits/SE_REPL_ITEM_COMPLETION
-              ,(N'#',N'SE_REPL_KILL_SYNCHRONIZE')            -- https://www.sqlskills.com/help/waits/SE_REPL_KILL_SYNCHRONIZE
-              ,(N'#',N'SE_REPL_LAST_CSN_LOCK')               -- https://www.sqlskills.com/help/waits/SE_REPL_LAST_CSN_LOCK
-              ,(N'#',N'SE_REPL_LOG_TRUNC')                   -- https://www.sqlskills.com/help/waits/SE_REPL_LOG_TRUNC
-              ,(N'#',N'SE_REPL_METADATA_COMPLETE_ACK')       -- https://www.sqlskills.com/help/waits/SE_REPL_METADATA_COMPLETE_ACK
-              ,(N'#',N'SE_REPL_METADATA_COMPLETION')         -- https://www.sqlskills.com/help/waits/SE_REPL_METADATA_COMPLETION
-              ,(N'#',N'SE_REPL_PARTIAL_XACT_DRAIN_ACK')      -- https://www.sqlskills.com/help/waits/SE_REPL_PARTIAL_XACT_DRAIN_ACK
-              ,(N'#',N'SE_REPL_PARTITION_EVENT')             -- https://www.sqlskills.com/help/waits/SE_REPL_PARTITION_EVENT
-              ,(N'#',N'SE_REPL_PARTITION_SARTUP_EVENT')      -- https://www.sqlskills.com/help/waits/SE_REPL_PARTITION_SARTUP_EVENT
-              ,(N'#',N'SE_REPL_PARTITION_WAITING_QUEUE')     -- https://www.sqlskills.com/help/waits/SE_REPL_PARTITION_WAITING_QUEUE
-              ,(N'#',N'SE_REPL_QUEUE')                       -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE
-              ,(N'#',N'SE_REPL_QUEUE_LOG_THROTTLE_LIST')     -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_LOG_THROTTLE_LIST
-              ,(N'#',N'SE_REPL_QUEUE_LOG_TRUNCATION')        -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_LOG_TRUNCATION
-              ,(N'#',N'SE_REPL_QUEUE_THROTTLING')            -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_THROTTLING
-              ,(N'#',N'SE_REPL_QUEUE_TRUNCATE')              -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_TRUNCATE
-              ,(N'#',N'SE_REPL_QUEUE_XACT_ACK')              -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_XACT_ACK
-              ,(N'#',N'SE_REPL_ROLLBACK_ACK')                -- https://www.sqlskills.com/help/waits/SE_REPL_ROLLBACK_ACK
-              ,(N'#',N'SE_REPL_ROWSET_METADATA')             -- https://www.sqlskills.com/help/waits/SE_REPL_ROWSET_METADATA
-              ,(N'#',N'SE_REPL_SCHEMA_SCOPE_CLEANUP')        -- https://www.sqlskills.com/help/waits/SE_REPL_SCHEMA_SCOPE_CLEANUP
-              ,(N'#',N'SE_REPL_SECONDARY_CATCHUP_COMPLETE')  -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_CATCHUP_COMPLETE
-              ,(N'#',N'SE_REPL_SECONDARY_CATCHUP_YIELD')     -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_CATCHUP_YIELD
-              ,(N'#',N'SE_REPL_SECONDARY_CLOSED')            -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_CLOSED
-              ,(N'#',N'SE_REPL_SECONDARY_XACT')              -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_XACT
-              ,(N'#',N'SE_REPL_SECONDARY_XACT_REMOTE_KILL')  -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_XACT_REMOTE_KILL
-              ,(N'#',N'SE_REPL_SLOW_SECONDARY_THROTTLE')     -- https://www.sqlskills.com/help/waits/SE_REPL_SLOW_SECONDARY_THROTTLE
-              ,(N'#',N'SE_REPL_SPECIFIC_SECONDARY_FLUSH')    -- https://www.sqlskills.com/help/waits/SE_REPL_SPECIFIC_SECONDARY_FLUSH
-              ,(N'#',N'SE_REPL_WAIT_FOR_ENOUGH_SECONDARIES') -- https://www.sqlskills.com/help/waits/SE_REPL_WAIT_FOR_ENOUGH_SECONDARIES
-              ,(N'#',N'SE_REPL_WAIT_PRIMARY_FAILURE')        -- https://www.sqlskills.com/help/waits/SE_REPL_WAIT_PRIMARY_FAILURE
-              ,(N'#',N'SE_REPL_WORKER_POOL_MGMT')            -- https://www.sqlskills.com/help/waits/SE_REPL_WORKER_POOL_MGMT
+AS RETURN (
+SELECT w.*
+      ,rn = ROW_NUMBER() OVER (ORDER BY CASE wait_group
+                                             WHEN N'#' THEN 1 -- poison
+                                             WHEN N'!' THEN 2 -- worrying
+                                             WHEN N'&' THEN 4 -- ignorable
+                                             ELSE 3
+                                        END
+                                       ,COALESCE(CAST((wait_time_ms - signal_wait_time_ms) AS FLOAT),999999999) DESC
+                                       ,COALESCE(waiting_tasks_count,999999999) DESC
+                              )
+  FROM (
+SELECT s.wait_type
+      ,s.waiting_tasks_count
+      ,s.wait_time_ms
+      ,s.max_wait_time_ms
+      ,s.signal_wait_time_ms
+      -------------------------------------------------------
+      ,wait_group              = COALESCE(w.wait_group,N'')
+      ,waiting_tasks_count_fmt = dbo.SQLXL_3SD(waiting_tasks_count,N'I')
+      ,resource_wait_time      = [dbo].SQLXL_DTTM_HMSM([dbo].[SQLXL_INT_DTTM]((s.wait_time_ms - s.signal_wait_time_ms),N'ms'))
+      ,resource_wait_avg       = [dbo].SQLXL_DTTM_HMSM([dbo].[SQLXL_INT_DTTM](1.0 * (s.wait_time_ms - s.signal_wait_time_ms) / s.waiting_tasks_count,N'ms'))
+      -------------------------------------------------------
+  FROM sys.dm_os_wait_stats AS s WITH (READUNCOMMITTED)
+/*##########################################################################################################################################\
+List of SPECIAL (ignorable, worrying, poison) wait types - Copied from:
+Paul Randall https://www.sqlskills.com/blogs/paul/wait-statistics-or-please-tell-me-where-it-hurts/
+Paul Randall https://www.sqlskills.com/blogs/paul/worrying-wait-type/
+Pinal Dave   https://blog.sqlauthority.com/2017/08/29/sql-server-wait-stats-collection-scripts-2016-later-versions/
+Brent Ozar   https://www.brentozar.com/blitz/poison-wait-detected/
+Pedro Lopes  https://github.com/microsoft/tigertoolbox/blob/master/Waits-and-Latches/view_Waits.sql
+\##########################################################################################################################################*/
+  LEFT OUTER
+  JOIN (VALUES
+-- POISON waits from Brent Ozar @ https://www.brentozar.com/blitz/poison-wait-detected/
+       (N'#',N'CMEMTHREAD')                          -- https://www.sqlskills.com/help/waits/CMEMTHREAD
+      ,(N'#',N'IO_QUEUE_LIMIT')                      -- https://www.sqlskills.com/help/waits/IO_QUEUE_LIMIT
+      ,(N'#',N'IO_RETRY')                            -- https://www.sqlskills.com/help/waits/IO_RETRY
+      ,(N'#',N'LOG_RATE_GOVERNOR')                   -- https://www.sqlskills.com/help/waits/LOG_RATE_GOVERNOR
+      ,(N'#',N'POOL_LOG_RATE_GOVERNOR')              -- https://www.sqlskills.com/help/waits/POOL_LOG_RATE_GOVERNOR
+      ,(N'#',N'PREEMPTIVE_DEBUG')                    -- https://www.sqlskills.com/help/waits/PREEMPTIVE_DEBUG
+      ,(N'#',N'RESMGR_THROTTLED')                    -- https://www.sqlskills.com/help/waits/RESMGR_THROTTLED
+      ,(N'#',N'RESOURCE_SEMAPHORE')                  -- https://www.sqlskills.com/help/waits/RESOURCE_SEMAPHORE
+      ,(N'#',N'RESOURCE_SEMAPHORE_QUERY_COMPILE')    -- https://www.sqlskills.com/help/waits/RESOURCE_SEMAPHORE_QUERY_COMPILE
+      ,(N'#',N'THREADPOOL')                          -- https://www.sqlskills.com/help/waits/THREADPOOL
+       -- Azure SQL DB, waiting for the secondary replicas to catch up
+      ,(N'#',N'SE_REPL_BACKGROUND')                  -- https://www.sqlskills.com/help/waits/SE_REPL_BACKGROUND
+      ,(N'#',N'SE_REPL_BACKGROUND_FORWARDER')        -- https://www.sqlskills.com/help/waits/SE_REPL_BACKGROUND_FORWARDER
+      ,(N'#',N'SE_REPL_BACKGROUND_KILL')             -- https://www.sqlskills.com/help/waits/SE_REPL_BACKGROUND_KILL
+      ,(N'#',N'SE_REPL_CATCHUP_THROTTLE')            -- https://www.sqlskills.com/help/waits/SE_REPL_CATCHUP_THROTTLE
+      ,(N'#',N'SE_REPL_COMMIT_ACK')                  -- https://www.sqlskills.com/help/waits/SE_REPL_COMMIT_ACK
+      ,(N'#',N'SE_REPL_COMMIT_TURN')                 -- https://www.sqlskills.com/help/waits/SE_REPL_COMMIT_TURN
+      ,(N'#',N'SE_REPL_CSN_ALLOC_TURN')              -- https://www.sqlskills.com/help/waits/SE_REPL_CSN_ALLOC_TURN
+      ,(N'#',N'SE_REPL_CSN_VECTOR')                  -- https://www.sqlskills.com/help/waits/SE_REPL_CSN_VECTOR
+      ,(N'#',N'SE_REPL_DEFERRED_COMMIT_TURN')        -- https://www.sqlskills.com/help/waits/SE_REPL_DEFERRED_COMMIT_TURN
+      ,(N'#',N'SE_REPL_DELETE_COMPLETE')             -- https://www.sqlskills.com/help/waits/SE_REPL_DELETE_COMPLETE
+      ,(N'#',N'SE_REPL_DISPATCH_ITEM_COMPLETION')    -- https://www.sqlskills.com/help/waits/SE_REPL_DISPATCH_ITEM_COMPLETION
+      ,(N'#',N'SE_REPL_ITEM_COMPLETION')             -- https://www.sqlskills.com/help/waits/SE_REPL_ITEM_COMPLETION
+      ,(N'#',N'SE_REPL_KILL_SYNCHRONIZE')            -- https://www.sqlskills.com/help/waits/SE_REPL_KILL_SYNCHRONIZE
+      ,(N'#',N'SE_REPL_LAST_CSN_LOCK')               -- https://www.sqlskills.com/help/waits/SE_REPL_LAST_CSN_LOCK
+      ,(N'#',N'SE_REPL_LOG_TRUNC')                   -- https://www.sqlskills.com/help/waits/SE_REPL_LOG_TRUNC
+      ,(N'#',N'SE_REPL_METADATA_COMPLETE_ACK')       -- https://www.sqlskills.com/help/waits/SE_REPL_METADATA_COMPLETE_ACK
+      ,(N'#',N'SE_REPL_METADATA_COMPLETION')         -- https://www.sqlskills.com/help/waits/SE_REPL_METADATA_COMPLETION
+      ,(N'#',N'SE_REPL_PARTIAL_XACT_DRAIN_ACK')      -- https://www.sqlskills.com/help/waits/SE_REPL_PARTIAL_XACT_DRAIN_ACK
+      ,(N'#',N'SE_REPL_PARTITION_EVENT')             -- https://www.sqlskills.com/help/waits/SE_REPL_PARTITION_EVENT
+      ,(N'#',N'SE_REPL_PARTITION_SARTUP_EVENT')      -- https://www.sqlskills.com/help/waits/SE_REPL_PARTITION_SARTUP_EVENT
+      ,(N'#',N'SE_REPL_PARTITION_WAITING_QUEUE')     -- https://www.sqlskills.com/help/waits/SE_REPL_PARTITION_WAITING_QUEUE
+      ,(N'#',N'SE_REPL_QUEUE')                       -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE
+      ,(N'#',N'SE_REPL_QUEUE_LOG_THROTTLE_LIST')     -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_LOG_THROTTLE_LIST
+      ,(N'#',N'SE_REPL_QUEUE_LOG_TRUNCATION')        -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_LOG_TRUNCATION
+      ,(N'#',N'SE_REPL_QUEUE_THROTTLING')            -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_THROTTLING
+      ,(N'#',N'SE_REPL_QUEUE_TRUNCATE')              -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_TRUNCATE
+      ,(N'#',N'SE_REPL_QUEUE_XACT_ACK')              -- https://www.sqlskills.com/help/waits/SE_REPL_QUEUE_XACT_ACK
+      ,(N'#',N'SE_REPL_ROLLBACK_ACK')                -- https://www.sqlskills.com/help/waits/SE_REPL_ROLLBACK_ACK
+      ,(N'#',N'SE_REPL_ROWSET_METADATA')             -- https://www.sqlskills.com/help/waits/SE_REPL_ROWSET_METADATA
+      ,(N'#',N'SE_REPL_SCHEMA_SCOPE_CLEANUP')        -- https://www.sqlskills.com/help/waits/SE_REPL_SCHEMA_SCOPE_CLEANUP
+      ,(N'#',N'SE_REPL_SECONDARY_CATCHUP_COMPLETE')  -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_CATCHUP_COMPLETE
+      ,(N'#',N'SE_REPL_SECONDARY_CATCHUP_YIELD')     -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_CATCHUP_YIELD
+      ,(N'#',N'SE_REPL_SECONDARY_CLOSED')            -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_CLOSED
+      ,(N'#',N'SE_REPL_SECONDARY_XACT')              -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_XACT
+      ,(N'#',N'SE_REPL_SECONDARY_XACT_REMOTE_KILL')  -- https://www.sqlskills.com/help/waits/SE_REPL_SECONDARY_XACT_REMOTE_KILL
+      ,(N'#',N'SE_REPL_SLOW_SECONDARY_THROTTLE')     -- https://www.sqlskills.com/help/waits/SE_REPL_SLOW_SECONDARY_THROTTLE
+      ,(N'#',N'SE_REPL_SPECIFIC_SECONDARY_FLUSH')    -- https://www.sqlskills.com/help/waits/SE_REPL_SPECIFIC_SECONDARY_FLUSH
+      ,(N'#',N'SE_REPL_WAIT_FOR_ENOUGH_SECONDARIES') -- https://www.sqlskills.com/help/waits/SE_REPL_WAIT_FOR_ENOUGH_SECONDARIES
+      ,(N'#',N'SE_REPL_WAIT_PRIMARY_FAILURE')        -- https://www.sqlskills.com/help/waits/SE_REPL_WAIT_PRIMARY_FAILURE
+      ,(N'#',N'SE_REPL_WORKER_POOL_MGMT')            -- https://www.sqlskills.com/help/waits/SE_REPL_WORKER_POOL_MGMT
 
-       -- Ignorable waits from Paul Randall
-               -- When running for USERS ONLY - these wait types are almost 100% never a problem and so they are
-               -- filtered out to avoid them skewing the results.-- Click on the URL for more information.
-              ,(N'&',N'BROKER_EVENTHANDLER')                 -- https://www.sqlskills.com/help/waits/BROKER_EVENTHANDLER
-              ,(N'&',N'BROKER_RECEIVE_WAITFOR')              -- https://www.sqlskills.com/help/waits/BROKER_RECEIVE_WAITFOR
-              ,(N'&',N'BROKER_TASK_STOP')                    -- https://www.sqlskills.com/help/waits/BROKER_TASK_STOP
-              ,(N'&',N'BROKER_TO_FLUSH')                     -- https://www.sqlskills.com/help/waits/BROKER_TO_FLUSH
-              ,(N'&',N'BROKER_TRANSMITTER')                  -- https://www.sqlskills.com/help/waits/BROKER_TRANSMITTER
-              ,(N'&',N'CHECKPOINT_QUEUE')                    -- https://www.sqlskills.com/help/waits/CHECKPOINT_QUEUE
-              ,(N'&',N'CHKPT')                               -- https://www.sqlskills.com/help/waits/CHKPT
-              ,(N'&',N'CLR_AUTO_EVENT')                      -- https://www.sqlskills.com/help/waits/CLR_AUTO_EVENT
-              ,(N'&',N'CLR_MANUAL_EVENT')                    -- https://www.sqlskills.com/help/waits/CLR_MANUAL_EVENT
-              ,(N'&',N'CLR_SEMAPHORE')                       -- https://www.sqlskills.com/help/waits/CLR_SEMAPHORE
+-- Ignorable waits from Paul Randall
+       -- When running for USERS ONLY - these wait types are almost 100% never a problem and so they are
+       -- filtered out to avoid them skewing the results.-- Click on the URL for more information.
+      ,(N'&',N'BROKER_EVENTHANDLER')                 -- https://www.sqlskills.com/help/waits/BROKER_EVENTHANDLER
+      ,(N'&',N'BROKER_RECEIVE_WAITFOR')              -- https://www.sqlskills.com/help/waits/BROKER_RECEIVE_WAITFOR
+      ,(N'&',N'BROKER_TASK_STOP')                    -- https://www.sqlskills.com/help/waits/BROKER_TASK_STOP
+      ,(N'&',N'BROKER_TO_FLUSH')                     -- https://www.sqlskills.com/help/waits/BROKER_TO_FLUSH
+      ,(N'&',N'BROKER_TRANSMITTER')                  -- https://www.sqlskills.com/help/waits/BROKER_TRANSMITTER
+      ,(N'&',N'CHECKPOINT_QUEUE')                    -- https://www.sqlskills.com/help/waits/CHECKPOINT_QUEUE
+      ,(N'&',N'CHKPT')                               -- https://www.sqlskills.com/help/waits/CHKPT
+      ,(N'&',N'CLR_AUTO_EVENT')                      -- https://www.sqlskills.com/help/waits/CLR_AUTO_EVENT
+      ,(N'&',N'CLR_MANUAL_EVENT')                    -- https://www.sqlskills.com/help/waits/CLR_MANUAL_EVENT
+      ,(N'&',N'CLR_SEMAPHORE')                       -- https://www.sqlskills.com/help/waits/CLR_SEMAPHORE
 
-               -- Maybe comment this out if you have parallelism issues
-              ,(N'&',N'CXCONSUMER')                          -- https://www.sqlskills.com/help/waits/CXCONSUMER
+       -- Maybe comment this out if you have parallelism issues
+      ,(N'&',N'CXCONSUMER')                          -- https://www.sqlskills.com/help/waits/CXCONSUMER
 
-               -- Maybe comment these four out if you have mirroring issues
-              ,(N'&',N'DBMIRROR_DBM_EVENT')                  -- https://www.sqlskills.com/help/waits/DBMIRROR_DBM_EVENT
-              ,(N'&',N'DBMIRROR_EVENTS_QUEUE')               -- https://www.sqlskills.com/help/waits/DBMIRROR_EVENTS_QUEUE
-              ,(N'&',N'DBMIRROR_WORKER_QUEUE')               -- https://www.sqlskills.com/help/waits/DBMIRROR_WORKER_QUEUE
-              ,(N'&',N'DBMIRRORING_CMD')                     -- https://www.sqlskills.com/help/waits/DBMIRRORING_CMD
+       -- Maybe comment these four out if you have mirroring issues
+      ,(N'&',N'DBMIRROR_DBM_EVENT')                  -- https://www.sqlskills.com/help/waits/DBMIRROR_DBM_EVENT
+      ,(N'&',N'DBMIRROR_EVENTS_QUEUE')               -- https://www.sqlskills.com/help/waits/DBMIRROR_EVENTS_QUEUE
+      ,(N'&',N'DBMIRROR_WORKER_QUEUE')               -- https://www.sqlskills.com/help/waits/DBMIRROR_WORKER_QUEUE
+      ,(N'&',N'DBMIRRORING_CMD')                     -- https://www.sqlskills.com/help/waits/DBMIRRORING_CMD
 
-              ,(N'&',N'DIRTY_PAGE_POLL')                     -- https://www.sqlskills.com/help/waits/DIRTY_PAGE_POLL
-              ,(N'&',N'DISPATCHER_QUEUE_SEMAPHORE')          -- https://www.sqlskills.com/help/waits/DISPATCHER_QUEUE_SEMAPHORE
-              ,(N'&',N'EXECSYNC')                            -- https://www.sqlskills.com/help/waits/EXECSYNC
-              ,(N'&',N'FSAGENT')                             -- https://www.sqlskills.com/help/waits/FSAGENT
-              ,(N'&',N'FT_IFTS_SCHEDULER_IDLE_WAIT')         -- https://www.sqlskills.com/help/waits/FT_IFTS_SCHEDULER_IDLE_WAIT
-              ,(N'&',N'FT_IFTSHC_MUTEX')                     -- https://www.sqlskills.com/help/waits/FT_IFTSHC_MUTEX
+      ,(N'&',N'DIRTY_PAGE_POLL')                     -- https://www.sqlskills.com/help/waits/DIRTY_PAGE_POLL
+      ,(N'&',N'DISPATCHER_QUEUE_SEMAPHORE')          -- https://www.sqlskills.com/help/waits/DISPATCHER_QUEUE_SEMAPHORE
+      ,(N'&',N'EXECSYNC')                            -- https://www.sqlskills.com/help/waits/EXECSYNC
+      ,(N'&',N'FSAGENT')                             -- https://www.sqlskills.com/help/waits/FSAGENT
+      ,(N'&',N'FT_IFTS_SCHEDULER_IDLE_WAIT')         -- https://www.sqlskills.com/help/waits/FT_IFTS_SCHEDULER_IDLE_WAIT
+      ,(N'&',N'FT_IFTSHC_MUTEX')                     -- https://www.sqlskills.com/help/waits/FT_IFTSHC_MUTEX
 
-              -- Maybe comment these six out if you have AG issues
-              ,(N'&',N'HADR_CLUSAPI_CALL')                   -- https://www.sqlskills.com/help/waits/HADR_CLUSAPI_CALL
-              ,(N'&',N'HADR_FILESTREAM_IOMGR_IOCOMPLETION')  -- https://www.sqlskills.com/help/waits/HADR_FILESTREAM_IOMGR_IOCOMPLETION
-              ,(N'&',N'HADR_LOGCAPTURE_WAIT')                -- https://www.sqlskills.com/help/waits/HADR_LOGCAPTURE_WAIT
-              ,(N'&',N'HADR_NOTIFICATION_DEQUEUE')           -- https://www.sqlskills.com/help/waits/HADR_NOTIFICATION_DEQUEUE
-              ,(N'&',N'HADR_TIMER_TASK')                     -- https://www.sqlskills.com/help/waits/HADR_TIMER_TASK
-              ,(N'&',N'HADR_WORK_QUEUE')                     -- https://www.sqlskills.com/help/waits/HADR_WORK_QUEUE
+      -- Maybe comment these six out if you have AG issues
+      ,(N'&',N'HADR_CLUSAPI_CALL')                   -- https://www.sqlskills.com/help/waits/HADR_CLUSAPI_CALL
+      ,(N'&',N'HADR_FILESTREAM_IOMGR_IOCOMPLETION')  -- https://www.sqlskills.com/help/waits/HADR_FILESTREAM_IOMGR_IOCOMPLETION
+      ,(N'&',N'HADR_LOGCAPTURE_WAIT')                -- https://www.sqlskills.com/help/waits/HADR_LOGCAPTURE_WAIT
+      ,(N'&',N'HADR_NOTIFICATION_DEQUEUE')           -- https://www.sqlskills.com/help/waits/HADR_NOTIFICATION_DEQUEUE
+      ,(N'&',N'HADR_TIMER_TASK')                     -- https://www.sqlskills.com/help/waits/HADR_TIMER_TASK
+      ,(N'&',N'HADR_WORK_QUEUE')                     -- https://www.sqlskills.com/help/waits/HADR_WORK_QUEUE
 
-              ,(N'&',N'KSOURCE_WAKEUP')                      -- https://www.sqlskills.com/help/waits/KSOURCE_WAKEUP
-              ,(N'&',N'LAZYWRITER_SLEEP')                    -- https://www.sqlskills.com/help/waits/LAZYWRITER_SLEEP
-              ,(N'&',N'LOGMGR_QUEUE')                        -- https://www.sqlskills.com/help/waits/LOGMGR_QUEUE
-              ,(N'&',N'MEMORY_ALLOCATION_EXT')               -- https://www.sqlskills.com/help/waits/MEMORY_ALLOCATION_EXT
-              ,(N'&',N'MISCELLANEOUS')                       -- https://www.sqlskills.com/help/waits/MISCELLANEOUS
-              ,(N'&',N'ONDEMAND_TASK_QUEUE')                 -- https://www.sqlskills.com/help/waits/ONDEMAND_TASK_QUEUE
-              ,(N'&',N'PARALLEL_REDO_DRAIN_WORKER')          -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_DRAIN_WORKER
-              ,(N'&',N'PARALLEL_REDO_LOG_CACHE')             -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_LOG_CACHE
-              ,(N'&',N'PARALLEL_REDO_TRAN_LIST')             -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_TRAN_LIST
-              ,(N'&',N'PARALLEL_REDO_WORKER_SYNC')           -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_WORKER_SYNC
-              ,(N'&',N'PARALLEL_REDO_WORKER_WAIT_WORK')      -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_WORKER_WAIT_WORK
-              ,(N'&',N'PREEMPTIVE_HADR_LEASE_MECHANISM')     -- https://www.sqlskills.com/help/waits/PREEMPTIVE_HADR_LEASE_MECHANISM
-              ,(N'&',N'PREEMPTIVE_OS_AUTHENTICATIONOPS')     -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_AUTHENTICATIONOPS
-              ,(N'&',N'PREEMPTIVE_OS_AUTHORIZATIONOPS')      -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_AUTHORIZATIONOPS
-              ,(N'&',N'PREEMPTIVE_OS_COMOPS')                -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_COMOPS
-              ,(N'&',N'PREEMPTIVE_OS_CREATEFILE')            -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_CREATEFILE
-              ,(N'&',N'PREEMPTIVE_OS_CRYPTOPS')              -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_CRYPTOPS
-              ,(N'&',N'PREEMPTIVE_OS_DEVICEOPS')             -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_DEVICEOPS
-              ,(N'&',N'PREEMPTIVE_OS_FILEOPS')               -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_FILEOPS
-              ,(N'&',N'PREEMPTIVE_OS_FLUSHFILEBUFFERS')      -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_FLUSHFILEBUFFERS
-              ,(N'&',N'PREEMPTIVE_OS_GENERICOPS')            -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_GENERICOPS
-              ,(N'&',N'PREEMPTIVE_OS_LIBRARYOPS')            -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_LIBRARYOPS
-              ,(N'&',N'PREEMPTIVE_OS_PIPEOPS')               -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_PIPEOPS
-              ,(N'&',N'PREEMPTIVE_OS_QUERYREGISTRY')         -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_QUERYREGISTRY
-              ,(N'&',N'PREEMPTIVE_OS_VERIFYTRUST')           -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_VERIFYTRUST
-              ,(N'&',N'PREEMPTIVE_OS_WAITFORSINGLEOBJECT')   -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_WAITFORSINGLEOBJECT
-              ,(N'&',N'PREEMPTIVE_OS_WRITEFILEGATHER')       -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_WRITEFILEGATHER
-              ,(N'&',N'PREEMPTIVE_SP_SERVER_DIAGNOSTICS')    -- https://www.sqlskills.com/help/waits/PREEMPTIVE_SP_SERVER_DIAGNOSTICS
-              ,(N'&',N'PREEMPTIVE_XE_GETTARGETSTATE')        -- https://www.sqlskills.com/help/waits/PREEMPTIVE_XE_GETTARGETSTATE
-              ,(N'&',N'PVS_PREALLOCATE')                     -- https://www.sqlskills.com/help/waits/PVS_PREALLOCATE
-              ,(N'&',N'PWAIT_ALL_COMPONENTS_INITIALIZED')    -- https://www.sqlskills.com/help/waits/PWAIT_ALL_COMPONENTS_INITIALIZED
-              ,(N'&',N'PWAIT_DIRECTLOGCONSUMER_GETNEXT')     -- https://www.sqlskills.com/help/waits/PWAIT_DIRECTLOGCONSUMER_GETNEXT
-              ,(N'&',N'PWAIT_EXTENSIBILITY_CLEANUP_TASK')    -- https://www.sqlskills.com/help/waits/PWAIT_EXTENSIBILITY_CLEANUP_TASK
-              ,(N'&',N'QDS_ASYNC_QUEUE')                     -- https://www.sqlskills.com/help/waits/QDS_ASYNC_QUEUE
-              ,(N'&',N'QDS_CLEANUP_STALE_QUERIES_TASK_MAIN_LOOP_SLEEP') -- https://www.sqlskills.com/help/waits/QDS_CLEANUP_STALE_QUERIES_TASK_MAIN_LOOP_SLEEP
-              ,(N'&',N'QDS_PERSIST_TASK_MAIN_LOOP_SLEEP')    -- https://www.sqlskills.com/help/waits/QDS_PERSIST_TASK_MAIN_LOOP_SLEEP
-              ,(N'&',N'QDS_SHUTDOWN_QUEUE')                  -- https://www.sqlskills.com/help/waits/QDS_SHUTDOWN_QUEUE
-              ,(N'&',N'REDO_THREAD_PENDING_WORK')            -- https://www.sqlskills.com/help/waits/REDO_THREAD_PENDING_WORK
-              ,(N'&',N'REQUEST_FOR_DEADLOCK_SEARCH')         -- https://www.sqlskills.com/help/waits/REQUEST_FOR_DEADLOCK_SEARCH
-              ,(N'&',N'RESOURCE_QUEUE')                      -- https://www.sqlskills.com/help/waits/RESOURCE_QUEUE
-              ,(N'&',N'SERVER_IDLE_CHECK')                   -- https://www.sqlskills.com/help/waits/SERVER_IDLE_CHECK
-              ,(N'&',N'SLEEP_BPOOL_FLUSH')                   -- https://www.sqlskills.com/help/waits/SLEEP_BPOOL_FLUSH
-              ,(N'&',N'SLEEP_DBSTARTUP')                     -- https://www.sqlskills.com/help/waits/SLEEP_DBSTARTUP
-              ,(N'&',N'SLEEP_DCOMSTARTUP')                   -- https://www.sqlskills.com/help/waits/SLEEP_DCOMSTARTUP
-              ,(N'&',N'SLEEP_MASTERDBREADY')                 -- https://www.sqlskills.com/help/waits/SLEEP_MASTERDBREADY
-              ,(N'&',N'SLEEP_MASTERMDREADY')                 -- https://www.sqlskills.com/help/waits/SLEEP_MASTERMDREADY
-              ,(N'&',N'SLEEP_MASTERUPGRADED')                -- https://www.sqlskills.com/help/waits/SLEEP_MASTERUPGRADED
-              ,(N'&',N'SLEEP_MSDBSTARTUP')                   -- https://www.sqlskills.com/help/waits/SLEEP_MSDBSTARTUP
-              ,(N'&',N'SLEEP_SYSTEMTASK')                    -- https://www.sqlskills.com/help/waits/SLEEP_SYSTEMTASK
-              ,(N'&',N'SLEEP_TASK')                          -- https://www.sqlskills.com/help/waits/SLEEP_TASK
-              ,(N'&',N'SLEEP_TEMPDBSTARTUP')                 -- https://www.sqlskills.com/help/waits/SLEEP_TEMPDBSTARTUP
-              ,(N'&',N'SNI_HTTP_ACCEPT')                     -- https://www.sqlskills.com/help/waits/SNI_HTTP_ACCEPT
-              ,(N'&',N'SOS_WORK_DISPATCHER')                 -- https://www.sqlskills.com/help/waits/SOS_WORK_DISPATCHER
-              ,(N'&',N'SP_SERVER_DIAGNOSTICS_SLEEP')         -- https://www.sqlskills.com/help/waits/SP_SERVER_DIAGNOSTICS_SLEEP
-              ,(N'&',N'SQLTRACE_BUFFER_FLUSH')               -- https://www.sqlskills.com/help/waits/SQLTRACE_BUFFER_FLUSH
-              ,(N'&',N'SQLTRACE_INCREMENTAL_FLUSH_SLEEP')    -- https://www.sqlskills.com/help/waits/SQLTRACE_INCREMENTAL_FLUSH_SLEEP
-              ,(N'&',N'SQLTRACE_WAIT_ENTRIES')               -- https://www.sqlskills.com/help/waits/SQLTRACE_WAIT_ENTRIES
-              ,(N'&',N'VDI_CLIENT_OTHER')                    -- https://www.sqlskills.com/help/waits/VDI_CLIENT_OTHER
-              ,(N'&',N'WAIT_FOR_RESULTS')                    -- https://www.sqlskills.com/help/waits/WAIT_FOR_RESULTS
-              ,(N'&',N'WAITFOR')                             -- https://www.sqlskills.com/help/waits/WAITFOR
-              ,(N'&',N'WAITFOR_TASKSHUTDOWN')                -- https://www.sqlskills.com/help/waits/WAITFOR_TASKSHUTDOWN
-              ,(N'&',N'WAIT_XTP_RECOVERY')                   -- https://www.sqlskills.com/help/waits/WAIT_XTP_RECOVERY
-              ,(N'&',N'WAIT_XTP_HOST_WAIT')                  -- https://www.sqlskills.com/help/waits/WAIT_XTP_HOST_WAIT
-              ,(N'&',N'WAIT_XTP_OFFLINE_CKPT_NEW_LOG')       -- https://www.sqlskills.com/help/waits/WAIT_XTP_OFFLINE_CKPT_NEW_LOG
-              ,(N'&',N'WAIT_XTP_CKPT_CLOSE')                 -- https://www.sqlskills.com/help/waits/WAIT_XTP_CKPT_CLOSE
-              ,(N'&',N'XE_DISPATCHER_JOIN')                  -- https://www.sqlskills.com/help/waits/XE_DISPATCHER_JOIN
-              ,(N'&',N'XE_DISPATCHER_WAIT')                  -- https://www.sqlskills.com/help/waits/XE_DISPATCHER_WAIT
-              ,(N'&',N'XE_TIMER_EVENT')                      -- https://www.sqlskills.com/help/waits/XE_TIMER_EVENT
+      ,(N'&',N'KSOURCE_WAKEUP')                      -- https://www.sqlskills.com/help/waits/KSOURCE_WAKEUP
+      ,(N'&',N'LAZYWRITER_SLEEP')                    -- https://www.sqlskills.com/help/waits/LAZYWRITER_SLEEP
+      ,(N'&',N'LOGMGR_QUEUE')                        -- https://www.sqlskills.com/help/waits/LOGMGR_QUEUE
+      ,(N'&',N'MEMORY_ALLOCATION_EXT')               -- https://www.sqlskills.com/help/waits/MEMORY_ALLOCATION_EXT
+      ,(N'&',N'MISCELLANEOUS')                       -- https://www.sqlskills.com/help/waits/MISCELLANEOUS
+      ,(N'&',N'ONDEMAND_TASK_QUEUE')                 -- https://www.sqlskills.com/help/waits/ONDEMAND_TASK_QUEUE
+      ,(N'&',N'PARALLEL_REDO_DRAIN_WORKER')          -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_DRAIN_WORKER
+      ,(N'&',N'PARALLEL_REDO_LOG_CACHE')             -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_LOG_CACHE
+      ,(N'&',N'PARALLEL_REDO_TRAN_LIST')             -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_TRAN_LIST
+      ,(N'&',N'PARALLEL_REDO_WORKER_SYNC')           -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_WORKER_SYNC
+      ,(N'&',N'PARALLEL_REDO_WORKER_WAIT_WORK')      -- https://www.sqlskills.com/help/waits/PARALLEL_REDO_WORKER_WAIT_WORK
+      ,(N'&',N'PREEMPTIVE_HADR_LEASE_MECHANISM')     -- https://www.sqlskills.com/help/waits/PREEMPTIVE_HADR_LEASE_MECHANISM
+      ,(N'&',N'PREEMPTIVE_OS_AUTHENTICATIONOPS')     -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_AUTHENTICATIONOPS
+      ,(N'&',N'PREEMPTIVE_OS_AUTHORIZATIONOPS')      -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_AUTHORIZATIONOPS
+      ,(N'&',N'PREEMPTIVE_OS_COMOPS')                -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_COMOPS
+      ,(N'&',N'PREEMPTIVE_OS_CREATEFILE')            -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_CREATEFILE
+      ,(N'&',N'PREEMPTIVE_OS_CRYPTOPS')              -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_CRYPTOPS
+      ,(N'&',N'PREEMPTIVE_OS_DEVICEOPS')             -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_DEVICEOPS
+      ,(N'&',N'PREEMPTIVE_OS_FILEOPS')               -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_FILEOPS
+      ,(N'&',N'PREEMPTIVE_OS_FLUSHFILEBUFFERS')      -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_FLUSHFILEBUFFERS
+      ,(N'&',N'PREEMPTIVE_OS_GENERICOPS')            -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_GENERICOPS
+      ,(N'&',N'PREEMPTIVE_OS_LIBRARYOPS')            -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_LIBRARYOPS
+      ,(N'&',N'PREEMPTIVE_OS_PIPEOPS')               -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_PIPEOPS
+      ,(N'&',N'PREEMPTIVE_OS_QUERYREGISTRY')         -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_QUERYREGISTRY
+      ,(N'&',N'PREEMPTIVE_OS_VERIFYTRUST')           -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_VERIFYTRUST
+      ,(N'&',N'PREEMPTIVE_OS_WAITFORSINGLEOBJECT')   -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_WAITFORSINGLEOBJECT
+      ,(N'&',N'PREEMPTIVE_OS_WRITEFILEGATHER')       -- https://www.sqlskills.com/help/waits/PREEMPTIVE_OS_WRITEFILEGATHER
+      ,(N'&',N'PREEMPTIVE_SP_SERVER_DIAGNOSTICS')    -- https://www.sqlskills.com/help/waits/PREEMPTIVE_SP_SERVER_DIAGNOSTICS
+      ,(N'&',N'PREEMPTIVE_XE_GETTARGETSTATE')        -- https://www.sqlskills.com/help/waits/PREEMPTIVE_XE_GETTARGETSTATE
+      ,(N'&',N'PVS_PREALLOCATE')                     -- https://www.sqlskills.com/help/waits/PVS_PREALLOCATE
+      ,(N'&',N'PWAIT_ALL_COMPONENTS_INITIALIZED')    -- https://www.sqlskills.com/help/waits/PWAIT_ALL_COMPONENTS_INITIALIZED
+      ,(N'&',N'PWAIT_DIRECTLOGCONSUMER_GETNEXT')     -- https://www.sqlskills.com/help/waits/PWAIT_DIRECTLOGCONSUMER_GETNEXT
+      ,(N'&',N'PWAIT_EXTENSIBILITY_CLEANUP_TASK')    -- https://www.sqlskills.com/help/waits/PWAIT_EXTENSIBILITY_CLEANUP_TASK
+      ,(N'&',N'QDS_ASYNC_QUEUE')                     -- https://www.sqlskills.com/help/waits/QDS_ASYNC_QUEUE
+      ,(N'&',N'QDS_CLEANUP_STALE_QUERIES_TASK_MAIN_LOOP_SLEEP')
+                                                         -- https://www.sqlskills.com/help/waits/QDS_CLEANUP_STALE_QUERIES_TASK_MAIN_LOOP_SLEEP
+      ,(N'&',N'QDS_PERSIST_TASK_MAIN_LOOP_SLEEP')    -- https://www.sqlskills.com/help/waits/QDS_PERSIST_TASK_MAIN_LOOP_SLEEP
+      ,(N'&',N'QDS_SHUTDOWN_QUEUE')                  -- https://www.sqlskills.com/help/waits/QDS_SHUTDOWN_QUEUE
+      ,(N'&',N'REDO_THREAD_PENDING_WORK')            -- https://www.sqlskills.com/help/waits/REDO_THREAD_PENDING_WORK
+      ,(N'&',N'REQUEST_FOR_DEADLOCK_SEARCH')         -- https://www.sqlskills.com/help/waits/REQUEST_FOR_DEADLOCK_SEARCH
+      ,(N'&',N'RESOURCE_QUEUE')                      -- https://www.sqlskills.com/help/waits/RESOURCE_QUEUE
+      ,(N'&',N'SERVER_IDLE_CHECK')                   -- https://www.sqlskills.com/help/waits/SERVER_IDLE_CHECK
+      ,(N'&',N'SLEEP_BPOOL_FLUSH')                   -- https://www.sqlskills.com/help/waits/SLEEP_BPOOL_FLUSH
+      ,(N'&',N'SLEEP_DBSTARTUP')                     -- https://www.sqlskills.com/help/waits/SLEEP_DBSTARTUP
+      ,(N'&',N'SLEEP_DCOMSTARTUP')                   -- https://www.sqlskills.com/help/waits/SLEEP_DCOMSTARTUP
+      ,(N'&',N'SLEEP_MASTERDBREADY')                 -- https://www.sqlskills.com/help/waits/SLEEP_MASTERDBREADY
+      ,(N'&',N'SLEEP_MASTERMDREADY')                 -- https://www.sqlskills.com/help/waits/SLEEP_MASTERMDREADY
+      ,(N'&',N'SLEEP_MASTERUPGRADED')                -- https://www.sqlskills.com/help/waits/SLEEP_MASTERUPGRADED
+      ,(N'&',N'SLEEP_MSDBSTARTUP')                   -- https://www.sqlskills.com/help/waits/SLEEP_MSDBSTARTUP
+      ,(N'&',N'SLEEP_SYSTEMTASK')                    -- https://www.sqlskills.com/help/waits/SLEEP_SYSTEMTASK
+      ,(N'&',N'SLEEP_TASK')                          -- https://www.sqlskills.com/help/waits/SLEEP_TASK
+      ,(N'&',N'SLEEP_TEMPDBSTARTUP')                 -- https://www.sqlskills.com/help/waits/SLEEP_TEMPDBSTARTUP
+      ,(N'&',N'SNI_HTTP_ACCEPT')                     -- https://www.sqlskills.com/help/waits/SNI_HTTP_ACCEPT
+      ,(N'&',N'SOS_WORK_DISPATCHER')                 -- https://www.sqlskills.com/help/waits/SOS_WORK_DISPATCHER
+      ,(N'&',N'SP_SERVER_DIAGNOSTICS_SLEEP')         -- https://www.sqlskills.com/help/waits/SP_SERVER_DIAGNOSTICS_SLEEP
+      ,(N'&',N'SQLTRACE_BUFFER_FLUSH')               -- https://www.sqlskills.com/help/waits/SQLTRACE_BUFFER_FLUSH
+      ,(N'&',N'SQLTRACE_INCREMENTAL_FLUSH_SLEEP')    -- https://www.sqlskills.com/help/waits/SQLTRACE_INCREMENTAL_FLUSH_SLEEP
+      ,(N'&',N'SQLTRACE_WAIT_ENTRIES')               -- https://www.sqlskills.com/help/waits/SQLTRACE_WAIT_ENTRIES
+      ,(N'&',N'VDI_CLIENT_OTHER')                    -- https://www.sqlskills.com/help/waits/VDI_CLIENT_OTHER
+      ,(N'&',N'WAIT_FOR_RESULTS')                    -- https://www.sqlskills.com/help/waits/WAIT_FOR_RESULTS
+      ,(N'&',N'WAITFOR')                             -- https://www.sqlskills.com/help/waits/WAITFOR
+      ,(N'&',N'WAITFOR_TASKSHUTDOWN')                -- https://www.sqlskills.com/help/waits/WAITFOR_TASKSHUTDOWN
+      ,(N'&',N'WAIT_XTP_RECOVERY')                   -- https://www.sqlskills.com/help/waits/WAIT_XTP_RECOVERY
+      ,(N'&',N'WAIT_XTP_HOST_WAIT')                  -- https://www.sqlskills.com/help/waits/WAIT_XTP_HOST_WAIT
+      ,(N'&',N'WAIT_XTP_OFFLINE_CKPT_NEW_LOG')       -- https://www.sqlskills.com/help/waits/WAIT_XTP_OFFLINE_CKPT_NEW_LOG
+      ,(N'&',N'WAIT_XTP_CKPT_CLOSE')                 -- https://www.sqlskills.com/help/waits/WAIT_XTP_CKPT_CLOSE
+      ,(N'&',N'XE_DISPATCHER_JOIN')                  -- https://www.sqlskills.com/help/waits/XE_DISPATCHER_JOIN
+      ,(N'&',N'XE_DISPATCHER_WAIT')                  -- https://www.sqlskills.com/help/waits/XE_DISPATCHER_WAIT
+      ,(N'&',N'XE_TIMER_EVENT')                      -- https://www.sqlskills.com/help/waits/XE_TIMER_EVENT
 
-       -- Ignorable waits from Pinal Dave
-              ,(N'&',N'UCS_SESSION_REGISTRATION')            -- https://www.sqlskills.com/help/waits/UCS_SESSION_REGISTRATION
-              ,(N'&',N'XE_LIVE_TARGET_TVF')                  -- https://www.sqlskills.com/help/waits/XE_LIVE_TARGET_TVF
+-- Ignorable waits from Pinal Dave
+      ,(N'&',N'UCS_SESSION_REGISTRATION')            -- https://www.sqlskills.com/help/waits/UCS_SESSION_REGISTRATION
+      ,(N'&',N'XE_LIVE_TARGET_TVF')                  -- https://www.sqlskills.com/help/waits/XE_LIVE_TARGET_TVF
 
-       -- Ignorable waits from Pedro Lopes
-              ,(N'&',N'SOSHOST_SLEEP')                       -- https://www.sqlskills.com/help/waits/SOSHOST_SLEEP
-              ,(N'&',N'SP_PREEMPTIVE_SERVER_DIAGNOSTICS_SLEEP')
-                                                             -- https://www.sqlskills.com/help/waits/SP_PREEMPTIVE_SERVER_DIAGNOSTICS_SLEEP
+-- Ignorable waits from Pedro Lopes
+      ,(N'&',N'SOSHOST_SLEEP')                          -- https://www.sqlskills.com/help/waits/SOSHOST_SLEEP
+      ,(N'&',N'SP_PREEMPTIVE_SERVER_DIAGNOSTICS_SLEEP') -- https://www.sqlskills.com/help/waits/SP_PREEMPTIVE_SERVER_DIAGNOSTICS_SLEEP
 
-       -- Worrying waits from Paul Randall @ https://www.sqlskills.com/blogs/paul/worrying-wait-type/
-              ,(N'!',N'ASYNC_NETWORK_IO')                    -- https://www.sqlskills.com/help/waits/ASYNC_NETWORK_IO
-              ,(N'!',N'CXPACKET')                            -- https://www.sqlskills.com/help/waits/CXPACKET
-              ,(N'!',N'LCK_M_IX')                            -- https://www.sqlskills.com/help/waits/LCK_M_IX
-              ,(N'!',N'LCK_M_X')                             -- https://www.sqlskills.com/help/waits/LCK_M_X
-              ,(N'!',N'PAGEIOLATCH_SH')                      -- https://www.sqlskills.com/help/waits/PAGEIOLATCH_SH
-              ,(N'!',N'PAGELATCH_EX')                        -- https://www.sqlskills.com/help/waits/PAGELATCH_EX
-              ,(N'!',N'SOS_SCHEDULER_YIELD')                 -- https://www.sqlskills.com/help/waits/SOS_SCHEDULER_YIELD
-              ,(N'!',N'WRITELOG')                            -- https://www.sqlskills.com/help/waits/WRITELOG
+-- Worrying waits from Paul Randall @ https://www.sqlskills.com/blogs/paul/worrying-wait-type/
+      ,(N'!',N'ASYNC_NETWORK_IO')                    -- https://www.sqlskills.com/help/waits/ASYNC_NETWORK_IO
+      ,(N'!',N'CXPACKET')                            -- https://www.sqlskills.com/help/waits/CXPACKET
+      ,(N'!',N'LCK_M_IX')                            -- https://www.sqlskills.com/help/waits/LCK_M_IX
+      ,(N'!',N'LCK_M_X')                             -- https://www.sqlskills.com/help/waits/LCK_M_X
+      ,(N'!',N'PAGEIOLATCH_SH')                      -- https://www.sqlskills.com/help/waits/PAGEIOLATCH_SH
+      ,(N'!',N'PAGELATCH_EX')                        -- https://www.sqlskills.com/help/waits/PAGELATCH_EX
+      ,(N'!',N'SOS_SCHEDULER_YIELD')                 -- https://www.sqlskills.com/help/waits/SOS_SCHEDULER_YIELD
+      ,(N'!',N'WRITELOG')                            -- https://www.sqlskills.com/help/waits/WRITELOG
 
-       -- Top waits from Aaron Bertrand @ https://sqlperformance.com/2018/10/sql-performance/top-wait-stats not in lists above
-              ,(N'!',N'LCK_M_U')                             -- https://www.sqlskills.com/help/waits/LCK_M_U
-              ,(N'!',N'LATCH_EX')                            -- https://www.sqlskills.com/help/waits/LATCH_EX
-              ,(N'!',N'LCK_M_S')                             -- https://www.sqlskills.com/help/waits/LCK_M_S
+-- Top waits from Aaron Bertrand @ https://sqlperformance.com/2018/10/sql-performance/top-wait-stats not in lists above
+      ,(N'!',N'LCK_M_U')                             -- https://www.sqlskills.com/help/waits/LCK_M_U
+      ,(N'!',N'LATCH_EX')                            -- https://www.sqlskills.com/help/waits/LATCH_EX
+      ,(N'!',N'LCK_M_S')                             -- https://www.sqlskills.com/help/waits/LCK_M_S
 
-       -- Top waits from Microsoft
-       -- https://learn.microsoft.com/en-us/troubleshoot/sql/database-engine/performance/troubleshoot-sql-io-performance
-       -- not in lists above
-              ,(N'!',N'PAGEIOLATCH_UP')                      -- https://www.sqlskills.com/help/waits/PAGEIOLATCH_UP
-              ) AS w(special_type,wait_type)
+-- Top waits from Microsoft @ https://learn.microsoft.com/en-us/troubleshoot/sql/database-engine/performance/troubleshoot-sql-io-performance not in lists above
+      ,(N'!',N'PAGEIOLATCH_UP')                      -- https://www.sqlskills.com/help/waits/PAGEIOLATCH_UP
+      ) AS w(wait_group,wait_type)
 
-            ON s.wait_type = w.wait_type
-         WHERE s.wait_time_ms        > 0
-            OR s.waiting_tasks_count > 0
-         UNION ALL SELECT N'[#] Poison Wait - - - - - - - - - - - - - - - - -',NULL,NULL,NULL
-         UNION ALL SELECT N'[!] Worrying Wait - - - - - - - - - - - - - - - -',NULL,NULL,NULL
-         UNION ALL SELECT N'[&] Ignorable Wait  - - - - - - - - - - - - - - -',NULL,NULL,NULL
-         UNION ALL SELECT N'- - Ordinary Wait - - - - - - - - - - - - - - - -',NULL,NULL,NULL
-       ) as s
+    ON s.wait_type           = w.wait_type
+ WHERE s.wait_time_ms        > 0
+    OR s.waiting_tasks_count > 0
+
+ UNION ALL SELECT N'Poison Wait - - - - - - - - - - - - - - - - -',NULL,NULL,NULL,NULL,'#',NULL,NULL,NULL
+ UNION ALL SELECT N'Worrying Wait - - - - - - - - - - - - - - - -',NULL,NULL,NULL,NULL,'!',NULL,NULL,NULL
+ UNION ALL SELECT N'Ignorable Wait  - - - - - - - - - - - - - - -',NULL,NULL,NULL,NULL,'&',NULL,NULL,NULL
+ UNION ALL SELECT N'Ordinary Wait - - - - - - - - - - - - - - - -',NULL,NULL,NULL,NULL, '',NULL,NULL,NULL
+) AS w
 );
 GO
 
